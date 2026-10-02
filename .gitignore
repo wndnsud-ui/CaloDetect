@@ -6,3 +6,11 @@ __pycache__/
 .env
 .env.*
 .streamlit/secrets.toml
+.venv-backend/
+node_modules/
+dist/
+.pytest_cache/
+.runtime-logs/
+.private-uploads/
+.tmp-ui-check/
+!.env.example

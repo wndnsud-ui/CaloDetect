@@ -1,0 +1,4 @@
+-r requirements.txt
+ultralytics>=8.4,<9
+torch>=2.4
+torchvision>=0.19

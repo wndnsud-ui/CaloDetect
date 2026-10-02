@@ -1,0 +1,13 @@
+CaloDetect 바로 실행 안내
+=========================
+
+현재 PC: 02_RUN_ONLY.bat 더블 클릭
+다른 PC 최초 설치: 01_SETUP_AND_RUN.bat 더블 클릭
+가상환경 설치 후 재실행: 02_RUN_ONLY.bat 더블 클릭
+
+브라우저 주소: http://localhost:8501
+샘플 사진: samples 폴더에 jpg/png 파일 추가
+
+이 폴더의 best.pt, data.yaml, 영양 CSV를 함께 보관하세요.
+최초 패키지 설치에는 인터넷 연결이 필요합니다.
+컬럼 설명은 README.md를 확인하세요.

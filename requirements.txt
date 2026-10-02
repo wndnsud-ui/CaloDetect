@@ -1,0 +1,10 @@
+# YOLOv8 기반 식단 인식 앱 의존성
+streamlit>=1.38.0
+streamlit-echarts==0.4.0
+pandas>=2.0.0
+plotly>=5.0.0
+Pillow>=10.0.0
+PyYAML>=6.0.0
+torch>=2.4.0
+torchvision>=0.19.0
+ultralytics>=8.2.0

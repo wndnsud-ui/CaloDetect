@@ -1,0 +1,8 @@
+.venv/
+.runtime-packages/
+__pycache__/
+*.py[cod]
+.upload-repo/
+.env
+.env.*
+.streamlit/secrets.toml

@@ -15,7 +15,13 @@
 .feature-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.feature{min-width:0}.mini-bars{max-width:100%;gap:10px}.mini-bars i{flex-shrink:1}
 .auth-panel>.primary{width:100%;margin:10px 0}.auth-panel>.text-button{display:block;margin:10px auto;text-align:center}.account-details dd{white-space:nowrap}
 @media(max-width:760px){.feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.landing-header{display:flex}
+.landing-header{display:flex;align-items:center}
+.landing-header nav{align-items:center}
+.landing-header nav a{font-size:14pt;line-height:1.5}
+.landing-header .header-actions{align-items:center;font-size:14pt;line-height:1.5}
+.landing-header .header-actions button{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;min-height:44px;font-size:14pt;line-height:1.5;white-space:nowrap}
+.landing-header .welcome-message{font-size:14pt;line-height:1.5}
+@media(max-width:760px){.landing-header .header-actions{font-size:12px}.landing-header .header-actions button{min-height:36px;font-size:12px}.landing-header .welcome-message{font-size:12px}}
 .photo-input{margin:18px 0}
 .photo-input input[hidden]{display:none}
 .photo-input-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:14px 0}

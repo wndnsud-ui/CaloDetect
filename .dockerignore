@@ -1,0 +1,12 @@
+.git
+.venv
+.venv-backend
+.runtime-packages
+.upload-repo
+**/__pycache__
+**/node_modules
+**/dist
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml

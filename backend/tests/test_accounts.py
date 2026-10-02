@@ -12,6 +12,7 @@ from backend.app.models import AuthSession, Base, User, utcnow
 
 @pytest.fixture
 def accounts(monkeypatch):
+    monkeypatch.setattr(settings, 'local_test_signup', False)
     # Test-only wording/age, deliberately never configured in production.
     monkeypatch.setattr(settings, 'age_min', 20)
     monkeypatch.setattr(settings, 'service_consent_text', 'TEST ONLY CONSENT')
@@ -63,6 +64,20 @@ def test_signup_hash_duplicate_and_role(accounts):
     csrf = response.json()['csrf_token']
     assert client.put('/users/me', json={'name':'관리자', 'role':'admin'}, headers={'X-CSRF-Token':csrf}).status_code == 422
     assert client.get('/users/me').json()['user']['role'] == 'user'
+
+
+def test_session_restores_in_new_client(accounts):
+    client, _ = accounts
+    response = register(client)
+    assert f'Max-Age={settings.session_hours * 3600}' in response.headers['set-cookie']
+    with TestClient(app) as restored:
+        restored.cookies.set(COOKIE, client.cookies.get(COOKIE))
+        me = restored.get('/users/me')
+        assert me.status_code == 200
+        assert me.json()['user']['id'] == response.json()['user']['id']
+        assert me.json()['csrf_token'] == response.json()['csrf_token']
+        assert restored.put('/users/me', json={'name':'복원 확인'},
+            headers={'X-CSRF-Token':me.json()['csrf_token']}).status_code == 200
 
 
 def test_login_logout_revocation(accounts):
@@ -128,3 +143,87 @@ def test_admin_qa_token_is_not_exposed_to_browser(accounts):
     internal = client.post('/auth/login', json=body)
     assert internal.status_code == 200
     assert internal.json()['access_token'] == client.cookies.get(COOKIE)
+
+
+def test_eighteen_year_age_boundary(accounts, monkeypatch):
+    client, engine = accounts
+    monkeypatch.setattr(settings, 'age_min', 18)
+    assert client.get('/auth/policy').json()['age_min'] == 18
+    body = {'email': 'adult@example.com', 'password': 'secure-test-password',
+            'name': 'Adult', 'age': 17, 'service_consent': True,
+            'consent_text': 'TEST ONLY CONSENT'}
+    assert client.post('/auth/signup', json=body).status_code == 422
+    with Session(engine) as db:
+        assert db.scalar(select(User)) is None
+    response = client.post('/auth/signup', json={**body, 'age': 18})
+    assert response.status_code == 201
+    csrf = response.json()['csrf_token']
+    credentials = {'email': body['email'], 'password': body['password']}
+    assert client.post('/auth/login', json=credentials).status_code == 200
+    csrf = client.get('/users/me').json()['csrf_token']
+    with Session(engine) as db:
+        user = db.scalar(select(User))
+        user.age = 17
+        db.commit()
+        count = len(db.scalars(select(AuthSession)).all())
+    # Already-issued sessions cannot bypass the age policy.
+    assert client.get('/users/me').status_code == 403
+    from backend.app.db import get_db
+    app.dependency_overrides[get_db] = app.dependency_overrides[database]
+    assert client.get('/meals/history').status_code == 403
+    client.cookies.clear()
+    rejected = client.post('/auth/login', json=credentials)
+    assert rejected.status_code == 403
+    assert 'set-cookie' not in rejected.headers
+    with Session(engine) as db:
+        assert len(db.scalars(select(AuthSession)).all()) == count
+
+
+def test_age_policy_does_not_enable_unapproved_consent(accounts, monkeypatch):
+    client, _ = accounts
+    monkeypatch.setattr(settings, 'age_min', 18)
+    monkeypatch.setattr(settings, 'service_consent_text', None)
+    policy = client.get('/auth/policy').json()
+    assert policy['age_min'] == 18
+    assert policy['signup_enabled'] is False
+    assert register(client).status_code == 503
+
+
+def test_local_signup_requires_development_loopback_and_explicit_consent(accounts, monkeypatch):
+    _, engine = accounts
+    monkeypatch.setattr(settings, 'age_min', 18)
+    monkeypatch.setattr(settings, 'service_consent_text', None)
+    monkeypatch.setattr(settings, 'app_env', 'development')
+    monkeypatch.setattr(settings, 'local_test_signup', True)
+    monkeypatch.setattr(settings, 'frontend_origin', 'http://localhost:5173')
+    with TestClient(app, base_url='http://localhost:8000', client=('127.0.0.1', 50000)) as client:
+        policy = client.get('/auth/policy').json()
+        assert policy['signup_enabled'] is True
+        assert policy['local_test_mode'] is True
+        body = {'email': 'local-test@example.com', 'password': 'secure-test-password', 'name': 'Test',
+                'age': 18, 'service_consent': True, 'consent_text': policy['service_consent_text']}
+        assert client.post('/auth/signup', json={**body, 'service_consent': False}).status_code == 422
+        assert client.post('/auth/signup', json={**body, 'age': 17}).status_code == 422
+        assert client.post('/auth/signup', json={**body, 'consent_text': 'stale'}).status_code == 422
+        assert client.post('/auth/signup', json=body, headers={'X-Forwarded-For': '203.0.113.1'}).status_code == 503
+        response = client.post('/auth/signup', json=body, headers={'Origin': settings.frontend_origin})
+        assert response.status_code == 201
+        assert response.json()['user']['role'] == 'user'
+        assert client.get('/users/me').status_code == 200
+        with Session(engine) as db:
+            user = db.scalar(select(User))
+            assert user.service_consent_text == policy['service_consent_text']
+            assert user.model_improvement_consent is False
+        monkeypatch.setattr(settings, 'app_env', 'production')
+        assert client.get('/auth/policy').json()['signup_enabled'] is False
+        assert client.post('/auth/signup', json={**body, 'email': 'production@example.com'}).status_code == 503
+    monkeypatch.setattr(settings, 'app_env', 'development')
+    with TestClient(app, base_url='http://localhost:8000', client=('203.0.113.1', 50000)) as remote:
+        assert remote.get('/auth/policy').json()['signup_enabled'] is False
+        assert remote.post('/auth/signup', json=body).status_code == 503
+    with TestClient(app, base_url='https://public.example.com', client=('127.0.0.1', 50000)) as public:
+        assert public.get('/auth/policy').json()['signup_enabled'] is False
+        assert public.post('/auth/signup', json=body).status_code == 503
+    monkeypatch.setattr(settings, 'frontend_origin', 'https://public.example.com')
+    with TestClient(app, base_url='http://localhost:8000', client=('127.0.0.1', 50000)) as client:
+        assert client.get('/auth/policy').json()['signup_enabled'] is False

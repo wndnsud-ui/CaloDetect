@@ -1,5 +1,17 @@
 # CaloDetect · 칼로디텍트
 
+식단 저장에 성공하면 “식단을 저장했습니다.” 안내와 함께 히스토리로 이동합니다. 저장한 음식명·섭취량·영양 정보를 확인할 수 있으며, 후속 정보 조회가 실패해도 방금 저장한 결과는 유지됩니다.
+
+웹앱 새로고침 시 마지막 화면과 서버 로그인 세션을 복원합니다. 인증은 HttpOnly 쿠키로 유지하며 기본 만료는 24시간(`SESSION_HOURS`)입니다. 접속 주소는 동일하게 사용하세요. `localhost`와 `127.0.0.1`은 서로 다른 쿠키를 사용합니다.
+
+홈페이지 상단에서도 로그인한 회원에게 “○○님 환영합니다”와 내 계정 버튼을 표시합니다.
+
+공통 로고는 `frontend/src/Visuals.jsx`의 Brand SVG와 워드마크로 표시하며 크기와 색상은 `frontend/src/reference.css`에서 조정합니다.
+
+홈페이지 배너 배경은 `frontend/public/images/hero-bg.webp`를 사용합니다. 같은 파일명으로 교체하면 배경에 반영됩니다.
+
+주요 기능 카드에는 같은 폴더의 `feature-meal.webp.png`, `feature-nutrition.webp.png`, `feature-recommendation.webp.png`, `feature-nearby.webp.png`를 사용합니다. 처음 세 카드는 기존 기능에 연결되며 주변 맛집·제품은 준비 중입니다.
+
 음식 확인과 영양 계산을 기반으로 식단 기록·오늘 상태·식사 추천까지 연결하는 웹 서비스입니다. 내부 프로젝트 버전은 CaloDetect 2.0이며 사용자 화면에는 CaloDetect를 사용합니다.
 
 **팀 공용 저장소 / Source of Truth:** <https://github.com/wndnsud-ui/CaloDetect>
@@ -15,7 +27,7 @@
 | PostgreSQL/SQLAlchemy | 회원/식단/탐지/추천/QA 영구 저장, 순차 Alembic revision 20261002_01 → 20261002_02 |
 | 기존 YOLO26m | best.pt 재사용. 원본 유지. JPG/PNG 분석 API, 이미지별 탐지 ID 반환 |
 | 기존 Streamlit | app.py 보존, 별도 streamlit/admin_qa.py 인증된 관리자 QA 클라이언트 추가 |
-| 정책 미확정 | 가입 연령·동의 문구, 이미지 저장/보관, 추천 출처/기준·영양 목표 |
+| 정책 미확정 | 동의 문구, 이미지 저장/보관, 추천 출처/기준·영양 목표 |
 
 가상 회원/식단/추천 결과를 실제 데이터처럼 제공하지 않습니다. 영양값은 사용자 승인된 기존 `CaloDetect_nutrition_all_matched.csv`를 사용합니다. v11의 `(1).csv`는 현재 없으며 원본 데이터를 변경하지 않았습니다. 추천 엔진은 남은 칼로리·최근 음식 반복·제외 음식·선호 분류·다양성을 적용하고 실제 데이터의 영양값과 이유를 반환합니다. 미정 탄단지 목표·당류/나트륨 기준·끼니 적합성을 평가했다고 표시하지 않습니다.
 
@@ -45,19 +57,39 @@ npm.cmd run dev
 
 ### 정책 설정과 사진 분석 환경
 
-인증 방식은 사용자 승인된 이메일/비밀번호 + HttpOnly 세션 쿠키입니다. 로그인 후 마이페이지에서 이름을 수정할 수 있으며 이메일과 role 변경은 제공하지 않습니다. HTTPS 운영에서는 `COOKIE_SECURE=true`가 필요합니다. 홈페이지 휴대폰 모형의 수치는 화면 예시이고 웹앱은 실제 API 기록을 표시합니다. 첨부 디자인의 음식 사진 대신 로컬 CSS 식사 일러스트를 사용합니다. 위치 기반 맛집/소셜 로그인/포인트는 후속 범위입니다.
+사용자가 승인한 **로컬 이메일 테스트 가입**은 `.env`에 `APP_ENV=development`, `LOCAL_TEST_SIGNUP=true`, `FRONTEND_ORIGIN=http://localhost:5173`을 설정하고 Backend를 재시작하면 활성화됩니다. 만 18세 이상이며 화면의 테스트용 안내에 명시적으로 동의해야 합니다. 실제 개인정보 대신 테스트용 이름·이메일을 사용합니다. 승인된 `SERVICE_CONSENT_TEXT`가 없는 경우에만 테스트 안내를 사용하며 해당 내용을 개발 DB의 동의 이력에 저장합니다. 로컬 호스트와 루프백 접속에서만 허용하고 전달된 프록시 접속은 차단합니다. `APP_ENV=production` 또는 `LOCAL_TEST_SIGNUP=false`이면 테스트 가입을 허용하지 않습니다. `.env.example` 기본값은 운영 차단을 유지합니다. 소셜 가입은 이 테스트 설정으로 활성화하지 않습니다.
+
+인증 방식은 이메일/비밀번호 및 사용자 요청으로 추가한 Google·Apple 로그인 + HttpOnly 세션 쿠키입니다. 로그인 후 마이페이지에서 이름을 수정할 수 있으며 이메일과 role 변경은 제공하지 않습니다. HTTPS 운영에서는 `COOKIE_SECURE=true`가 필요합니다. 홈페이지 기능 카드는 음식 영양 조회·목표 계산·오늘의 식단으로 연결되고 웹앱은 실제 API 기록을 표시합니다. 홈페이지의 휴대폰·포케·기능 카드·하단 배너 이미지 영역은 고품질 이미지 선정 전까지 빈 박스로 유지합니다. 회원 웹앱의 기존 CSS 식사 일러스트는 유지합니다. 위치 기반 맛집/포인트는 후속 범위입니다.
 
 Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 수 있습니다(기본 `http://127.0.0.1:8000`). 다른 웹 포트를 쓰면 Backend `FRONTEND_ORIGIN`도 해당 주소와 일치시켜야 합니다. 현재 compose.yaml은 정책 환경변수를 모두 전달하지 않으므로 컨테이너 실행에서는 로컬 compose override 또는 배포 환경변수를 사용하세요. 컨테이너 migration은 `docker compose exec backend python -m alembic -c backend/alembic.ini upgrade head`로 실행합니다.
 
-가입은 `AGE_MIN`과 `SERVICE_CONSENT_TEXT`가 팀에서 확정되어 설정된 경우에만 활성화합니다. 동의 문구는 가입 요청과 DB에 보존합니다. 선택 모델 개선 동의는 `MODEL_IMPROVEMENT_CONSENT_TEXT` 확정·설정 후 활성화하며, 문구 미설정 상태에서도 기존 동의 철회는 허용합니다. `IMAGE_STORAGE_DIR` 미설정이면 사진 업로드는 정책 안내를 반환하고 음식 직접 선택·식단 저장은 가능합니다. `RECOMMENDATION_ENABLED=true`, `RECENT_MEAL_WINDOW`는 기존 CSV를 추천 출처로 사용하는 개발 기준이 승인된 뒤 설정합니다. 예시 `3`을 운영 정책으로 간주하지 않습니다. 모든 정책은 현재 TBD이며 자동 활성화하지 않았습니다.
+가입·로그인 최소 연령은 사용자 승인에 따라 **만 18세**이며 `AGE_MIN` 기본값은 `18`입니다. 가입 시 입력한 만 나이를 기준으로 검사하며 본인인증이나 생년월일에 따른 자동 갱신은 제공하지 않습니다. 기존 계정의 로그인과 인증 API도 연령을 확인합니다. `SERVICE_CONSENT_TEXT`는 아직 미확정이므로 승인된 문구가 설정되어야 회원가입을 활성화합니다. 동의 문구는 가입 요청과 DB에 보존합니다. 선택 모델 개선 동의는 `MODEL_IMPROVEMENT_CONSENT_TEXT` 확정·설정 후 활성화하며, 문구 미설정 상태에서도 기존 동의 철회는 허용합니다. `IMAGE_STORAGE_DIR` 미설정이면 사진 업로드는 정책 안내를 반환하고 음식 직접 선택·식단 저장은 가능합니다. `RECOMMENDATION_ENABLED=true`, `RECENT_MEAL_WINDOW`는 기존 CSV를 추천 출처로 사용하는 개발 기준이 승인된 뒤 설정합니다. 예시 `3`을 운영 정책으로 간주하지 않습니다. 연령 외 미확정 정책은 TBD를 유지합니다.
+
+음식 추가 화면의 **사진 선택** 또는 **사진 바로 찍기**로 JPG/PNG(최대 10MB)를 선택하고 미리볼 수 있습니다. 모바일 촬영은 기기의 카메라 입력을 사용하고 PC는 웹캠 권한이 필요합니다(HTTPS 또는 localhost). 사진 선택은 로그인 없이 가능하며, 선택 사진은 로그인 중 유지되고 새로고침하면 해제됩니다. 로그인 후 **사진 분석하기 → 음식/섭취량 확인 → 식단 저장하기** 순서로 기록합니다. 촬영 취소·화면 이탈 시 웹캠 사용을 종료합니다. 서버 분석에는 기존 이미지 저장 정책 설정과 YOLO 환경이 필요합니다.
 
 사진 분석은 기존 `.venv`가 있으면 그 Python/YOLO 환경을 재사용하는 worker를 호출합니다. 다른 PC에서 기존 환경이 없으면 새 환경에 설치합니다:
+
+로컬 사진 분석 테스트는 `APP_ENV=development`, `LOCAL_TEST_IMAGE_ANALYSIS=true`, `IMAGE_STORAGE_DIR=.private-uploads`로 활성화합니다. Backend를 재시작한 뒤 로그인 → 사진 선택 → **사진 분석하기**를 누릅니다. 테스트 원본 사진은 Git에서 제외된 `.private-uploads`에 저장되고 분석 결과는 개발 DB에 기록됩니다. 자동 삭제·보관기간은 아직 정하지 않았으므로 테스트 사진만 사용하며, 이 설정을 운영 정책으로 사용하지 않습니다. 루프백 접속에서만 테스트 분석·원본 조회를 허용합니다. 모델 개선 선택 동의와 관리자 QA 조건은 유지합니다. YOLO 첫 실행 안내는 JSON 결과와 분리하고 런타임 설정은 `.runtime-logs/ultralytics`에 저장합니다.
 
 ```powershell
 .\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-vision.txt
 ```
 
 분석 기준은 conf=0.11, iou=0.45, imgsz=960, CPU입니다. 파일명 대신 서버 UUID로 이미지를 구분하고 사용자별 이미지 권한을 검사합니다. 탐지되지 않거나 추론 오류가 나도 직접 음식 선택을 제공합니다.
+
+### Google·Apple 로그인 설정
+
+로그인 화면 상단의 **로그인 / 회원가입**에서 방식을 선택합니다. 회원가입에는 **Google로 회원가입**, **Apple로 회원가입**, **이메일로 회원가입**을 제공하며, 소셜 가입은 비밀번호를 따로 입력하지 않습니다. 서버 설정이 없는 제공자는 연결 준비 상태를 안내하고 버튼을 누르면 진행할 수 없는 이유를 표시합니다. 기존 이메일 로그인은 신규 가입 동의 문구 설정 여부와 무관하게 사용할 수 있습니다. 새 소셜 계정은 제공자 인증 후 이름·만 나이·승인된 서비스 동의를 입력해 가입을 마칩니다. 기존 소셜 계정은 `(oauth_provider, oauth_subject)`로 로그인하며 이메일 변경으로 새 계정을 만들거나 기존 이메일 회원과 자동 연결하지 않습니다. Apple 이메일 가리기도 제공자가 확인한 이메일로 처리합니다. 기존 이메일과 충돌하면 기존 방식으로 로그인해야 하며 계정 연결 UI는 제공하지 않습니다.
+
+사용자 요청에 따라 서비스 등록은 나중에 진행하고 [가입 동의 검토용 초안](docs/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. 현재 Google·Apple 등록 정보와 승인된 가입 동의 문구가 미설정이라 실제 소셜 인증·신규 가입은 활성화되지 않습니다.
+
+1. Backend 의존성을 설치합니다: `.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements.txt`. 외부 ID 토큰은 PyJWT와 제공자 공개키로 서명·발급자·대상 앱·만료·nonce를 검증합니다. 5분짜리 서명된 HttpOnly 인증 요청 쿠키를 사용하며 Apple은 state도 확인합니다.
+2. Google Cloud에서 웹용 OAuth 클라이언트를 만들고 실제 웹앱 주소를 승인된 JavaScript 원본으로 등록합니다. 개발용 원본 예: `http://localhost:5173`. `.env`에 `GOOGLE_CLIENT_ID`를 설정합니다. [Google Identity Services 설정](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
+3. Apple Developer에서 Sign in with Apple을 활성화한 App ID에 웹용 Services ID를 연결하고 웹 도메인·HTTPS 반환 URL을 등록합니다. `.env`에 Services ID를 `APPLE_CLIENT_ID`, 등록한 반환 URL을 `APPLE_REDIRECT_URI`로 설정합니다. 실제 웹앱과 같은 원본의 HTTPS 주소를 사용합니다. Apple 웹 로그인은 localhost 개발 URL 대신 등록된 HTTPS 도메인에서 검증해야 합니다. [Apple 웹 설정](https://developer.apple.com/documentation/signinwithapple/configuring-your-webpage-for-sign-in-with-apple).
+4. `.env`에 무작위 `OAUTH_STATE_SECRET`(32자 이상)을 설정합니다. 생성 예: `.\.venv-backend\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"`. 모든 Backend 인스턴스는 같은 값을 사용하며 저장소에 커밋하지 않습니다. HTTPS 환경에서는 `COOKIE_SECURE=true`, `FRONTEND_ORIGIN`은 실제 웹앱 원본으로 설정합니다.
+5. 서버를 재시작하고 각 제공자의 로그인·취소·신규 가입·재로그인을 확인합니다. 기본 API와 `/api` 프록시를 같은 웹앱 원본에서 사용합니다. 소셜 로그인은 프로필 인증만 요청하며 Google Drive·Calendar 또는 Apple Health 권한을 요청하지 않습니다.
+
+제공자 앱 자격정보가 없는 환경에서는 실제 Google/Apple 로그인 검증을 완료할 수 없습니다. 자동 테스트는 로컬 RSA 서명 토큰으로 인증 검증·18세 경계·동의·이메일 충돌을 검사하며 제공자 공개키 조회를 격리합니다. 기존 DB 식별자 컬럼과 비밀번호 NOT NULL 제약을 보존하여 migration은 추가하지 않습니다. 소셜 계정의 비밀번호 컬럼은 공개하지 않는 무작위 비밀번호 해시로 채우며 비밀번호 설정·계정 연결·소셜 토큰 갱신·제공자 연결 해제는 이번 범위에 포함하지 않습니다.
 
 ### 관리자 QA
 

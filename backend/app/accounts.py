@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import re
 import secrets
+from urllib.parse import urlparse
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import Field, field_validator
@@ -13,9 +14,33 @@ from .db import get_engine
 from .models import AuthSession, Profile, User, utcnow
 from .schemas import CalorieRequest, RequestModel
 from .services.profile import calculate_calorie_range
+from .security import require_service_age
 
 router = APIRouter()
 COOKIE = 'calodetect_session'
+LOCAL_TEST_CONSENT = (
+    '로컬 개발 테스트용 가입 동의: 이 환경은 CaloDetect 기능 확인용입니다. '
+    '만 18세 이상만 테스트 계정을 만들 수 있습니다. 실제 개인정보 대신 테스트용 이름·이메일을 입력해 주세요. '
+    '이름, 이메일, 만 나이, 비밀번호 해시와 동의 내용이 개발 DB에 저장됩니다. '
+    '로그인과 식단 기능 테스트에 사용하며 운영용 동의 문구가 아닙니다. '
+    '테스트 가입에 동의하지 않으면 계정을 만들 수 없고 비회원 계산 기능은 사용할 수 있습니다. '
+    '사진의 모델 개선 활용은 이 동의에 포함하지 않습니다.'
+)
+
+
+def local_development_environment():
+    return (settings.app_env == 'development'
+            and urlparse(settings.frontend_origin).hostname in ('localhost', '127.0.0.1', '::1'))
+
+
+def local_test_enabled():
+    return settings.local_test_signup and local_development_environment()
+
+
+def local_test_request(request):
+    return (request.url.hostname in ('localhost', '127.0.0.1', '::1') and request.client is not None
+            and request.client.host in ('localhost', '127.0.0.1', '::1')
+            and not request.headers.get('x-forwarded-for') and not request.headers.get('forwarded'))
 
 
 class Credentials(RequestModel):
@@ -99,6 +124,12 @@ def current_session(request: Request, db: Session = Depends(database)):
         expiry = expiry.replace(tzinfo=utcnow().tzinfo)
     if expiry <= utcnow():
         raise HTTPException(401, '로그인이 만료되었습니다.')
+    user = db.get(User, session.user_id)
+    if user is None:
+        raise HTTPException(401, '로그인이 필요합니다.')
+    # Allow logout even if an existing account no longer meets the age policy.
+    if request.url.path != '/auth/logout':
+        require_service_age(user)
     if request.method not in ('GET', 'HEAD'):
         require_origin(request)
         if not hmac.compare_digest(request.headers.get('x-csrf-token', ''), session.csrf_token):
@@ -128,22 +159,28 @@ def open_session(db, user, response, request=None):
 
 
 @router.get('/auth/policy')
-def policy():
-    ready = settings.age_min is not None and bool(settings.service_consent_text)
+def policy(request: Request = None):
+    testing = not settings.service_consent_text and local_test_enabled()
+    consent = settings.service_consent_text or (LOCAL_TEST_CONSENT if testing else None)
+    ready = settings.age_min is not None and bool(consent)
+    if testing and request is not None and not local_test_request(request):
+        ready = False
     return {'signup_enabled': ready, 'age_min': settings.age_min,
-            'service_consent_text': settings.service_consent_text,
+            'service_consent_text': consent if ready else settings.service_consent_text,
+            'local_test_mode': bool(testing and ready),
             'model_improvement_consent_text': settings.model_improvement_consent_text,
-            'notice': None if ready else '가입 연령과 서비스 이용·개인정보 동의 문구 확정 후 가입할 수 있습니다.'}
+            'notice': None if ready else '서비스 이용·개인정보 동의 문구 설정 후 가입할 수 있습니다.'}
 
 
 @router.post('/auth/signup', status_code=201)
 def signup(body: Signup, request: Request, response: Response, db: Session = Depends(database)):
     require_origin(request)
-    if not policy()['signup_enabled']:
-        raise HTTPException(503, policy()['notice'])
+    current_policy = policy(request)
+    if not current_policy['signup_enabled']:
+        raise HTTPException(503, current_policy['notice'])
     if body.age < settings.age_min:
-        raise HTTPException(422, '가입 가능한 연령을 확인하세요.')
-    if not body.service_consent or body.consent_text != settings.service_consent_text:
+        raise HTTPException(422, f'만 {settings.age_min}세 이상만 가입할 수 있습니다.')
+    if not body.service_consent or body.consent_text != current_policy['service_consent_text']:
         raise HTTPException(422, '현재 서비스 이용·개인정보 동의 내용을 확인하세요.')
     user = User(email=body.email, name=body.name, password_hash=hash_password(body.password),
                 role='user', age=body.age, service_consent_text=body.consent_text)
@@ -165,6 +202,7 @@ def login(body: Credentials, request: Request, response: Response, db: Session =
     valid = verify_password(body.password, stored)
     if not user or not valid:
         raise HTTPException(401, '이메일 또는 비밀번호를 확인하세요.')
+    require_service_age(user)
     return open_session(db, user, response, request)
 
 

@@ -23,12 +23,18 @@ from .services.timezone import korean_date
 from .services.correction import apply_correction
 from .services.recommendation import recommend_meals
 from .services.vision import detect_image
+from .accounts import local_development_environment, local_test_request
 
 router = APIRouter()
 DB = Annotated[Session, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_user)]
 Admin = Annotated[User, Depends(get_admin)]
 logger = logging.getLogger('calodetect')
+
+
+def require_image_environment(request):
+    if settings.local_test_image_analysis and (not local_development_environment() or not local_test_request(request)):
+        raise HTTPException(503, '사진 분석 테스트는 로컬 개발 환경에서만 사용할 수 있습니다.')
 
 
 def user_json(user):
@@ -59,7 +65,8 @@ def put_consent(body: ConsentRequest, user: CurrentUser, db: DB):
 
 
 @router.post('/meals/detect')
-def detect(file: UploadFile, user: CurrentUser, db: DB):
+def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
+    require_image_environment(request)
     if not settings.image_storage_dir:
         raise HTTPException(503, '업로드 이미지 저장 정책을 설정해 주세요.')
     content = file.file.read(10 * 1024 * 1024 + 1)
@@ -100,7 +107,8 @@ def detect(file: UploadFile, user: CurrentUser, db: DB):
 
 
 @router.get('/meals/images/{image_id}')
-def meal_image(image_id: str, user: CurrentUser, db: DB):
+def meal_image(image_id: str, request: Request, user: CurrentUser, db: DB):
+    require_image_environment(request)
     image = db.get(ImageUpload, image_id)
     if not image or image.user_id != user.id:
         raise HTTPException(404, '이미지를 찾을 수 없습니다.')

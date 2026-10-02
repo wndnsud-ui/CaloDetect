@@ -11,11 +11,13 @@ from .schemas import RequestModel
 from pydantic import Field
 from .accounts import router as accounts_router
 from .api import router as meal_router
+from .social_auth import router as social_router
 from sqlalchemy.exc import SQLAlchemyError
 
 app = FastAPI(title='CaloDetect API', version='0.1.0')
 app.include_router(accounts_router)
 app.include_router(meal_router)
+app.include_router(social_router)
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
                    allow_credentials=True, allow_methods=['GET', 'POST', 'PUT'],
                    allow_headers=['Content-Type', 'X-CSRF-Token', 'Authorization'])
@@ -52,7 +54,7 @@ def system_status():
             'available': ['food_catalog', 'nutrition_calculation', 'calorie_calculation', 'auth', 'profile_persistence',
                           'meal_persistence', 'detection_api', 'recommendation', 'correction', 'admin_qa'],
             'pending': ['signup_policy', 'image_storage_policy', 'recommendation_policy'],
-            'policy_tbd': ['age_min', 'service_consent_text', 'model_improvement_consent_text', 'image_storage', 'image_retention',
+            'policy_tbd': ['service_consent_text', 'model_improvement_consent_text', 'image_storage', 'image_retention',
                            'recommendation_source', 'macro_targets', 'sugar_sodium_limits']}
 
 

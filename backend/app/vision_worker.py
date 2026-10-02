@@ -9,9 +9,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    from PIL import Image
-    from ultralytics import YOLO
     with contextlib.redirect_stdout(sys.stderr):
+        from PIL import Image
+        from ultralytics import YOLO
         model = YOLO(str(ROOT / 'best.pt'))
         import yaml
         names = yaml.safe_load((ROOT / 'data.yaml').read_text(encoding='utf-8-sig'))['names']

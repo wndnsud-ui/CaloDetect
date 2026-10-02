@@ -28,6 +28,12 @@ def hash_token(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def require_service_age(user):
+    minimum = settings.age_min or 18
+    if user.age is None or user.age < minimum:
+        raise HTTPException(403, f'만 {minimum}세 이상만 로그인하고 서비스를 이용할 수 있습니다.')
+
+
 def new_session(db, user):
     token = secrets.token_urlsafe(48)
     db.add(AuthSession(token_hash=hash_token(token), user_id=user.id,
@@ -51,6 +57,7 @@ def get_user(request: Request, db: Session = Depends(get_db)):
     user = db.get(User, auth_session.user_id)
     if not user:
         raise HTTPException(401, '로그인이 필요합니다.')
+    require_service_age(user)
     if request.method not in ('GET', 'HEAD') and not bearer.startswith('Bearer '):
         from .accounts import require_origin
         require_origin(request)

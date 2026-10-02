@@ -18,6 +18,7 @@ from backend.scripts.seed_foods import seed
 
 @pytest.fixture
 def env(monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, 'local_test_image_analysis', False)
     schema = None
     if os.environ.get('RUN_POSTGRES_TESTS') == '1':
         schema = 'test_' + uuid4().hex
@@ -180,3 +181,22 @@ def test_actual_yolo_blank_image(env):
     assert result.status_code==200,result.text
     assert result.json()['manual_selection_available'] is True
     assert client.get(result.json()['image_url'].replace('/api','')).status_code==200
+
+
+def test_local_image_analysis_is_not_enabled_for_production_or_remote_clients(env):
+    remote, _, monkeypatch = env
+    monkeypatch.setattr(settings, 'local_test_image_analysis', True)
+    monkeypatch.setattr(settings, 'app_env', 'development')
+    monkeypatch.setattr(settings, 'frontend_origin', 'http://localhost:5173')
+    monkeypatch.setattr('backend.app.api.detect_image', lambda path: {'model_version': 'test', 'detections': []})
+    account(remote)
+    assert remote.post('/meals/detect', files={'file': ('test.png', png(), 'image/png')}).status_code == 503
+    with TestClient(app, base_url='http://localhost:8000', client=('127.0.0.1', 50000)) as local:
+        account(local, 'local-image@example.com')
+        scan = local.post('/meals/detect', files={'file': ('test.png', png(), 'image/png')})
+        assert scan.status_code == 200
+        image_url = scan.json()['image_url'].replace('/api', '')
+        assert local.get(image_url).status_code == 200
+        monkeypatch.setattr(settings, 'app_env', 'production')
+        assert local.post('/meals/detect', files={'file': ('test.png', png(), 'image/png')}).status_code == 503
+        assert local.get(image_url).status_code == 503

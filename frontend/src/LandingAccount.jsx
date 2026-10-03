@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import { readApiResponse } from './apiResponse';
 
 export default function LandingAccount({onOpen}) {
   const [session,setSession]=useState({loading:true,user:null,error:false});
@@ -10,7 +11,7 @@ export default function LandingAccount({onOpen}) {
         const response=await fetch('/api/users/me',{credentials:'include',cache:'no-store'});
         if(response.status===401){if(active&&request===latest)setSession({loading:false,user:null,error:false});return;}
         if(!response.ok)throw new Error('session');
-        const data=await response.json();
+        const data=await readApiResponse(response);
         if(active&&request===latest)setSession({loading:false,user:data.user,error:false});
       } catch {if(active&&request===latest)setSession(current=>({...current,loading:false,error:true}));}
     }

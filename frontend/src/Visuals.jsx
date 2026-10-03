@@ -5,6 +5,7 @@ export function MenuIcon({page}) {
     '음식 추가': <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h5M12 15v4M10 17h4"/></>,
     '목표 설정': <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></>,
     '식사 추천': <><path d="M7 14a5 5 0 0 1-1-10 6 6 0 0 1 12 0 5 5 0 0 1-1 10v7H7ZM7 17h10"/></>,
+    '식단 분석': <><path d="M4 3v18h17M8 16v-5M13 16V7M18 16V4"/></>,
     '히스토리': <><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2"/></>,
     '마이페이지': <><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3ZM9 15l3 3 3-3"/></>,
   };

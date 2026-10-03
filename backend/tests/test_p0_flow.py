@@ -61,6 +61,30 @@ def account(client, email='one@example.com'):
     return data['user']
 
 
+def test_month_analysis(env):
+    from datetime import date
+    client, engine, _ = env
+    first = account(client)
+    saved = client.post('/meals', json={'meal_type':'lunch', 'items':[
+        {'class_id':0, 'serving_multiplier':1}]}).json()
+    with Session(engine) as db:
+        db.get(Meal, saved['id']).meal_date = date(2024, 2, 29)
+        db.commit()
+    result = client.get('/analytics/month?year=2024&month=2')
+    assert result.status_code == 200
+    data = result.json()
+    assert len(data['days']) == 29
+    assert data['recorded_days'] == 1
+    assert data['days'][0]['totals'] is None
+    assert data['averages'] == data['days'][-1]['totals']
+    assert data['averages']['cal'] == saved['items'][0]['nutrition']['cal']
+    assert client.get('/analytics/month?year=2024&month=13').status_code == 422
+    account(client, 'two@example.com')
+    empty = client.get('/analytics/month?year=2024&month=2').json()
+    assert empty['recorded_days'] == 0
+    assert empty['averages'] is None
+
+
 def profile(client):
     response = client.put('/users/me/profile', json={'height':175,'weight':70,'age':30,'sex':'male',
         'activity_level':'moderate','goal_type':'maintain','target_calories':2500})
@@ -120,6 +144,11 @@ def test_detection_correction_qa_consent(env):
     ids=scan.json()['detection_ids'];assert len(ids)==2
     response=client.post('/meals',json={'meal_type':'dinner','items':[{'class_id':2,'serving_multiplier':1,'detection_id':ids[0]}, {'class_id':1,'serving_multiplier':1,'detection_id':ids[1]}]})
     assert response.status_code==201,response.text
+    assert response.json()['image_urls'] == [scan.json()['image_url']]
+    saved = next(meal for meal in client.get('/analytics/today').json()['meals'] if meal['id'] == response.json()['id'])
+    assert saved['image_urls'] == [scan.json()['image_url']]
+    image_path = saved['image_urls'][0].replace('/api', '')
+    assert client.get(image_path).status_code == 200
     with Session(engine) as db:
         assert len(db.scalars(select(RetrainingSample)).all())==1
         db.get(User,user['id']).role='admin';db.commit()

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { readApiResponse } from './apiResponse';
 import './style.css';
 
 async function api(path, body) {
   const response = await fetch(`/api${path}`, body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || '요청을 처리하지 못했습니다.');
+  const data = await readApiResponse(response);
   return data;
 }
 

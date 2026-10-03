@@ -18,7 +18,7 @@ from .schemas import SignupRequest, LoginRequest, ConsentRequest, CalorieRequest
 from .security import password_hash, password_matches, new_session, get_user, get_admin, hash_token
 from .services.profile import calculate_calorie_range
 from .services.nutrition import food_catalog, calculate_nutrition
-from .services.analytics import get_today_status, meal_json
+from .services.analytics import get_today_status, get_month_status, meal_json
 from .services.timezone import korean_date
 from .services.correction import apply_correction
 from .services.recommendation import recommend_meals
@@ -188,6 +188,12 @@ def history(user: CurrentUser, db: DB, start: date | None = None, end: date | No
 @router.get('/analytics/today')
 def analytics(user: CurrentUser, db: DB):
     return get_today_status(db, user.id)
+
+
+@router.get('/analytics/month')
+def month_analytics(user: CurrentUser, db: DB, year: int = Query(ge=1, le=9999),
+                    month: int = Query(ge=1, le=12)):
+    return get_month_status(db, user.id, year, month)
 
 
 @router.post('/recommendations/meals')

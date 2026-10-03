@@ -1,10 +1,31 @@
 # CaloDetect · 칼로디텍트
 
+작업 전 [필수 적용 규칙](docs/rules/README.md)을 먼저 읽어 주세요.
+
+- `docs/rules/`: 개발 규칙, 원본 업무지시서, 결정 대기 사항, 동의 초안
+- `docs/design/`: 아키텍처와 데이터 스키마
+- `docs/operations/`: 배포 및 기존 Streamlit 실행 안내 (프로젝트 루트에서 실행)
+- `docs/planning/`: 구현 계획과 로드맵
+- `docs/model/`: 모델 실험 및 현황
+- `docs/UI_VALIDATION.md`, `docs/ui-preview/`: UI 검증과 화면 자료
+
+루트에는 README·CHANGELOG·AGENTS 진입점과 실행·환경 설정·모델·데이터 파일을 둡니다.
+
 식단 저장에 성공하면 “식단을 저장했습니다.” 안내와 함께 히스토리로 이동합니다. 저장한 음식명·섭취량·영양 정보를 확인할 수 있으며, 후속 정보 조회가 실패해도 방금 저장한 결과는 유지됩니다.
 
 웹앱 새로고침 시 마지막 화면과 서버 로그인 세션을 복원합니다. 인증은 HttpOnly 쿠키로 유지하며 기본 만료는 24시간(`SESSION_HOURS`)입니다. 접속 주소는 동일하게 사용하세요. `localhost`와 `127.0.0.1`은 서로 다른 쿠키를 사용합니다.
 
 홈페이지 상단에서도 로그인한 회원에게 “○○님 환영합니다”와 내 계정 버튼을 표시합니다.
+
+회원 홈은 초록색 주간 달력과 식단 기록 카드로 구성합니다. 아침·점심·저녁·간식의 추가 버튼을 누르면 해당 식사 구분으로 기록 화면을 열며, 저장된 사진과 실제 영양 섭취량을 표시합니다. 모바일에서는 카드를 세로로 배치합니다.
+
+PC의 모든 사용자 화면은 콘텐츠 영역 전체 너비를 사용하는 와이드 배치를 유지합니다. 홈 기록 안내의 문구·버튼과 식사 일러스트를 좌우로 배치합니다. 좁은 화면은 기존 반응형 배치를 사용합니다.
+
+음식 추가의 영양 미리보기는 총 열량·탄단지 가로 누적 그래프·당류·나트륨을 표시합니다. 그래프는 실제 영양값을 4/4/9 kcal/g으로 환산한 구성 비율이며 목표 비율을 의미하지 않습니다.
+
+히스토리는 음식 한 개당 한 행의 데이터베이스형 표로 날짜·식사·음식·섭취량과 6개 영양 수치를 표시합니다. 음식명 검색·식사 필터·날짜 정렬을 제공하며 모바일에서는 표를 가로로 스크롤할 수 있습니다.
+
+홈의 주간 달력 날짜를 누르면 해당 날짜의 식단·저장 사진·영양 합계를 확인합니다. 날짜 입력으로 다른 주도 조회할 수 있고 “오늘로 돌아가기”로 오늘의 기록을 다시 표시합니다.
 
 공통 로고는 `frontend/src/Visuals.jsx`의 Brand SVG와 워드마크로 표시하며 크기와 색상은 `frontend/src/reference.css`에서 조정합니다.
 
@@ -16,7 +37,9 @@
 
 **팀 공용 저장소 / Source of Truth:** <https://github.com/wndnsud-ui/CaloDetect>
 
-개발 기준은 [v11 업무지시서](CaloDetect_Codex_통합_업무지시서_20261002_v11.md)입니다. 원문은 보존하며 결정 변경은 [CHANGELOG.md](CHANGELOG.md)에 기록합니다. 현재 회원·사진 분석·식단 저장·추천을 통합했습니다. **가입·이미지·추천 정책 설정은 팀 확정 전이며 운영 배포 상태가 아닙니다.**
+UX 변경과 미확정 정책은 [보류 및 결정 대기 사항](docs/rules/PENDING_DECISIONS.md)에서 관리합니다. 목표 설정은 왼쪽 입력 카드와 오른쪽 칼로리 결과 카드로 구성합니다. 계산·저장 후에도 두 카드를 유지하며, 모바일에서는 결과가 입력 아래에 표시됩니다. 탄단지 비율은 확정 전까지 미설정으로 표시합니다.
+
+개발 기준은 [v11 업무지시서](docs/rules/CaloDetect_Codex_통합_업무지시서_20261002_v11.md)입니다. 원문은 보존하며 결정 변경은 [CHANGELOG.md](CHANGELOG.md)에 기록합니다. 현재 회원·사진 분석·식단 저장·추천을 통합했습니다. **가입·이미지·추천 정책 설정은 팀 확정 전이며 운영 배포 상태가 아닙니다.**
 
 ## 현재 구현 범위
 
@@ -43,17 +66,59 @@ python -m venv .venv-backend
 .\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-다른 터미널에서:
+### 백엔드 실행 후 사용자 화면 열기
+
+백엔드가 실행 중인 터미널은 그대로 두고, VS Code의 **터미널 → 새 터미널**에서 프런트엔드를 실행합니다. 아래 명령은 Windows PowerShell과 CMD에서 사용할 수 있습니다.
 
 ```powershell
-cd frontend
+cd C:\projects\CaloDetect\frontend
 npm.cmd ci
+npm.cmd run dev
+```
+
+`npm.cmd ci`는 처음 실행하거나 의존성이 변경됐을 때 실행합니다. 이미 설치했다면 `npm.cmd run dev`만 실행하면 됩니다.
+
+터미널에 `Local: http://localhost:5173/`가 표시되면 브라우저에서 **<http://localhost:5173>**을 열어 홈페이지와 사용자 웹앱을 확인하세요. 백엔드 8000번 포트는 API용이고 React 화면은 5173번 포트에서 열립니다. 사용하는 동안 백엔드와 프런트엔드 터미널을 모두 켜 두고, 종료할 때 각 터미널에서 `Ctrl+C`를 누릅니다.
+
+백엔드를 **8001번 포트**로 실행했다면 프런트엔드 실행 전에 같은 터미널에서 API 주소를 설정합니다. 이미 프런트엔드가 실행 중이면 `Ctrl+C`로 종료한 후 다시 실행하세요.
+
+PowerShell:
+
+```powershell
+$env:CALODETECT_API_TARGET='http://127.0.0.1:8001'
+npm.cmd run dev
+```
+
+CMD:
+
+```cmd
+set CALODETECT_API_TARGET=http://127.0.0.1:8001
 npm.cmd run dev
 ```
 
 웹: <http://localhost:5173> · API 문서: <http://127.0.0.1:8000/docs>. `npm.cmd`는 Windows PowerShell 실행 정책과 관계없이 npm을 호출합니다. macOS/Linux에서는 `npm` 및 `.venv-backend/bin/python`을 사용하세요. Vite 개발 서버가 `/api` 요청을 FastAPI에 전달합니다. 개발 포트는 5173을 사용하고 충돌 시 기존 프로세스를 확인하세요.
 
 현재 음식·목표 미리 계산은 DB 없이 실행됩니다. 회원·프로필·식단·추천은 `.env`의 DATABASE_URL과 실행 중인 PostgreSQL, migration/seed가 필요합니다. 최초 시작 전 `.env.example`을 `.env`로 복사하고 값을 수정한 뒤 `docker compose up -d db`로 DB를 실행하세요. 기존 `.env`를 덮어쓰지 않습니다. `.env`, 비밀번호, API 키는 Git에 올리지 않습니다.
+
+### 일간·월별 식단 분석
+
+회원 홈의 오늘의 식단은 아침·점심·저녁·간식별 저장한 음식명·칼로리와 저장 완료 상태를 표시합니다. 사진 분석 결과를 식단으로 저장하면 해당 사진도 표시되며, 직접 입력한 식단은 직접 기록으로 표시합니다. 사진 선택만 한 상태는 저장된 식단에 포함되지 않습니다.
+
+로그인 후 사이드바의 **식단 분석**에서 일간·월별 차트를 확인합니다. 날짜 또는 월과 영양 항목(칼로리·탄수화물·단백질·지방·당류·나트륨)을 선택할 수 있습니다. 일간 분석은 식사별 구성과 하루 합계를, 월별 분석은 일별 추이와 기록한 날의 하루 평균을 표시합니다. 월 차트의 날짜를 누르면 해당 일간 분석으로 이동합니다.
+
+한국 시간의 식단 날짜를 기준으로 저장된 영양값을 Backend에서 집계합니다. 미기록일은 평균에서 제외하며 일부 식사만 기록한 날은 포함합니다. 영양소 목표·당류·나트륨 기준은 기존 미확정 상태를 유지합니다.
+
+### 로컬 테스트 로그인
+
+현재 개발 DB에 생성한 테스트 계정으로 <http://localhost:5173>에서 로그인할 수 있습니다.
+
+| 항목 | 값 |
+|---|---|
+| 이메일 | `test@calodetect.local` |
+| 비밀번호 | `CaloTest!2026` |
+| 권한 | 일반 사용자 (`user`) |
+
+로컬 개발 전용 계정입니다. PostgreSQL과 Backend, Frontend가 실행 중이어야 하며, 다른 PC나 새 DB에는 자동으로 생성되지 않습니다. 새 DB에서는 아래 로컬 테스트 가입 설정을 적용한 후 화면에서 계정을 가입하세요.
 
 ### 정책 설정과 사진 분석 환경
 
@@ -81,7 +146,7 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 
 로그인 화면 상단의 **로그인 / 회원가입**에서 방식을 선택합니다. 회원가입에는 **Google로 회원가입**, **Apple로 회원가입**, **이메일로 회원가입**을 제공하며, 소셜 가입은 비밀번호를 따로 입력하지 않습니다. 서버 설정이 없는 제공자는 연결 준비 상태를 안내하고 버튼을 누르면 진행할 수 없는 이유를 표시합니다. 기존 이메일 로그인은 신규 가입 동의 문구 설정 여부와 무관하게 사용할 수 있습니다. 새 소셜 계정은 제공자 인증 후 이름·만 나이·승인된 서비스 동의를 입력해 가입을 마칩니다. 기존 소셜 계정은 `(oauth_provider, oauth_subject)`로 로그인하며 이메일 변경으로 새 계정을 만들거나 기존 이메일 회원과 자동 연결하지 않습니다. Apple 이메일 가리기도 제공자가 확인한 이메일로 처리합니다. 기존 이메일과 충돌하면 기존 방식으로 로그인해야 하며 계정 연결 UI는 제공하지 않습니다.
 
-사용자 요청에 따라 서비스 등록은 나중에 진행하고 [가입 동의 검토용 초안](docs/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. 현재 Google·Apple 등록 정보와 승인된 가입 동의 문구가 미설정이라 실제 소셜 인증·신규 가입은 활성화되지 않습니다.
+사용자 요청에 따라 서비스 등록은 나중에 진행하고 [가입 동의 검토용 초안](docs/rules/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. 현재 Google·Apple 등록 정보와 승인된 가입 동의 문구가 미설정이라 실제 소셜 인증·신규 가입은 활성화되지 않습니다.
 
 1. Backend 의존성을 설치합니다: `.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements.txt`. 외부 ID 토큰은 PyJWT와 제공자 공개키로 서명·발급자·대상 앱·만료·nonce를 검증합니다. 5분짜리 서명된 HttpOnly 인증 요청 쿠키를 사용하며 Apple은 state도 확인합니다.
 2. Google Cloud에서 웹용 OAuth 클라이언트를 만들고 실제 웹앱 주소를 승인된 JavaScript 원본으로 등록합니다. 개발용 원본 예: `http://localhost:5173`. `.env`에 `GOOGLE_CLIENT_ID`를 설정합니다. [Google Identity Services 설정](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
@@ -110,7 +175,7 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 docker compose up --build -d
 ```
 
-이 구성은 PostgreSQL과 Backend만 실행합니다. Frontend는 위 npm 개발 명령으로 별도 실행합니다. `GET /health/database`로 DB 연결을 확인할 수 있습니다. `docker compose down`은 컨테이너를 중지하며 저장 volume은 유지합니다. 운영 배포 구성은 [DEPLOYMENT.md](DEPLOYMENT.md)를 참고하세요.
+이 구성은 PostgreSQL과 Backend만 실행합니다. Frontend는 위 npm 개발 명령으로 별도 실행합니다. `GET /health/database`로 DB 연결을 확인할 수 있습니다. `docker compose down`은 컨테이너를 중지하며 저장 volume은 유지합니다. 운영 배포 구성은 [DEPLOYMENT.md](docs/operations/DEPLOYMENT.md)를 참고하세요.
 
 ## 검사
 
@@ -211,7 +276,7 @@ git push
 
 ## 프로젝트 문서
 
-[개발 규칙](AGENTS.md) · [구현 계획/TBD](IMPLEMENTATION_PLAN.md) · [구조](ARCHITECTURE.md) · [데이터 스키마](DATA_SCHEMA.md) · [모델 현황](MODEL_EXPERIMENTS.md) · [로드맵](ROADMAP.md) · [변경 이력](CHANGELOG.md)
+[개발 규칙](AGENTS.md) · [구현 계획/TBD](docs/planning/IMPLEMENTATION_PLAN.md) · [구조](docs/design/ARCHITECTURE.md) · [데이터 스키마](docs/design/DATA_SCHEMA.md) · [모델 현황](docs/model/MODEL_EXPERIMENTS.md) · [로드맵](docs/planning/ROADMAP.md) · [변경 이력](CHANGELOG.md)
 
 ## 기존 Streamlit 실행 안내
 

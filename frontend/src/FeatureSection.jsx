@@ -16,7 +16,7 @@ function FeatureIcon({type}){
 }
 export default function FeatureSection({onOpen}){
   return <section className="landing-section feature-showcase" id="features" aria-labelledby="features-title">
-    <div className="section-heading"><div><p className="feature-section-label"><span>02</span>주요 기능 소개</p><h2 id="features-title">기록에서 다음 선택까지,<br/><strong>CaloDetect가 함께합니다.</strong></h2></div><button className="text-button" onClick={()=>onOpen('홈')}>모든 기능 보기 →</button></div>
+    <div className="section-heading"><div><p className="feature-section-label"><svg className="feature-section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>주요 기능 소개</p><h2 id="features-title">기록에서 다음 선택까지,<br/><strong>CaloDetect가 함께합니다.</strong></h2></div><button className="text-button" onClick={()=>onOpen('홈')}>모든 기능 보기 →</button></div>
     <div className="feature-grid">{features.map(feature=>{
       const content=<><span className={`feature-showcase-icon icon-${feature.icon}`}><FeatureIcon type={feature.icon}/></span><h3>{feature.title}</h3><img className="feature-photo" src={`/images/feature-${feature.id}.webp.png`} alt="" loading="lazy" width="1586" height="992"/><p>{feature.description}</p></>;
       return <article className={`feature-showcase-card card-${feature.id}`} key={feature.id}>{feature.pending?<div className="feature-card-content">{content}<span className="feature-pending">준비 중</span></div>:<button className="feature-card-content" onClick={()=>onOpen(feature.page)}>{content}</button>}</article>;

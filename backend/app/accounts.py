@@ -138,7 +138,8 @@ def current_session(request: Request, db: Session = Depends(database)):
 
 
 def public_user(user):
-    return {'id': user.id, 'email': user.email, 'name': user.name, 'role': user.role}
+    return {'id': user.id, 'email': user.email, 'name': user.name, 'role': user.role,
+            'password_login_enabled': not bool(user.oauth_provider)}
 
 
 def open_session(db, user, response, request=None):
@@ -160,12 +161,14 @@ def open_session(db, user, response, request=None):
 
 @router.get('/auth/policy')
 def policy(request: Request = None):
+    from .passwords import reset_enabled
     testing = not settings.service_consent_text and local_test_enabled()
     consent = settings.service_consent_text or (LOCAL_TEST_CONSENT if testing else None)
     ready = settings.age_min is not None and bool(consent)
     if testing and request is not None and not local_test_request(request):
         ready = False
     return {'signup_enabled': ready, 'age_min': settings.age_min,
+            'password_reset_enabled': reset_enabled(),
             'service_consent_text': consent if ready else settings.service_consent_text,
             'local_test_mode': bool(testing and ready),
             'model_improvement_consent_text': settings.model_improvement_consent_text,
@@ -200,7 +203,7 @@ def login(body: Credentials, request: Request, response: Response, db: Session =
     # Do the same expensive hash for unknown accounts.
     stored = user.password_hash if user else hash_password('unknown-account')
     valid = verify_password(body.password, stored)
-    if not user or not valid:
+    if not user or not valid or user.oauth_provider:
         raise HTTPException(401, '이메일 또는 비밀번호를 확인하세요.')
     require_service_age(user)
     return open_session(db, user, response, request)

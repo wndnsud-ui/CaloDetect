@@ -2,6 +2,39 @@
 
 ## 2026-10-07
 
+- 항목: develop 업로드 전 보존 검토와 업데이트 안내. 사용자 요청으로 변경 파일을 기능별로 README에 정리하고 Git 변경분 업데이트·독립 이미지 선택 다운로드·인증 묶음 의존성을 설명. 같은 PC 재클론은 고정 DB volume과 비공개 개인 설정을 재사용하며 다른 PC는 DB·설정·사진의 비공개 이전이 필요함을 명시. setup_local.ps1에 DB를 건드리지 않는 SettingsOnly 옵션·재설정 키 준비 추가, private DB backup script 추가, 임시 클론을 통한 설정 재사용 회귀 검사 추가. 검토 중 변조 Google 가입 쿠키의 InvalidTag를 401로 처리하는 오류 수정. 원본 Master Spec·모델·데이터·DB schema 보존; 개인 DB와 secret은 업로드 제외.
+- 검증: Backend 62개 통과·YOLO smoke 1개 기본 제외, 실제 PostgreSQL+YOLO 통합 9개 통과, React production build·pip check 성공. 기존 회원 3명(테스트 계정 및 Google 계정 1명 포함)의 비밀번호 해시·OAuth 식별자·프로필/식단 건수 변화 없음. 개인 설정과 DB archive는 `%LOCALAPPDATA%\CaloDetect`에 비공개 보관. 사용자 지시로 이번 변경을 develop에 업로드하며 main은 변경하지 않음.
+
+- 항목: 이메일 계정 비밀번호 찾기·변경. 변경 전: 이메일 가입·로그인만 제공. 변경 후: 로그인 화면에서 Gmail SMTP 재설정 메일 요청, 15분 유효 링크로 새 비밀번호 설정, 마이페이지에서 현재 비밀번호 확인 후 변경 제공. 재설정 링크는 현재 비밀번호 해시에 묶어 변경 이후 재사용 차단하고 DB 조건부 갱신으로 동시 사용 방지. 변경 시 모든 세션 종료, 이메일 계정만 허용하고 Google 계정의 이메일 비밀번호 로그인·변경 차단. 이메일 존재 여부는 동일 응답으로 보호하며 요청 횟수 제한·CSRF·출처 검증 유지. 이유: 사용자 명시 요청 및 Gmail SMTP 선택. 영향: Auth API·React·서버 전용 SMTP 설정; DB schema·Master Spec 보존. 실제 Gmail 발송은 발신 주소·앱 비밀번호 설정 후 검증 필요.
+
+- 항목: 소셜 로그인 제공자 범위 변경. 변경 전: 로그인·회원가입 화면에 Google·Apple 제공. 변경 후: 사용자 결정으로 Apple 로그인은 진행하지 않고 Google만 제공하며 Apple 버튼·안내·프런트엔드 SDK 초기화 제거. 이유: Google 로그인만 진행한다는 사용자 명시 요청. 영향: React 인증 화면; 기존 이메일 인증과 Backend 구현 유지. Master Spec 원문 보존.
+
+- 항목: Google OAuth 2.0 authorization-code 로그인. 사용자 지시서에 따라 Google OAuth Authorization Code + PKCE, state/nonce 검증, HttpOnly 임시 쿠키, 기존 세션 생성 및 가입 동의·연령 확인 화면을 연결. Google Cloud 자격정보는 로컬 `.env`에서만 사용하고 Master Spec의 P1 범위에 대한 사용자 지시를 기록. 로컬 승인 계정 없이는 Google 실계정 리디렉션/동의 검증 미완료.
+
+- 항목: 로컬 재클론 설정과 DB 지속성 통합. 사용자 요청으로 같은 Windows 계정의 `%LOCALAPPDATA%\CaloDetect\local.env` 설정 재사용, 공개 Google Web Client ID 기반 Secret 없는 GIS 로그인, 고정 PostgreSQL volume, 동일한 host/Docker DB URL을 구성하는 `scripts/setup_local.ps1` 추가. 설정 스크립트 재실행 시 현재 `.env`도 개인 설정 파일로 갱신해 최신 OAuth 설정을 다음 클론에서 재사용. 로컬 개발 Backend와 Vite 기본 프록시는 Docker IPv4 포트 전달과 충돌하지 않도록 IPv6 loopback을 사용하도록 통일. 로컬 DB 회원·식단은 같은 PC의 재클론 후 유지되며 다른 PC 간 공유는 제공하지 않음. DB 컨테이너 재시작 후 기존 테스트 회원·migration과 API 저장한 테스트 식단 유지 확인.
+
+- 항목: 로컬 테스트 계정 재현 가능화. 사용자 요청으로 최초 DB migration 후 로컬 개발 설정에서 테스트 계정을 idempotent하게 생성하고 Docker Backend 시작 시에도 준비하는 CLI 추가. 기존 계정은 변경하지 않고 production 설정에서는 실행을 차단. README와 팀원 가이드의 신규 DB 절차 및 로그인 안내 갱신. 영향: 로컬 개발 초기화만; 기존 사용자 데이터·운영 정책 변경 없음.
+
+- 항목: 첫 설치 프런트엔드 CMD 안내 보완. 첨부 오류 로그에서 상위 폴더 npm 실행과 CMD의 PowerShell 구문 오류 재확인. 1-3에 터미널별 코드 선택 안내·현재 클론 위치를 찾는 PowerShell 명령·CMD 전용 설치/실행 명령 추가. lockfile 누락 시 잘못된 위치에서 npm을 실행하지 않도록 확인.
+
+- 항목: 팀원 가이드 GitHub 클론 과정 상세화. 사용자 요청으로 Git 설치 확인·저장소 접근·VS Code PowerShell 선택·저장 위치·develop 클론·브랜치/원격/파일 확인·프로젝트 폴더 열기 순서 추가. 클론과 최초 설치 코드 블록을 분리해 중복 클론을 방지하고 기존 클론 및 ZIP 다운로드 차이 안내.
+
+- 항목: 실행 코드 복사 안내. 사용자 요청으로 팀원 가이드의 PowerShell 코드 블록마다 전체 복사·붙여넣기 실행 문구 추가. 터미널 A의 startup 완료 후 새 PowerShell 터미널 B에서 전체 코드 실행, 마지막 명령 실행을 위한 Enter 안내 명시.
+
+- 항목: CMD에서 PowerShell 안내 실행 오류. 사용자 오류 로그에서 CMD가 Test-Path·Set-Location·$env 문법을 거부하고 상위 폴더의 package.json을 조회한 것을 확인. 팀원 가이드에 프롬프트 확인과 PowerShell 진입 명령을 추가하고 3번 프런트엔드에 CMD 전용 실행 명령 제공.
+
+- 항목: 팀원용 실행 명령 간소화. 사용자 요청으로 배포용 가이드를 첫 클론·업데이트 후 실행·열어 둔 프로젝트 재실행의 세 상황과 터미널 A/B 명령 블록으로 재작성. 최초 .env 자동 생성(기존 파일 보존), 무작위 로컬 DB 비밀번호, 로컬 가입·이미지 테스트 설정, Docker DB 준비 대기, 설치·migration 실패 시 중단 포함. 모든 상황의 웹 주소를 localhost:5174로 통일하고 백엔드 FRONTEND_ORIGIN·프런트엔드 API target을 명시. PowerShell 코드 블록 구문 검증 완료. 영향: 팀원용 문서만 변경.
+
+- 항목: 로컬 웹 접속 복구. CaloDetect 프런트엔드 종료 및 localhost IPv6 5173에 다른 프로젝트(mini-shop) 실행 확인. 기존 프로젝트를 중지하지 않고 CaloDetect를 localhost:5174로 시작하고 로컬 FRONTEND_ORIGIN을 일치시켜 백엔드 재시작. README에 현재 PC 재실행 주소·명령, 팀원 가이드에 웹 포트 충돌 해결 절차 추가.
+
+- 항목: 팀원 실행 가이드의 첫 실행·두 번째 실행 구분. 사용자 요청으로 클론만 받은 상태와 설치·첫 실행이 완료된 상태를 구분하는 선택표 추가. 최초 설치 절차와 같은 PC의 재실행 절차를 명시하고 재실행을 Docker/프로젝트 열기·DB·백엔드·프런트엔드·기존 계정 로그인 단계로 정리. 재실행 시 생략할 설치 작업 및 다시 필요한 조건 안내. 영향: 배포용 문서만 변경.
+
+- 항목: 팀원 배포용 실행 가이드. 사용자 요청으로 CaloDetect_팀원_실행가이드.md 작성. Windows PowerShell 기준 최초 설치·develop 클론·로컬 환경설정·사진 분석·DB 준비·두 터미널 실행·업데이트·종료·오류 해결과 카톡 동봉 안내 포함. 개인 PC 경로·실제 비밀번호·특정 PC의 별도 DB 설정 대신 공통 예시와 각자 DB 가입 안내 사용. 영향: 배포용 문서; 실행 코드·운영 정책 변경 없음.
+
+- 실행 검증: Python 3.14.5 / Node.js 24.19.0, 기본 Backend 테스트 47개 통과·YOLO 1개 제외, 실제 PostgreSQL·YOLO P0 통합 테스트 9개 통과, React production build·pip check·migration/seed 성공. 실행 중인 웹 HTTP 200·API/DB health 정상·음식 150개 조회 확인. YOLO 검사는 추론 경로 smoke이며 정확도 평가 아님.
+
+- 항목: 처음 설치·재실행·업데이트 실행 안내. 변경 전: 가상환경 설치 뒤 DB 준비 없이 migration 명령을 먼저 보여주고 프런트엔드 경로는 고정 예시 사용. 변경 후: 도구 확인 → develop 클론/루트 확인 → 명시적 Python 가상환경 생성 → 패키지 설치 → .env 설정 → Docker DB healthy 확인 → migration/seed → 두 터미널 서버 실행 순서로 README 정리. 업데이트 시 로컬 변경 보관·ff-only pull·의존성 갱신·migration/seed·재시작 및 오류별 복구 절차 추가. 이유: 사용자 요청으로 실제 설치·실행 오류 재현 및 해결. 영향: README와 로컬 실행 환경; 기존 데이터·모델·Master Spec 보존. 기존 PostgreSQL volume의 비밀번호 불일치를 확인해 기존 DB/계정 변경 없이 별도 calodetect_develop DB/계정 생성, 현재 로컬 .env에 연결. 새 DB에 기존 테스트 계정이 자동 생성된다는 오해를 없애고 직접 가입 안내로 변경. 비밀번호는 로컬 .env에만 저장.
+
 - 항목: README 테스트 로그인 안내. 사용자 요청으로 기존 로컬 테스트 계정 정보에 접속 주소와 이메일 로그인 순서를 명시. 기존 계정 정보 및 새 DB에서 자동 생성되지 않는 조건 유지. 문서만 변경.
 
 ## 2026-10-03

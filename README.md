@@ -2,6 +2,79 @@
 
 작업 전 [필수 적용 규칙](docs/rules/README.md)을 먼저 읽어 주세요.
 
+## 2026-10-07 develop 업데이트와 데이터 보존
+
+이번 업로드는 Google 로그인(GIS / Authorization Code + PKCE), Apple 버튼 제거, 이메일 비밀번호 찾기·변경, 로컬 테스트 계정 생성, 재클론 설정 재사용, DB 백업, 실행 가이드, 홈페이지 배경 교체를 포함합니다. 네이버 주소도 재설정 메일을 받을 수 있으며 발신 Gmail 설정은 비공개 `.env`에 필요합니다.
+
+| 보존 대상 | 같은 PC에서 업데이트 / 새 클론 | 다른 PC에서 새 클론 |
+|---|---|---|
+| 테스트 계정 | 기존 계정·변경한 비밀번호 보존; 없으면 개발 설정에서 생성 | 새 로컬 DB에 테스트 계정 생성 |
+| 가입한 이메일·Google 회원, 프로필·식단 | 기존 DB 연결과 `calodetect_postgres_data` volume 재사용 시 보존 | 자동 복사되지 않음; 비공개 DB 백업 복원 또는 공용 DB 필요 |
+| Google 코드·공개 Client ID | Git으로 제공 | Git으로 제공; 등록 원본·테스트 사용자·가입 동의 설정 필요 |
+| DB 접속 정보·OAuth 키·SMTP 자격정보·동의 문구 | 같은 Windows 계정의 `%LOCALAPPDATA%\CaloDetect\local.env` 재사용 | Git에 포함하지 않음; 별도 설정 필요 |
+| 로그인 세션 | 같은 DB·브라우저·접속 주소이며 만료 전이면 유지 | 새 브라우저에서 재로그인 |
+| 업로드 사진 | 기존 `.private-uploads` 폴더 별도 보존·복사 필요 | Git에 포함하지 않음; 별도 비공개 복사 필요 |
+
+GitHub는 회원 DB 백업 저장소가 아닙니다. 개인 회원 DB·`.env`·앱 비밀번호·OAuth 비밀키는 업로드하지 않습니다. 재클론 전에 기존 프로젝트 루트에서 최신 개인 설정과 DB를 보관하세요(Docker Desktop 실행 필요).
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_local.ps1 -SettingsOnly
+if ($LASTEXITCODE -ne 0) { throw '개인 설정 저장 실패' }
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\backup_local_db.ps1
+if ($LASTEXITCODE -ne 0) { throw 'DB 백업 실패' }
+```
+
+`-SettingsOnly`는 DB를 변경하지 않고 설정만 보관합니다. DB archive는 `%LOCALAPPDATA%\CaloDetect\backups\*.dump`에 저장되며 `pg_dump` 사용자 정의 형식과 archive 목록 검사를 사용합니다. `.env`와 사진 파일은 DB archive에 포함되지 않습니다. 다른 PC로 이전하려면 archive·개인 설정·필요한 사진을 비공개로 전달하고 별도 새 DB에 `pg_restore`로 복원해야 합니다. 기존 DB에 덮어쓰지 말고 복원 후 계정·기록을 확인하세요. `docker compose down -v`, volume 삭제·정리, 개인 설정 폴더 삭제는 보존을 깨뜨릴 수 있습니다. 공용 DB 운영 환경은 미확정입니다.
+
+### 이번 변경 파일 목록
+
+직전 `develop` 기준 커밋 `7fbf089` 이후 변경 묶음입니다. 원본 모델·CSV·YAML·Master Spec과 DB schema는 변경하지 않습니다.
+
+| 묶음 | 변경·추가 파일 | 변경 내용 |
+|---|---|---|
+| 인증 Backend | `backend/app/accounts.py`, `backend/app/config.py`, `backend/app/main.py`, `backend/app/social_auth.py`, `backend/app/passwords.py`, `backend/requirements.txt` | Google·이메일 인증, 비밀번호 변경·재설정, 변조 가입 쿠키 거부 |
+| 인증 화면 | `frontend/src/EmailAuthForm.jsx`, `frontend/src/SocialLogin.jsx`, `frontend/src/PasswordTools.jsx`, `frontend/src/entry.jsx`, `frontend/src/main.jsx`, `frontend/src/reference.css` | Google만 표시, 비밀번호 찾기·변경·링크 화면 |
+| 로컬 실행·보존 | `.env.example`, `.gitignore`, `compose.yaml`, `scripts/setup_local.ps1`, `scripts/backup_local_db.ps1`, `backend/scripts/seed_local_test_account.py`, `backend/scripts/start.py`, `frontend/vite.config.js` | 설정 재사용, DB 고정 volume·백업, 테스트 계정, API 프록시 |
+| 검증 | `backend/tests/test_social_auth.py`, `backend/tests/test_passwords.py`, `backend/tests/test_local_test_account.py`, `backend/tests/test_local_setup.py` | 인증·비밀번호·계정 보존·재클론 설정 검사 |
+| 문서 | `README.md`, `CHANGELOG.md`, `docs/rules/PENDING_DECISIONS.md`, `CaloDetect_팀원_실행가이드.md`, `google_oauth_2_0.md` | 실행·설정·변경사항·보존 조건 |
+| 이미지 | `frontend/public/images/hero-bg.webp` | 홈페이지 배경 교체 |
+
+### 변경된 내용만 업데이트하기
+
+기존 Git 클론에서는 전체 폴더를 다시 다운로드할 필요가 없습니다. `git pull`은 변경분을 받아 일관된 버전으로 적용하며, Git이 추적하지 않는 `.env`와 DB volume은 유지합니다. 개발 서버를 각 터미널에서 `Ctrl+C`로 종료하고 아래 순서로 진행하세요.
+
+```powershell
+# 프로젝트 루트에서 실행. 수정 파일은 먼저 커밋하거나 별도 보관하세요.
+git branch --show-current
+git status --short
+git switch develop
+if ($LASTEXITCODE -ne 0) { throw 'develop 전환 실패' }
+git fetch origin
+if ($LASTEXITCODE -ne 0) { throw '원격 조회 실패' }
+git diff --name-status HEAD origin/develop
+git pull --ff-only origin develop
+if ($LASTEXITCODE -ne 0) { throw '업데이트 실패. 로컬 변경과 브랜치 차이를 확인하세요.' }
+.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+if ($LASTEXITCODE -ne 0) { throw 'Backend 의존성 설치 실패' }
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_local.ps1
+if ($LASTEXITCODE -ne 0) { throw '설정 또는 DB 준비 실패' }
+Push-Location frontend
+try {
+    npm.cmd ci
+    if ($LASTEXITCODE -ne 0) { throw 'Frontend 의존성 설치 실패' }
+} finally { Pop-Location }
+```
+
+이후 아래 터미널 A/B 재실행 안내를 따릅니다. `.env.example`을 기존 `.env`에 덮어쓰지 않습니다. SMTP 값을 수정한 뒤에도 `setup_local.ps1 -SettingsOnly`로 최신 개인 설정을 보관하세요.
+
+일부 파일만 필요하면 `git fetch origin` 후 아래처럼 독립된 이미지 파일만 골라 받을 수 있습니다. 해당 파일의 로컬 수정을 덮어쓰므로 먼저 `git diff -- frontend/public/images/hero-bg.webp`로 확인하세요. 브랜치 커밋은 이동하지 않고 파일만 수정된 상태가 됩니다.
+
+```powershell
+git restore --source=origin/develop -- frontend/public/images/hero-bg.webp
+```
+
+인증 기능은 Backend·Frontend·설정·의존성이 연결되어 있어 파일 하나만 교체하면 오류가 생길 수 있습니다. Google/비밀번호 기능은 위 전체 `git pull` 절차로 업데이트하세요. GitHub ZIP 다운로드에는 `.git`이 없어 이후 `git pull`을 사용할 수 없습니다.
+
 - `docs/rules/`: 개발 규칙, 원본 업무지시서, 결정 대기 사항, 동의 초안
 - `docs/design/`: 아키텍처와 데이터 스키마
 - `docs/operations/`: 배포 및 기존 Streamlit 실행 안내 (프로젝트 루트에서 실행)
@@ -54,51 +127,135 @@ UX 변경과 미확정 정책은 [보류 및 결정 대기 사항](docs/rules/PE
 
 가상 회원/식단/추천 결과를 실제 데이터처럼 제공하지 않습니다. 영양값은 사용자 승인된 기존 `CaloDetect_nutrition_all_matched.csv`를 사용합니다. v11의 `(1).csv`는 현재 없으며 원본 데이터를 변경하지 않았습니다. 추천 엔진은 남은 칼로리·최근 음식 반복·제외 음식·선호 분류·다양성을 적용하고 실제 데이터의 영양값과 이유를 반환합니다. 미정 탄단지 목표·당류/나트륨 기준·끼니 적합성을 평가했다고 표시하지 않습니다.
 
-## 새 웹 환경 실행
+## 새 웹 환경 실행 — 팀원용 간편 설치
 
-Node.js 22.12 이상(또는 20.19 이상), Python 3.12 권장. Windows PowerShell에서 아래 명령을 프로젝트 루트 기준으로 실행합니다. 기존 Streamlit 가상환경과 새 Backend 가상환경을 분리합니다.
+[팀원 실행 가이드](CaloDetect_팀원_실행가이드.md)의 터미널 A/B 방식을 반영한 로컬 개발용 안내입니다. 최초 클론은 해당 가이드의 `develop`을 사용하며, 기존 저장소의 브랜치는 자동 변경하지 않습니다. 코드 변경은 아래 팀 GitHub 협업 방침의 브랜치·PR 절차를 따릅니다. DB 볼륨과 기존 폴더는 삭제하지 않습니다.
+
+`.env`와 PostgreSQL 데이터는 GitHub에 올리지 않습니다. `scripts/setup_local.ps1`은 첫 설정에서 비공개 `%LOCALAPPDATA%\CaloDetect\local.env`에 환경 설정을 보관하고, 같은 Windows 계정의 새 클론에서는 이를 재사용합니다. DB는 고정된 Docker volume `calodetect_postgres_data`를 사용하므로 저장소 폴더 이름이나 재클론이 달라져도 같은 PC의 기존 회원·식단 데이터를 유지합니다. 다른 PC는 별도 로컬 DB를 사용합니다. `.env`·비밀번호·API 키·업로드 사진을 커밋하지 마세요.
+
+> **사전 필수 프로그램**
+> - **Docker Desktop** (반드시 먼저 실행해 두세요)
+> - **Git**, **Python 3.12 권장(3.10 이상)**, **Node.js 22.12 이상(또는 20.19 이상)**
+> - 터미널은 Windows **PowerShell**(`PS C:\...>`)을 기준으로 작성되었습니다.
+
+---
+
+### 주요 접속 주소
+
+- **웹 프런트엔드:** [http://localhost:5174](http://localhost:5174)
+- **백엔드 API 문서 (로컬 개발 서버):** [API 문서](<http://[::1]:8000/docs>)
+
+---
+
+### 1. 처음 설치 및 전체 실행하기
+
+#### [Step 1] 코드 내려받기 (Git Clone)
+VS Code에서 새 터미널을 열고(PowerShell), 아래 블록 전체를 복사해 실행합니다.
+*(이미 정상적으로 클론된 폴더가 있다면 자동으로 감지하고 다음 단계로 안내합니다.)*
 
 ```powershell
-python -m venv .venv-backend
-.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
-.\.venv-backend\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
-.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_foods
-.\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+New-Item -ItemType Directory -Path 'C:\projects' -Force | Out-Null
+Set-Location 'C:\projects'
+
+if (Test-Path .\CaloDetect\.git) {
+    Write-Host "이미 CaloDetect 저장소가 존재합니다. Step 2로 이동합니다." -ForegroundColor Green
+    Set-Location 'C:\projects\CaloDetect'
+} else {
+    if (Test-Path .\CaloDetect) {
+        throw "기존 CaloDetect 폴더가 있습니다. 내용을 확인하고 다른 경로에 클론하세요."
+    }
+    git clone --branch develop https://github.com/wndnsud-ui/CaloDetect.git
+    if ($LASTEXITCODE -ne 0) { throw '클론 실패. 저장소 접근 권한과 develop 브랜치를 확인하세요.' }
+    Set-Location 'C:\projects\CaloDetect'
+}
+
+git branch --show-current
+git remote -v
+Get-ChildItem -Name
 ```
 
-### 백엔드 실행 후 사용자 화면 열기
+---
 
-백엔드가 실행 중인 터미널은 그대로 두고, VS Code의 **터미널 → 새 터미널**에서 프런트엔드를 실행합니다. 아래 명령은 Windows PowerShell과 CMD에서 사용할 수 있습니다.
+#### [Step 2] 터미널 A — 가상환경 구축, DB 초기화, 백엔드 서버 구동
+* **주의:** `Application startup complete`가 뜨면 **이 창을 절대 닫지 마세요.**
 
 ```powershell
-cd C:\projects\CaloDetect\frontend
+Set-Location 'C:\projects\CaloDetect'
+
+# 1. Python 가상환경 생성 및 패키지 설치
+if (-not (Test-Path .\.venv-backend)) {
+    py -m venv .venv-backend
+    if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
+}
+.\.venv-backend\Scripts\python.exe -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
+.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt -r backend/requirements-vision.txt
+if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
+
+# 2. 같은 PC의 기존 .env와 DB volume 재사용·신규 설정·테스트 계정 준비
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_local.ps1
+if ($LASTEXITCODE -ne 0) { throw '로컬 설정 또는 데이터베이스 준비에 실패했습니다.' }
+
+# 5. 백엔드 서버 실행
+$env:FRONTEND_ORIGIN='http://localhost:5174'
+.\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host ::1 --port 8000
+```
+
+---
+
+#### [Step 3] 터미널 B — 프런트엔드 설치 및 실행
+VS Code 상단 메뉴에서 **터미널 → 새 터미널**을 열어 새 창(PowerShell)에 붙여넣습니다.
+포트 충돌 시 아래 오류 해결 안내로 사용 중인 앱을 확인하세요.
+
+```powershell
+Set-Location 'C:\projects\CaloDetect\frontend'
+
+
+# 패키지 설치 및 개발 서버 실행
 npm.cmd ci
-npm.cmd run dev
+if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
+$env:CALODETECT_API_TARGET='http://[::1]:8000'
+npm.cmd run dev -- --host localhost --port 5174
 ```
 
-`npm.cmd ci`는 처음 실행하거나 의존성이 변경됐을 때 실행합니다. 이미 설치했다면 `npm.cmd run dev`만 실행하면 됩니다.
+> 브라우저에서 **http://localhost:5174** 로 접속한 뒤 **회원가입**을 진행하고 테스트를 시작하세요!
 
-터미널에 `Local: http://localhost:5173/`가 표시되면 브라우저에서 **<http://localhost:5173>**을 열어 홈페이지와 사용자 웹앱을 확인하세요. 백엔드 8000번 포트는 API용이고 React 화면은 5173번 포트에서 열립니다. 사용하는 동안 백엔드와 프런트엔드 터미널을 모두 켜 두고, 종료할 때 각 터미널에서 `Ctrl+C`를 누릅니다.
+---
 
-백엔드를 **8001번 포트**로 실행했다면 프런트엔드 실행 전에 같은 터미널에서 API 주소를 설정합니다. 이미 프런트엔드가 실행 중이면 `Ctrl+C`로 종료한 후 다시 실행하세요.
+### 2. 평소 재실행할 때 (설치 완료 후 다시 켤 때)
 
-PowerShell:
+Docker Desktop을 켜고 VS Code에서 프로젝트 폴더를 엽니다.
 
+#### 터미널 A (백엔드)
 ```powershell
-$env:CALODETECT_API_TARGET='http://127.0.0.1:8001'
-npm.cmd run dev
+Set-Location 'C:\projects\CaloDetect'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_local.ps1
+if ($LASTEXITCODE -ne 0) { throw '로컬 설정 또는 데이터베이스 준비에 실패했습니다.' }
+$env:FRONTEND_ORIGIN='http://localhost:5174'
+.\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host ::1 --port 8000
 ```
 
-CMD:
-
-```cmd
-set CALODETECT_API_TARGET=http://127.0.0.1:8001
-npm.cmd run dev
+#### 터미널 B (프런트엔드)
+```powershell
+Set-Location 'C:\projects\CaloDetect\frontend'
+$env:CALODETECT_API_TARGET='http://[::1]:8000'
+npm.cmd run dev -- --host localhost --port 5174
 ```
 
-웹: <http://localhost:5173> · API 문서: <http://127.0.0.1:8000/docs>. `npm.cmd`는 Windows PowerShell 실행 정책과 관계없이 npm을 호출합니다. macOS/Linux에서는 `npm` 및 `.venv-backend/bin/python`을 사용하세요. Vite 개발 서버가 `/api` 요청을 FastAPI에 전달합니다. 개발 포트는 5173을 사용하고 충돌 시 기존 프로세스를 확인하세요.
+---
 
-현재 음식·목표 미리 계산은 DB 없이 실행됩니다. 회원·프로필·식단·추천은 `.env`의 DATABASE_URL과 실행 중인 PostgreSQL, migration/seed가 필요합니다. 최초 시작 전 `.env.example`을 `.env`로 복사하고 값을 수정한 뒤 `docker compose up -d db`로 DB를 실행하세요. 기존 `.env`를 덮어쓰지 않습니다. `.env`, 비밀번호, API 키는 Git에 올리지 않습니다.
+### 3. 자주 발생하는 오류 및 해결법
+
+| 증상 | 원인 | 해결책 |
+|---|---|---|
+| `FATAL: password authentication failed` | 기존 DB와 현재 `.env`가 서로 다른 설정 사용 | 기존 클론에서 `.env`를 보존하거나 `scripts/setup_local.ps1`의 안내를 따르세요. `docker compose down -v` 및 volume 삭제는 회원·식단 데이터를 지우므로 사용하지 마세요. |
+| `Port 5174 is already in use` | 이전 프런트엔드 프로세스가 종료되지 않음 | `Get-NetTCPConnection -LocalPort 5174 -State Listen -ErrorAction SilentlyContinue`로 PID를 확인하고 `Get-Process -Id 확인한PID`로 앱을 확인합니다. 자신의 이전 개발 서버 터미널에서 `Ctrl+C`로 종료하세요. |
+| `python.exe 용어가 인식되지 않습니다` | 가상환경(`.venv-backend`) 미설치 | Step 2의 `py -m venv .venv-backend` 재실행 |
+| 서버 종료 방법 | - | 각 터미널에서 `Ctrl + C` 누름 |
+
+의존성이 변경되면 패키지 설치 명령을 다시 실행하고, 새 migration이 추가되면 `scripts/setup_local.ps1`을 다시 실행하세요. 로컬 Backend는 Docker의 IPv4 포트 전달과 충돌하지 않도록 IPv6 loopback(`::1`)에서 실행합니다. 다른 포트를 쓰면 Frontend의 `CALODETECT_API_TARGET`도 `http://[::1]:포트`로 맞춥니다.
+
+기존 기본 포트 5173을 사용하려면 Backend의 `FRONTEND_ORIGIN`과 Frontend 실행 명령의 `--port`를 모두 5173으로 맞추세요. macOS/Linux에서는 `npm`과 `.venv-backend/bin/python`을 사용합니다. 로컬 테스트 설정은 운영 동의·이미지 보관 정책 확정을 의미하지 않습니다.
 
 ### 일간·월별 식단 분석
 
@@ -112,7 +269,7 @@ npm.cmd run dev
 
 현재 개발 DB에 생성한 테스트 계정으로 로그인할 수 있습니다.
 
-1. <http://localhost:5173>에 접속합니다.
+1. <http://localhost:5174>에 접속합니다(위 간편 실행 기준).
 2. 상단 **로그인**을 누르고 이메일 로그인 방식을 선택합니다.
 3. 아래 이메일과 비밀번호를 입력합니다.
 
@@ -122,15 +279,15 @@ npm.cmd run dev
 | 비밀번호 | `CaloTest!2026` |
 | 권한 | 일반 사용자 (`user`) |
 
-로컬 개발 전용 계정입니다. PostgreSQL과 Backend, Frontend가 실행 중이어야 하며, 다른 PC나 새 DB에는 자동으로 생성되지 않습니다. 새 DB에서는 아래 로컬 테스트 가입 설정을 적용한 후 화면에서 계정을 가입하세요.
+로컬 개발 전용 계정입니다. 최초 설치에서 migration 다음에 실행하는 `backend.scripts.seed_local_test_account`가 로컬 테스트 설정이 켜진 개발 DB에 생성합니다. 기존 계정이 있으면 비밀번호나 데이터를 덮어쓰지 않습니다. 각자 로컬 DB에 생성되므로 회원·식단 데이터는 PC마다 별도이며, 운영 환경에서는 생성 명령이 차단됩니다.
 
 ### 정책 설정과 사진 분석 환경
 
 사용자가 승인한 **로컬 이메일 테스트 가입**은 `.env`에 `APP_ENV=development`, `LOCAL_TEST_SIGNUP=true`, `FRONTEND_ORIGIN=http://localhost:5173`을 설정하고 Backend를 재시작하면 활성화됩니다. 만 18세 이상이며 화면의 테스트용 안내에 명시적으로 동의해야 합니다. 실제 개인정보 대신 테스트용 이름·이메일을 사용합니다. 승인된 `SERVICE_CONSENT_TEXT`가 없는 경우에만 테스트 안내를 사용하며 해당 내용을 개발 DB의 동의 이력에 저장합니다. 로컬 호스트와 루프백 접속에서만 허용하고 전달된 프록시 접속은 차단합니다. `APP_ENV=production` 또는 `LOCAL_TEST_SIGNUP=false`이면 테스트 가입을 허용하지 않습니다. `.env.example` 기본값은 운영 차단을 유지합니다. 소셜 가입은 이 테스트 설정으로 활성화하지 않습니다.
 
-인증 방식은 이메일/비밀번호 및 사용자 요청으로 추가한 Google·Apple 로그인 + HttpOnly 세션 쿠키입니다. 로그인 후 마이페이지에서 이름을 수정할 수 있으며 이메일과 role 변경은 제공하지 않습니다. HTTPS 운영에서는 `COOKIE_SECURE=true`가 필요합니다. 홈페이지 기능 카드는 음식 영양 조회·목표 계산·오늘의 식단으로 연결되고 웹앱은 실제 API 기록을 표시합니다. 홈페이지의 휴대폰·포케·기능 카드·하단 배너 이미지 영역은 고품질 이미지 선정 전까지 빈 박스로 유지합니다. 회원 웹앱의 기존 CSS 식사 일러스트는 유지합니다. 위치 기반 맛집/포인트는 후속 범위입니다.
+인증 방식은 이메일/비밀번호 및 사용자 요청으로 추가한 Google 로그인 + HttpOnly 세션 쿠키입니다. 로그인 후 마이페이지에서 이름을 수정할 수 있으며 이메일과 role 변경은 제공하지 않습니다. HTTPS 운영에서는 `COOKIE_SECURE=true`가 필요합니다. 홈페이지 기능 카드는 음식 영양 조회·목표 계산·오늘의 식단으로 연결되고 웹앱은 실제 API 기록을 표시합니다. 홈페이지의 휴대폰·포케·기능 카드·하단 배너 이미지 영역은 고품질 이미지 선정 전까지 빈 박스로 유지합니다. 회원 웹앱의 기존 CSS 식사 일러스트는 유지합니다. 위치 기반 맛집/포인트는 후속 범위입니다.
 
-Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 수 있습니다(기본 `http://127.0.0.1:8000`). 다른 웹 포트를 쓰면 Backend `FRONTEND_ORIGIN`도 해당 주소와 일치시켜야 합니다. 현재 compose.yaml은 정책 환경변수를 모두 전달하지 않으므로 컨테이너 실행에서는 로컬 compose override 또는 배포 환경변수를 사용하세요. 컨테이너 migration은 `docker compose exec backend python -m alembic -c backend/alembic.ini upgrade head`로 실행합니다.
+Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 수 있습니다(로컬 개발 서버 기준 `http://[::1]:8000`). 다른 웹 포트를 쓰면 Backend `FRONTEND_ORIGIN`도 해당 주소와 일치시켜야 합니다. 컨테이너 migration은 `docker compose exec backend python -m alembic -c backend/alembic.ini upgrade head`로 실행합니다.
 
 가입·로그인 최소 연령은 사용자 승인에 따라 **만 18세**이며 `AGE_MIN` 기본값은 `18`입니다. 가입 시 입력한 만 나이를 기준으로 검사하며 본인인증이나 생년월일에 따른 자동 갱신은 제공하지 않습니다. 기존 계정의 로그인과 인증 API도 연령을 확인합니다. `SERVICE_CONSENT_TEXT`는 아직 미확정이므로 승인된 문구가 설정되어야 회원가입을 활성화합니다. 동의 문구는 가입 요청과 DB에 보존합니다. 선택 모델 개선 동의는 `MODEL_IMPROVEMENT_CONSENT_TEXT` 확정·설정 후 활성화하며, 문구 미설정 상태에서도 기존 동의 철회는 허용합니다. `IMAGE_STORAGE_DIR` 미설정이면 사진 업로드는 정책 안내를 반환하고 음식 직접 선택·식단 저장은 가능합니다. `RECOMMENDATION_ENABLED=true`, `RECENT_MEAL_WINDOW`는 기존 CSV를 추천 출처로 사용하는 개발 기준이 승인된 뒤 설정합니다. 예시 `3`을 운영 정책으로 간주하지 않습니다. 연령 외 미확정 정책은 TBD를 유지합니다.
 
@@ -146,21 +303,40 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 
 분석 기준은 conf=0.11, iou=0.45, imgsz=960, CPU입니다. 파일명 대신 서버 UUID로 이미지를 구분하고 사용자별 이미지 권한을 검사합니다. 탐지되지 않거나 추론 오류가 나도 직접 음식 선택을 제공합니다.
 
-### Google·Apple 로그인 설정
+### Google 로그인 설정
 
-로그인 화면 상단의 **로그인 / 회원가입**에서 방식을 선택합니다. 회원가입에는 **Google로 회원가입**, **Apple로 회원가입**, **이메일로 회원가입**을 제공하며, 소셜 가입은 비밀번호를 따로 입력하지 않습니다. 서버 설정이 없는 제공자는 연결 준비 상태를 안내하고 버튼을 누르면 진행할 수 없는 이유를 표시합니다. 기존 이메일 로그인은 신규 가입 동의 문구 설정 여부와 무관하게 사용할 수 있습니다. 새 소셜 계정은 제공자 인증 후 이름·만 나이·승인된 서비스 동의를 입력해 가입을 마칩니다. 기존 소셜 계정은 `(oauth_provider, oauth_subject)`로 로그인하며 이메일 변경으로 새 계정을 만들거나 기존 이메일 회원과 자동 연결하지 않습니다. Apple 이메일 가리기도 제공자가 확인한 이메일로 처리합니다. 기존 이메일과 충돌하면 기존 방식으로 로그인해야 하며 계정 연결 UI는 제공하지 않습니다.
+로그인 화면 상단의 **로그인 / 회원가입**에서 방식을 선택합니다. 회원가입에는 **Google로 회원가입**, **이메일로 회원가입**을 제공하며, 소셜 가입은 비밀번호를 따로 입력하지 않습니다. 서버 설정이 없는 제공자는 연결 준비 상태를 안내하고 버튼을 누르면 진행할 수 없는 이유를 표시합니다. 기존 이메일 로그인은 신규 가입 동의 문구 설정 여부와 무관하게 사용할 수 있습니다. 새 소셜 계정은 제공자 인증 후 이름·만 나이·승인된 서비스 동의를 입력해 가입을 마칩니다. 기존 소셜 계정은 `(oauth_provider, oauth_subject)`로 로그인하며 이메일 변경으로 새 계정을 만들거나 기존 이메일 회원과 자동 연결하지 않습니다. 기존 이메일과 충돌하면 기존 방식으로 로그인해야 하며 계정 연결 UI는 제공하지 않습니다.
 
-사용자 요청에 따라 서비스 등록은 나중에 진행하고 [가입 동의 검토용 초안](docs/rules/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. 현재 Google·Apple 등록 정보와 승인된 가입 동의 문구가 미설정이라 실제 소셜 인증·신규 가입은 활성화되지 않습니다.
+사용자 요청에 따라 [가입 동의 검토용 초안](docs/rules/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. Google 로그인은 공개 Web Client ID와 기존 ID 토큰 검증 흐름을 사용하므로 Client Secret을 새 클론마다 복사할 필요가 없습니다. OAuth state 서명키·DB 비밀번호는 비공개 `.env`를 같은 PC의 `%LOCALAPPDATA%\CaloDetect\local.env`에서 재사용하고, 운영 설정과 비밀은 GitHub에 올리지 않습니다. 승인된 로컬 동의와 만 나이를 확인하며 기존 이메일 계정과 자동 연결하지 않습니다. Google Cloud의 테스트 사용자 등록이 필요합니다.
 
-1. Backend 의존성을 설치합니다: `.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements.txt`. 외부 ID 토큰은 PyJWT와 제공자 공개키로 서명·발급자·대상 앱·만료·nonce를 검증합니다. 5분짜리 서명된 HttpOnly 인증 요청 쿠키를 사용하며 Apple은 state도 확인합니다.
-2. Google Cloud에서 웹용 OAuth 클라이언트를 만들고 실제 웹앱 주소를 승인된 JavaScript 원본으로 등록합니다. 개발용 원본 예: `http://localhost:5173`. `.env`에 `GOOGLE_CLIENT_ID`를 설정합니다. [Google Identity Services 설정](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
-3. Apple Developer에서 Sign in with Apple을 활성화한 App ID에 웹용 Services ID를 연결하고 웹 도메인·HTTPS 반환 URL을 등록합니다. `.env`에 Services ID를 `APPLE_CLIENT_ID`, 등록한 반환 URL을 `APPLE_REDIRECT_URI`로 설정합니다. 실제 웹앱과 같은 원본의 HTTPS 주소를 사용합니다. Apple 웹 로그인은 localhost 개발 URL 대신 등록된 HTTPS 도메인에서 검증해야 합니다. [Apple 웹 설정](https://developer.apple.com/documentation/signinwithapple/configuring-your-webpage-for-sign-in-with-apple).
-4. `.env`에 무작위 `OAUTH_STATE_SECRET`(32자 이상)을 설정합니다. 생성 예: `.\.venv-backend\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"`. 모든 Backend 인스턴스는 같은 값을 사용하며 저장소에 커밋하지 않습니다. HTTPS 환경에서는 `COOKIE_SECURE=true`, `FRONTEND_ORIGIN`은 실제 웹앱 원본으로 설정합니다.
-5. 서버를 재시작하고 각 제공자의 로그인·취소·신규 가입·재로그인을 확인합니다. 기본 API와 `/api` 프록시를 같은 웹앱 원본에서 사용합니다. 소셜 로그인은 프로필 인증만 요청하며 Google Drive·Calendar 또는 Apple Health 권한을 요청하지 않습니다.
+1. Backend 의존성을 설치합니다: `.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements.txt`. 기본 Google GIS 흐름은 공개 Client ID와 Backend의 서명·발급자·대상 앱·만료·nonce 검증을 사용하며 Client Secret은 필요하지 않습니다. Secret이 비공개 `.env`에 설정된 환경은 Authorization Code + PKCE도 사용합니다. state/nonce와 신규 가입 정보는 5분짜리 HttpOnly 쿠키로 보호하며 이메일·이름·토큰을 URL에 싣지 않습니다.
+2. Google Cloud에서 웹용 OAuth 클라이언트를 만들고 승인된 JavaScript 원본에 `http://localhost:5174`를 등록합니다. Authorization Code 흐름을 쓸 경우 승인된 리디렉션 URI에 `http://localhost:8000/api/auth/google/callback`도 등록합니다. OAuth 동의 화면은 테스트용 사용자로 제한하고 실제 Google 계정을 테스트 사용자로 추가합니다. 공개 `GOOGLE_CLIENT_ID`는 `.env.example`에 포함되어 새 클론에서도 사용됩니다.
+3. `scripts/setup_local.ps1`이 `OAUTH_STATE_SECRET`과 PostgreSQL 접속 정보를 생성하고 `%LOCALAPPDATA%\CaloDetect\local.env`에 저장합니다. 새 클론도 같은 Windows 계정이면 이 설정을 재사용합니다. HTTPS 환경에서는 `COOKIE_SECURE=true`, `FRONTEND_ORIGIN`은 실제 웹앱 원본으로 설정합니다.
+4. 서버를 재시작하고 Google의 로그인·취소·신규 가입·재로그인을 확인합니다. 기본 API와 `/api` 프록시를 같은 웹앱 원본에서 사용합니다. Google 신규 가입은 서비스 동의와 만 나이 확인을 마친 후 완료되며, 기존 이메일 계정과 자동 연결하지 않습니다. 소셜 로그인은 프로필 인증만 요청하며 Google Drive·Calendar 또는 Apple Health 권한을 요청하지 않습니다.
 
-제공자 앱 자격정보가 없는 환경에서는 실제 Google/Apple 로그인 검증을 완료할 수 없습니다. 자동 테스트는 로컬 RSA 서명 토큰으로 인증 검증·18세 경계·동의·이메일 충돌을 검사하며 제공자 공개키 조회를 격리합니다. 기존 DB 식별자 컬럼과 비밀번호 NOT NULL 제약을 보존하여 migration은 추가하지 않습니다. 소셜 계정의 비밀번호 컬럼은 공개하지 않는 무작위 비밀번호 해시로 채우며 비밀번호 설정·계정 연결·소셜 토큰 갱신·제공자 연결 해제는 이번 범위에 포함하지 않습니다.
+제공자 앱 자격정보가 없는 환경에서는 실제 Google 로그인 검증을 완료할 수 없습니다. 자동 테스트는 로컬 RSA 서명 토큰으로 인증 검증·18세 경계·동의·이메일 충돌을 검사하며 제공자 공개키 조회를 격리합니다. 기존 DB 식별자 컬럼과 비밀번호 NOT NULL 제약을 보존하여 migration은 추가하지 않습니다. 소셜 계정의 비밀번호 컬럼은 공개하지 않는 무작위 비밀번호 해시로 채우며 비밀번호 설정·계정 연결·소셜 토큰 갱신·제공자 연결 해제는 이번 범위에 포함하지 않습니다.
 
-### 관리자 QA
+### 이메일 계정 비밀번호 찾기·변경 (Gmail SMTP)
+
+로그인 화면의 **비밀번호 찾기**에 이메일 가입 주소를 입력하면 재설정 링크를 발송합니다. 링크는 15분 동안 유효하며 비밀번호 변경 후 다시 사용할 수 없습니다. **마이페이지 → 비밀번호 변경**에서는 현재 비밀번호와 새 비밀번호·확인을 입력합니다. 새 비밀번호는 8~128자이며 기존 비밀번호와 달라야 합니다. 변경 완료 시 모든 기기의 기존 세션을 종료하고 새 비밀번호로 재로그인합니다. Google 가입 계정은 Google 계정 설정에서 비밀번호를 관리합니다.
+
+발신 Gmail 계정에서 2단계 인증을 활성화하고 [Google 앱 비밀번호](https://support.google.com/mail/answer/185833?hl=ko)를 발급하세요. 계정의 일반 비밀번호나 Google OAuth Client Secret을 SMTP 비밀번호로 사용하지 않습니다. 서버의 비공개 `.env`에 아래 값을 설정합니다. [Gmail SMTP 공식 설정](https://support.google.com/mail/answer/7104828?hl=ko)은 STARTTLS 포트 587을 사용합니다.
+
+```dotenv
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURITY=starttls
+SMTP_USERNAME=발신계정@gmail.com
+SMTP_FROM=발신계정@gmail.com
+SMTP_PASSWORD=발급한앱비밀번호
+PASSWORD_RESET_SECRET=32자이상의무작위서버비밀키
+```
+
+`PASSWORD_RESET_SECRET`은 `.venv-backend\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"`로 생성해 `.env`에만 저장합니다. 앱 비밀번호와 재설정 비밀키를 Git에 올리지 않습니다. `FRONTEND_ORIGIN`은 메일에서 열 실제 프런트엔드 주소여야 하며 운영 환경에서는 HTTPS가 필수입니다. 로컬은 `APP_ENV=development`와 localhost 주소를 사용합니다. 변경 후 Backend를 재시작하고, Docker Backend는 `docker compose up -d --force-recreate backend`로 환경변수를 다시 반영합니다. 설정이 완성되지 않으면 화면에 발송 준비 안내를 표시합니다.
+
+등록되지 않은 이메일·Google 계정에도 동일한 응답을 표시합니다. 실제 발송 실패는 계정 여부를 노출하지 않도록 서버에 일반 오류로 기록합니다. 요청 제한은 프로세스별로 발송 요청 IP당 10회·이메일당 3회/15분, 재설정 IP당 20회/15분, 변경 사용자당 5회/15분입니다. 여러 worker/서버를 운영하면 게이트웨이에서 공통 제한을 추가해야 합니다. 토큰은 URL fragment로 전달해 HTTP 요청·접근 로그에 담기지 않으며 화면 로드 시 주소에서 제거합니다. DB migration은 필요하지 않습니다.
+
+### 관리자 QA 실행
 
 최초 관리자는 A 담당이 내부 CLI로만 생성합니다. 공개 승격 API는 없습니다.
 
@@ -173,17 +349,17 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 
 ## PostgreSQL / Docker 개발 실행
 
-루트 `.env`에 개발용 `POSTGRES_PASSWORD`를 추가합니다. 예시 문자열을 실제 비밀번호로 쓰지 마세요. URL의 특수문자는 URL 인코딩이 필요합니다.
+먼저 `scripts/setup_local.ps1`을 실행해 로컬 `.env`, DB 사용자/URL 및 테스트 계정을 준비합니다. PostgreSQL volume 이름은 `calodetect_postgres_data`로 고정되어 같은 PC의 새 클론도 기존 로컬 DB를 다시 사용합니다. volume을 삭제하면 회원·식단 데이터가 제거되므로 `docker compose down -v`를 사용하지 마세요.
 
 ```powershell
 docker compose up --build -d
 ```
 
-이 구성은 PostgreSQL과 Backend만 실행합니다. Frontend는 위 npm 개발 명령으로 별도 실행합니다. `GET /health/database`로 DB 연결을 확인할 수 있습니다. `docker compose down`은 컨테이너를 중지하며 저장 volume은 유지합니다. 운영 배포 구성은 [DEPLOYMENT.md](docs/operations/DEPLOYMENT.md)를 참고하세요.
+이 구성은 PostgreSQL과 Backend만 실행합니다. Frontend는 위 npm 개발 명령으로 별도 실행합니다. `GET /health/database`로 DB 연결을 확인할 수 있습니다. `docker compose down`은 컨테이너만 중지하며 고정 저장 volume은 유지합니다. 다른 PC와 데이터를 공유하려면 별도 운영 PostgreSQL이 필요하며 로컬 Docker DB는 GitHub에 업로드되지 않습니다. 운영 배포 구성은 [DEPLOYMENT.md](docs/operations/DEPLOYMENT.md)를 참고하세요.
 
 ## 검사
 
-확인 결과: 기존/회원/통합 테스트 22개 통과, 기본 검사에서 실제 YOLO smoke 1개 제외. 격리된 PostgreSQL에서 통합+실제 YOLO 업로드 7개 통과, migration/음식 적재 성공, React production build 및 pip check 성공. 브라우저 PC/모바일에서 가입→프로필 저장→이름 수정→새로고침→로그아웃/재로그인 후 저장값 복원 확인, JS 오류 및 가로 넘침 없음. 음식 정확도 성능 평가는 별도입니다. 테스트용 연령·동의·추천 설정은 운영 설정에 반영하지 않았습니다. [화면과 검증 상세](docs/UI_VALIDATION.md)를 참고하세요.
+2026-10-07 업로드 전 확인: Backend 테스트 62개 통과·기본 검사에서 실제 YOLO smoke 1개 제외, 격리된 PostgreSQL+실제 YOLO 통합 테스트 9개 통과, React production build·pip check 성공. 임시 두 클론에서 비공개 DB·OAuth·SMTP 설정과 비밀키 재사용 확인, 기존 로컬 계정·비밀번호 해시·OAuth 식별자 및 프로필·식단 건수 유지 확인, 비공개 DB archive 생성·목록 검사 완료. 실제 Gmail 발송은 발신 계정 설정 후 검증이 필요하며 Google 실계정 인증 검증은 별도입니다. 음식 정확도 평가는 포함하지 않습니다. 이전 브라우저 검증 기록은 [화면과 검증 상세](docs/UI_VALIDATION.md)를 참고하세요.
 
 ```powershell
 .\.venv-backend\Scripts\python.exe -m pytest backend/tests -q

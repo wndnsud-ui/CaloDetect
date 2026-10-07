@@ -5,6 +5,8 @@ __pycache__/
 .upload-repo/
 .env
 .env.*
+.local/
+.calodetect-local/
 .streamlit/secrets.toml
 .venv-backend/
 node_modules/

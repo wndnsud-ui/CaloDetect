@@ -6,6 +6,7 @@ import Dashboard from './DailyHome';
 import PhotoInput from './PhotoInput';
 import SocialLogin from './SocialLogin';
 import EmailAuthForm from './EmailAuthForm';
+import {PasswordForm, takeResetToken} from './PasswordTools';
 import ScanResult from './ScanResult';
 import NutritionSummary from './NutritionSummary';
 import GoalSetup from './GoalSetup';
@@ -29,6 +30,7 @@ const meals = {breakfast:'아침',lunch:'점심',dinner:'저녁',snack:'간식'}
 function Nutrition({data}) {return <NutritionSummary data={data}/>}
 
 export default function App({initialPage='홈',onHomepage,onPageChange}) {
+  const [resetToken, setResetToken] = useState(takeResetToken);
   const [authLoading,setAuthLoading] = useState(true);
   const [page,setPage] = useState(initialPage==='회원가입'?'로그인':initialPage), [user,setUser] = useState(null), [policy,setPolicy] = useState(null);
   const [foods,setFoods] = useState([]), [today,setToday] = useState(null), [history,setHistory] = useState([]);
@@ -55,7 +57,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     async function restoreSession(){
       try {
         const d=await api('/users/me');if(!active)return;
-        setUser(d.user);setPage(current=>current==='로그인'?'홈':current);
+        setUser(d.user);if(!resetToken)setPage(current=>current==='로그인'?'홈':current);
         try {await loadAccount();} catch(e){if(active)setError(e.message);}
       } catch(e){if(active&&e.status!==401)setError(e.message);}
       finally {if(active)setAuthLoading(false);}
@@ -82,7 +84,10 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   async function generate(){await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,exclude_foods:exclude})))}
   async function recordRecommended(item){await run(async()=>{const saved=await api('/meals',{meal_type:mealType,recommendation_id:recommendation.id,items:[{class_id:item.class_id,serving_multiplier:1,detection_id:null}]});setRecommendation(null);await showSavedMeal(saved,'추천 메뉴를 식단으로 저장했습니다.')})}
   async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setPage('홈')})}
-  const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} onSubmit={authenticate}/>;
+  function passwordChanged(text){csrf='';setResetToken(null);setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setConsent(false);setSignup(false);setPage('로그인');setError('');setMessage(text);}
+  const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} onSubmit={authenticate} api={api}/>;
+  if(resetToken&&!authLoading)return <div className="shell integrated-app"><main><PasswordForm api={api} token={resetToken}
+    onChanged={passwordChanged} onCancel={()=>{setResetToken(null);setSignup(false);setPage('로그인');}}/></main></div>;
   if(authLoading)return <div className="shell integrated-app"><main><p className="notice" role="status">로그인 상태를 확인하고 있습니다…</p></main></div>;
   return <div className="shell integrated-app"><aside><Brand onClick={onHomepage}/><p className="aside-caption">식사 기록에서 다음 선택까지.</p><nav aria-label="웹앱 메뉴">{['홈','음식 추가','목표 설정','식사 추천','식단 분석','히스토리','마이페이지'].map(p=><button key={p} className={page===p?'active':''} aria-current={page===p?'page':undefined} onClick={()=>navigate(p)}><MenuIcon page={p}/>{p}</button>)}</nav><div className="aside-bottom">{user?user.name:'나의 식단과 영양을 기록하세요.'}{user&&<button className="text-button" onClick={logout} disabled={busy}>로그아웃</button>}<p>Asia/Seoul · 칼로디텍트</p><button className="text-button" onClick={onHomepage}>홈페이지 ↗</button></div></aside><main><header><span>{user?`${user.name}님의 식단 기록`:'오늘 뭘 먹지? 데이터로 확인하세요.'}</span><button className="text-button" onClick={()=>navigate(user?'마이페이지':'로그인')}>{user?'내 계정':'로그인 / 회원가입'}</button></header>{error&&<div className="error" role="alert">{error}</div>}{message&&<div className="notice" role="status">{message}</div>}{busy&&<p role="status" className="muted">처리 중입니다. 사진 분석은 잠시 시간이 걸릴 수 있습니다.</p>}
     {page==='홈'&&<Dashboard user={user} today={today} api={api} onNavigate={navigate} onAddMeal={type=>{setMealType(type);navigate('음식 추가')}}/>}
@@ -94,6 +99,8 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='식단 분석'&&user&&<MealAnalytics api={api}/>}
     {page==='히스토리'&&user&&<MealHistory history={history} onAdd={()=>navigate('음식 추가')}/>}
     {page==='마이페이지'&&user&&<AccountInfo user={user} profile={profile} busy={busy} onGoals={()=>navigate('목표 설정')} onUpdate={name=>run(async()=>{const d=await api('/users/me',{name},'PUT');setUser(d.user);setMessage('회원정보를 수정했습니다.');})}/>}
+    {page==='마이페이지'&&user&&(user.password_login_enabled ? <PasswordForm api={api} onChanged={passwordChanged}/>
+      : <section className="panel"><h2>비밀번호 관리</h2><p className="muted">Google 계정의 비밀번호는 Google 계정 설정에서 변경해 주세요.</p></section>)}
     {page==='마이페이지'&&user&&<section className="panel"><h1>{user.name}님의 계정</h1><p>{user.email}</p><h2>모델 개선 활용 동의</h2><p className="notice">{policy?.model_improvement_consent_text||'동의 문구 확정 후 선택 동의를 활성화합니다.'}</p><p className="muted">선택 동의입니다. 동의한 사진의 음식 수정 이력은 관리자 QA 후 모델 개선 후보로 검토됩니다. 동의 철회 시 대기 샘플은 제외되며 식단 기록은 유지됩니다. 이미 승인된 데이터의 운영 처리 정책은 확정 전입니다.</p><label className="check"><input type="checkbox" checked={consent} disabled={busy||(!policy?.model_improvement_consent_text&&!consent)} onChange={e=>{const checked=e.target.checked;run(async()=>{await api('/users/me/consent',{model_improvement_consent:checked},'PUT');setConsent(checked);setMessage('동의 상태가 변경되었습니다.')})}}/>모델 개선에 업로드 이미지를 활용하는 데 동의</label><button className="primary" onClick={()=>navigate('목표 설정')}>목표 수정하기</button></section>}
     <footer>CaloDetect<span>영양 정보 확인과 식단 기록을 돕습니다. 의료 진단을 제공하지 않습니다.</span></footer>
   </main></div>

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import jwt
 import pytest
+from urllib.parse import parse_qs, urlparse
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
@@ -13,7 +14,13 @@ from backend.app.accounts import COOKIE, database
 from backend.app.config import settings
 from backend.app.main import app
 from backend.app.models import AuthSession, Base, User, utcnow
-from backend.app.social_auth import KEYS, cookie_name
+from backend.app.social_auth import (
+    GOOGLE_SIGNUP_COOKIE,
+    GOOGLE_STATE_COOKIE,
+    KEYS,
+    cookie_name,
+)
+from backend.app import social_auth
 
 
 @pytest.fixture(scope='module')
@@ -24,10 +31,13 @@ def signing_key():
 @pytest.fixture
 def social(monkeypatch, signing_key):
     monkeypatch.setattr(settings, 'local_test_signup', False)
+    monkeypatch.setattr(settings, 'app_env', 'development')
     monkeypatch.setattr(settings, 'age_min', 18)
     monkeypatch.setattr(settings, 'service_consent_text', 'TEST ONLY CONSENT')
     monkeypatch.setattr(settings, 'oauth_state_secret', 'test-only-secret-with-more-than-32-characters')
     monkeypatch.setattr(settings, 'google_client_id', 'test-google-client')
+    monkeypatch.setattr(settings, 'google_client_secret', 'test-google-secret')
+    monkeypatch.setattr(settings, 'google_redirect_uri', 'http://localhost:8000/api/auth/google/callback')
     monkeypatch.setattr(settings, 'apple_client_id', 'test-apple-client')
     monkeypatch.setattr(settings, 'apple_redirect_uri', 'https://example.com/login')
     for client in KEYS.values():
@@ -150,6 +160,19 @@ def test_provider_settings_and_consent_gate(social, signing_key, monkeypatch):
     assert config['apple']['enabled'] is False
     assert client.post('/auth/social/google/challenge', json={}).status_code == 503
     monkeypatch.setattr(settings, 'oauth_state_secret', 'test-only-secret-with-more-than-32-characters')
+    assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is True
+    monkeypatch.setattr(settings, 'google_client_secret', None)
+    assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is False
+    monkeypatch.setattr(settings, 'google_client_secret', 'test-google-secret')
+    monkeypatch.setattr(settings, 'app_env', 'production')
+    monkeypatch.setattr(settings, 'google_redirect_uri', 'https://api.example.com/api/auth/google/callback')
+    monkeypatch.setattr(settings, 'frontend_origin', 'https://app.example.com')
+    assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is False
+    monkeypatch.setattr(settings, 'cookie_secure', True)
+    assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is True
+    monkeypatch.setattr(settings, 'app_env', 'development')
+    monkeypatch.setattr(settings, 'cookie_secure', False)
+    monkeypatch.setattr(settings, 'google_redirect_uri', 'http://localhost:8000/api/auth/google/callback')
     monkeypatch.setattr(settings, 'apple_redirect_uri', 'http://localhost/login')
     assert client.get('/auth/social/policy').json()['apple']['enabled'] is False
     monkeypatch.setattr(settings, 'service_consent_text', None)
@@ -157,3 +180,131 @@ def test_provider_settings_and_consent_gate(social, signing_key, monkeypatch):
     assert client.post('/auth/social/google/complete', json=enrollment(body)).status_code == 503
     with Session(engine) as db:
         assert db.scalar(select(User)) is None
+
+
+def test_google_authorization_code_login_redirect_uses_state_nonce_and_pkce(social):
+    client, _ = social
+    response = client.get('/auth/google/login', follow_redirects=False)
+    assert response.status_code == 307
+    location = urlparse(response.headers['location'])
+    params = parse_qs(location.query)
+    assert location.netloc == 'accounts.google.com'
+    assert params['redirect_uri'] == ['http://localhost:8000/api/auth/google/callback']
+    assert params['response_type'] == ['code']
+    assert params['scope'] == ['openid email profile']
+    assert params['code_challenge_method'] == ['S256']
+    assert GOOGLE_STATE_COOKIE in client.cookies
+    assert 'HttpOnly' in response.headers['set-cookie']
+    pending = jwt.decode(client.cookies.get(GOOGLE_STATE_COOKIE),
+                         settings.oauth_state_secret, algorithms=['HS256'])
+    assert params['state'] == [pending['state']]
+    assert params['nonce'] == [pending['nonce']]
+
+
+def test_google_authorization_code_signup_and_existing_user_login(social, signing_key, monkeypatch):
+    client, engine = social
+    captured = {}
+
+    class TokenResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {'id_token': captured['id_token']}
+
+    class TokenClient:
+        def __init__(self, timeout):
+            assert timeout == 10
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, url, data):
+            captured['url'] = url
+            captured['data'] = data
+            return TokenResponse()
+
+    monkeypatch.setattr(social_auth.httpx, 'AsyncClient', TokenClient)
+    monkeypatch.setattr(KEYS['google'], 'get_signing_key_from_jwt',
+                        lambda token: SimpleNamespace(key=signing_key.public_key()))
+
+    def callback():
+        start = client.get('/auth/google/login', follow_redirects=False)
+        pending = jwt.decode(client.cookies.get(GOOGLE_STATE_COOKIE),
+                             settings.oauth_state_secret, algorithms=['HS256'])
+        captured['id_token'] = jwt.encode({
+            'iss': 'https://accounts.google.com', 'aud': 'test-google-client',
+            'sub': 'google-subject', 'iat': utcnow(), 'exp': utcnow() + timedelta(minutes=5),
+            'nonce': pending['nonce'], 'email': 'google@example.com',
+            'email_verified': True, 'name': 'Google User',
+        }, signing_key, algorithm='RS256', headers={'kid': 'test-key'})
+        return client.get('/api/auth/google/callback', params={
+            'code': 'authorization-code', 'state': pending['state'],
+        }, follow_redirects=False)
+
+    response = callback()
+    assert response.status_code == 303
+    assert response.headers['location'] == f'{settings.frontend_origin}/?social_signup=google'
+    assert GOOGLE_SIGNUP_COOKIE in client.cookies
+    assert 'google@example.com' not in client.cookies.get(GOOGLE_SIGNUP_COOKIE)
+    assert captured['url'] == social_auth.GOOGLE_TOKEN_ENDPOINT
+    assert captured['data']['code_verifier']
+    assert 'client_secret' in captured['data']
+    pending = client.get('/auth/social/google/pending')
+    assert pending.status_code == 200
+    assert pending.json()['email'] == 'google@example.com'
+    assert pending.json()['name'] == 'Google User'
+
+    registration = {
+        'name': 'Google User', 'age': 25, 'service_consent': True,
+        'consent_text': 'TEST ONLY CONSENT',
+    }
+    assert client.post('/auth/social/google/register', json={**registration, 'age': 17}).status_code == 422
+    assert client.post('/auth/social/google/register',
+                       json={**registration, 'service_consent': False}).status_code == 422
+    assert client.post('/auth/social/google/register',
+                       json={**registration, 'consent_text': 'outdated'}).status_code == 422
+    signup = client.post('/auth/social/google/register', json=registration)
+    assert signup.status_code == 200
+    assert signup.json()['user']['role'] == 'user'
+    assert GOOGLE_SIGNUP_COOKIE not in client.cookies
+    with Session(engine) as db:
+        user = db.scalar(select(User))
+        assert user.oauth_provider == 'google'
+        assert user.oauth_subject == 'google-subject'
+
+    client.cookies.clear()
+    response = callback()
+    assert response.status_code == 303
+    assert response.headers['location'] == f'{settings.frontend_origin}/?social_success=google'
+    assert client.get('/users/me').status_code == 200
+
+
+def test_google_authorization_code_rejects_bad_state_and_redirect_uri(social, monkeypatch):
+    client, _ = social
+    start = client.get('/auth/google/login', follow_redirects=False)
+    assert start.status_code == 307
+    response = client.get('/api/auth/google/callback', params={
+        'code': 'authorization-code', 'state': 'wrong-state',
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers['location'].endswith('?social_error=google_auth_failed')
+    assert GOOGLE_STATE_COOKIE not in client.cookies
+
+    monkeypatch.setattr(settings, 'google_redirect_uri', 'http://attacker.example/api/auth/google/callback')
+    assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is False
+
+
+def test_google_signup_cookie_rejects_modified_ciphertext(social):
+    import base64
+    client, _ = social
+    encoded = social_auth.seal_google_signup({'provider':'google', 'sub':'test',
+        'email':'test@example.com', 'exp':int(social_auth.time.time()) + 300})
+    raw = bytearray(base64.urlsafe_b64decode(encoded + '=' * (-len(encoded) % 4)))
+    raw[-1] ^= 1
+    client.cookies.set(GOOGLE_SIGNUP_COOKIE, base64.urlsafe_b64encode(raw).decode().rstrip('='))
+    response = client.get('/auth/social/google/pending')
+    assert response.status_code == 401

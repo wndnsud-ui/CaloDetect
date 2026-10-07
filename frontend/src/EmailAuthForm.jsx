@@ -1,7 +1,8 @@
 import React from 'react';
+import {ForgotPassword} from './PasswordTools';
 
-export default function EmailAuthForm({signup, policy, busy, onSubmit}) {
-  return <form key={signup ? 'signup' : 'login'} className="panel auth-panel" onSubmit={onSubmit}>
+export default function EmailAuthForm({signup, policy, busy, onSubmit, api}) {
+  return <><form key={signup ? 'signup' : 'login'} className="panel auth-panel" onSubmit={onSubmit}>
     <h3>{signup ? '이메일로 회원가입' : '이메일로 로그인'}</h3>
     {signup && policy?.local_test_mode && <p className="notice" role="status">로컬 테스트 가입이 활성화되었습니다. 테스트용 이름과 이메일로 가입해 주세요.</p>}
     <fieldset disabled={busy} className="auth-fields">
@@ -23,5 +24,5 @@ export default function EmailAuthForm({signup, policy, busy, onSubmit}) {
     {signup && policy && !policy.signup_enabled && <p className="muted" role="status">
       가입 동의 내용이 아직 준비되지 않아 신규 회원가입을 진행할 수 없습니다. 기존 회원은 로그인 탭을 이용해 주세요.
     </p>}
-  </form>;
+  </form>{!signup && <ForgotPassword api={api} enabled={policy?.password_reset_enabled} disabled={busy}/>}</>;
 }

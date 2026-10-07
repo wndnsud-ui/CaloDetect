@@ -2,6 +2,8 @@
 
 ## 2026-10-07
 
+- 항목: 기존 클론 팀원용 업데이트 간편 가이드. 사용자 요청으로 CaloDetect_업데이트_간편가이드.md 추가. 기존 폴더에서 변경분 pull → Backend 패키지·DB 준비 → 터미널 A/B 재실행, 자동 루트 탐색·로컬 변경 보호·임시 보관·오류 처리·기존 DB 보존 안내. README에 진입 링크 추가. 실행 코드와 DB·Master Spec 변경 없음.
+
 - 항목: develop 업로드 전 보존 검토와 업데이트 안내. 사용자 요청으로 변경 파일을 기능별로 README에 정리하고 Git 변경분 업데이트·독립 이미지 선택 다운로드·인증 묶음 의존성을 설명. 같은 PC 재클론은 고정 DB volume과 비공개 개인 설정을 재사용하며 다른 PC는 DB·설정·사진의 비공개 이전이 필요함을 명시. setup_local.ps1에 DB를 건드리지 않는 SettingsOnly 옵션·재설정 키 준비 추가, private DB backup script 추가, 임시 클론을 통한 설정 재사용 회귀 검사 추가. 검토 중 변조 Google 가입 쿠키의 InvalidTag를 401로 처리하는 오류 수정. 원본 Master Spec·모델·데이터·DB schema 보존; 개인 DB와 secret은 업로드 제외.
 - 검증: Backend 62개 통과·YOLO smoke 1개 기본 제외, 실제 PostgreSQL+YOLO 통합 9개 통과, React production build·pip check 성공. 기존 회원 3명(테스트 계정 및 Google 계정 1명 포함)의 비밀번호 해시·OAuth 식별자·프로필/식단 건수 변화 없음. 개인 설정과 DB archive는 `%LOCALAPPDATA%\CaloDetect`에 비공개 보관. 사용자 지시로 이번 변경을 develop에 업로드하며 main은 변경하지 않음.
 

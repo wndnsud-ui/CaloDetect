@@ -3,16 +3,25 @@
 **기존에 `git clone`으로 받은 폴더에서 진행합니다. 새로 클론하거나 폴더를 지울 필요가 없습니다.**
 Git이 바뀐 코드만 받아 기존 파일을 업데이트합니다. 기존 `.env`·가상환경·회원 DB는 재사용합니다.
 
+## 먼저 GitHub에서 최신 파일 확인하기
+
+1. [CaloDetect GitHub develop 브랜치](https://github.com/wndnsud-ui/CaloDetect/tree/develop)를 엽니다.
+2. 파일 목록 위 왼쪽 브랜치 선택란이 **develop**인지 확인합니다.
+3. 파일 목록의 **CaloDetect_업데이트_간편가이드.md**를 눌러 **GitHub에 올라온 최신 안내**를 읽습니다. 기존 PC의 안내 파일은 업데이트 전까지 예전 내용일 수 있습니다.
+4. 아래 순서대로 기존 클론 폴더에서 `git pull`을 실행합니다. 이 명령이 **GitHub에서 바뀐 파일을 받아 기존 폴더에 적용하는 단계**입니다.
+
+**이번에는 `Code → Download ZIP`이나 `git clone`을 다시 실행하지 않습니다.** 기존 클론에 변경분만 받으므로 GitHub에서 파일을 하나씩 다운로드해 붙여넣을 필요가 없습니다.
+
 ## 1. 실행 중인 서버 끄고 프로젝트 열기
 
 1. Backend와 Frontend가 실행 중인 터미널에서 각각 **Ctrl+C**를 누릅니다.
 2. **Docker Desktop을 켭니다.**
-3. VS Code에서 기존 **CaloDetect 폴더**를 엽니다.
+3. VS Code에서 **파일 → 폴더 열기**를 눌러 처음 클론했던 **CaloDetect 폴더**를 선택합니다. `README.md`, `backend`, `frontend`가 보이는 폴더입니다.
 4. **터미널 → 새 터미널 → PowerShell**을 선택합니다. 프롬프트가 `PS ...>`인지 확인하세요.
 
 아래 코드는 **PowerShell 전용**입니다. 각 블록 전체를 복사해 붙여넣고, 마지막 명령이 실행되지 않으면 Enter를 누르세요.
 
-## 2. 터미널 A — 업데이트하고 Backend 실행
+## 2. GitHub에서 바뀐 파일 받기 — 기존 폴더에 업데이트
 
 **아래 블록 전체를 복사해서 실행하세요.** 프로젝트 안에 열린 터미널이면 `frontend` 폴더에 있어도 루트를 자동으로 찾습니다.
 
@@ -31,8 +40,22 @@ if ($localChanges) {
 
 git switch develop
 if ($LASTEXITCODE -ne 0) { throw 'develop 전환 실패. 팀 리드에게 오류를 전달하세요.' }
+# GitHub origin/develop에서 최신 변경분을 내려받아 현재 폴더에 적용합니다.
 git pull --ff-only origin develop
 if ($LASTEXITCODE -ne 0) { throw '업데이트 실패. 다음 단계로 넘어가지 마세요.' }
+git log -1 --oneline
+```
+
+`Updating ...`, `Fast-forward`, 변경 파일 목록이 나오면 **다운로드·적용 완료**입니다. `Already up to date`는 이미 최신이라는 뜻입니다. 마지막 줄에 최신 커밋이 표시되고, VS Code의 파일도 새 내용으로 바뀝니다. 오류가 나오면 아래 오류 안내를 확인하고 다음 단계로 넘어가지 않습니다.
+
+## 3. 같은 터미널 A — Backend 실행
+
+**2번 업데이트가 끝난 뒤 아래 블록 전체를 같은 터미널에 붙여넣습니다.**
+
+```powershell
+$projectRoot = git rev-parse --show-toplevel
+if ($LASTEXITCODE -ne 0) { throw '기존 CaloDetect 폴더 안에서 실행하세요.' }
+Set-Location -LiteralPath $projectRoot
 
 .\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 if ($LASTEXITCODE -ne 0) { throw 'Backend 패키지 갱신 실패' }
@@ -45,7 +68,7 @@ $env:FRONTEND_ORIGIN='http://localhost:5174'
 
 **`Application startup complete`가 나오면 성공입니다. 터미널 A는 켜 둡니다.**
 
-## 3. 새 터미널 B — Frontend 실행
+## 4. 새 터미널 B — Frontend 실행
 
 VS Code의 **터미널 → 새 터미널**을 눌러 PowerShell 창을 하나 더 엽니다.
 **아래 블록 전체를 복사해서 실행하세요.**
@@ -64,7 +87,7 @@ npm.cmd run dev -- --host localhost --port 5174
 브라우저에서 **http://localhost:5174**를 엽니다. 화면이 이전과 같으면 **Ctrl+F5**로 새로고침합니다.
 **기존에 가입한 계정으로 로그인하세요.** 테스트 계정은 `test@calodetect.local` / `CaloTest!2026`입니다. 이미 테스트 비밀번호를 변경했다면 변경한 비밀번호를 사용하세요.
 
-## 4. 이번 업데이트에서 달라진 기능
+## 5. 이번 업데이트에서 달라진 기능
 
 - 소셜 로그인은 **Google만 제공**합니다. Apple 버튼을 제거했습니다.
 - 이메일 로그인에 **비밀번호 찾기**, 마이페이지에 **비밀번호 변경**을 추가했습니다.
@@ -74,7 +97,7 @@ npm.cmd run dev -- --host localhost --port 5174
 
 전체 변경 파일 목록은 [README](README.md#이번-변경-파일-목록)에 있습니다. 인증 화면·API·설정은 서로 연결되어 있으므로 개별 파일을 골라 복사하지 말고 위 `git pull`로 함께 업데이트하세요.
 
-## 5. 막히면 여기만 확인하세요
+## 6. 막히면 여기만 확인하세요
 
 | 메시지 / 증상 | 처리 방법 |
 |---|---|

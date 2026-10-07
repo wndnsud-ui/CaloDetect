@@ -2,8 +2,12 @@ import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
 import {Ring, Bowl, MenuIcon} from './Visuals';
 import './dashboard.css';
+import {Jibangi} from './Jibangi';
+import {progress} from './engagement';
 
-export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api}) {
+export default function DailyHome({user,history=[],joined=[],today:liveToday,onNavigate,onAddMeal,api}) {
+ const growth=progress(history,joined);
+ const outfit=['basic','ribbon','sport','crown'][growth.level-1];
  const [showTip,setShowTip]=useState(true);
  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
  const part=key=>parts.find(p=>p.type===key).value;
@@ -33,9 +37,10 @@ export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api
   <div className="daily-body">
    <div className="daily-date-controls"><label>식단 날짜 <input type="date" value={selectedDate} onChange={e=>{if(e.target.value)setSelectedDate(e.target.value)}}/></label>{selectedDate!==todayDate&&<button className="text-button" onClick={()=>setSelectedDate(todayDate)}>오늘로 돌아가기 →</button>}</div>
    {error?<div role="alert"><p className="error">{error}</p><button className="text-button" onClick={()=>setRetry(n=>n+1)}>다시 불러오기</button></div>:!today&&user?<p role="status">{selectedDate} 식단과 사진을 불러오고 있습니다…</p>:today&&today.meals.length===0?<p className="muted">{selectedDate}에 기록된 식단이 없습니다.</p>:null}
-   {showTip&&<section className="daily-record-card"><button className="daily-dismiss" aria-label="식단 기록 안내 닫기" onClick={()=>setShowTip(false)}>×</button><div className="daily-record-copy"><p className="daily-kicker">매일 조금씩, 더 건강하게</p><h2>{user?`${user.name}님,`:'오늘도,'}<br/>오늘의 한 끼를 기록해 보세요</h2><span className="daily-soft-pill">사진 한 장으로 간편하게 기록해요</span></div><div className="daily-bowl" aria-hidden="true"><Bowl/></div><button className="primary" onClick={()=>onNavigate('음식 추가')}>지금 기록할게요 <span>＋</span></button></section>}
+   {showTip&&<section className="daily-record-card"><button className="daily-dismiss" aria-label="식단 기록 안내 닫기" onClick={()=>setShowTip(false)}>×</button><div className="daily-record-copy"><p className="daily-kicker">매일 조금씩, 더 건강하게</p><h2>{user?`${user.name}님,`:'오늘도,'}<br/>오늘의 한 끼를 기록해 보세요</h2><span className="daily-soft-pill">사진 한 장으로 간편하게 기록해요</span></div><div className="daily-bowl" aria-hidden="true"><Jibangi outfit={outfit}/></div><button className="primary" onClick={()=>onNavigate('음식 추가')}>지금 기록할게요 <span>＋</span></button></section>}
    <section className="panel daily-food-card"><div className="section-heading"><h2>{selectedDate===todayDate?'오늘의 식단':`${selectedDate} 식단`}</h2><button className="text-button" onClick={()=>onNavigate('히스토리')}>기록 보기 →</button></div><div className="daily-calories"><strong>{value('cal')}</strong><span>kcal</span><small>{today?`${today.meals.length}끼 기록`:user?'불러오는 중':'로그인 후 기록'}</small></div><div className="daily-macros">{[['carbs','탄수화물'],['protein','단백질'],['fat','지방']].map(([k,label])=><span key={k}><i className={`macro-dot ${k}`}/>{label} <b>{value(k)} g</b></span>)}</div><SavedMeals meals={today?.meals||[]} onNavigate={selectedDate===todayDate?onNavigate:undefined} onAddMeal={onAddMeal}/></section>
    <div className="daily-detail-grid"><section className="panel daily-energy"><div className="section-heading"><h2>하루 칼로리</h2><button className="text-button" onClick={()=>onNavigate('목표 설정')}>목표 설정 →</button></div><Ring value={today?.totals.cal||0} target={today?.target_calories}/><p className="muted">{!user?'로그인하면 실제 식단 기록을 확인할 수 있어요.':today?.message||'식단 기록을 불러오고 있습니다.'}</p></section><section className="panel daily-more"><h2>함께 확인해요</h2><div className="daily-extra">{[['sugar','당류','g'],['sodium','나트륨','mg']].map(([k,label,unit])=><div key={k}><span>{label}</span><strong>{value(k)} <small>{unit}</small></strong></div>)}</div><p className="muted">기록한 섭취량 · 영양소별 목표는 미설정</p><button className="daily-recommend" onClick={()=>onNavigate('식사 추천')}>다음 한 끼, 무엇을 먹을까요? <span>→</span></button><button className="text-button" onClick={()=>onNavigate('식단 분석')}>내 식단 분석 보기 →</button></section></div>
+   <button className="companion-link" onClick={()=>onNavigate('내 지방이')}><Jibangi outfit={outfit}/><div><strong>나의 작은 친구, 지방이</strong><small>Lv. {growth.level} · {growth.points} P · 기록할수록 성장해요</small></div><span aria-hidden="true">→</span></button>
   </div>
  </div>;
 }

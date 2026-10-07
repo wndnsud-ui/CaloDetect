@@ -16,6 +16,36 @@ class Base(DeclarativeBase):
     pass
 
 
+class CommunityPost(Base):
+    __tablename__ = 'community_posts'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    text: Mapped[str] = mapped_column(String(4000))
+    category: Mapped[str] = mapped_column(String(20))
+    visibility: Mapped[str] = mapped_column(String(20), default='private')
+    image_name: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    __table_args__ = (CheckConstraint("visibility IN ('private', 'public')"),)
+
+
+class CommunityReaction(Base):
+    __tablename__ = 'community_reactions'
+    post_id: Mapped[str] = mapped_column(ForeignKey('community_posts.id', ondelete='CASCADE'), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), primary_key=True)
+    __table_args__ = (CheckConstraint("kind IN ('like', 'recommend')"),)
+
+
+class CommunityComment(Base):
+    __tablename__ = 'community_comments'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    post_id: Mapped[str] = mapped_column(ForeignKey('community_posts.id', ondelete='CASCADE'), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    text: Mapped[str] = mapped_column(String(1000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class User(Base):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

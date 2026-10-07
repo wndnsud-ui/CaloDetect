@@ -13,6 +13,7 @@ from .accounts import router as accounts_router
 from .api import router as meal_router
 from .social_auth import router as social_router
 from .passwords import router as passwords_router
+from .community import router as community_router
 from sqlalchemy.exc import SQLAlchemyError
 
 app = FastAPI(title='CaloDetect API', version='0.1.0')
@@ -20,6 +21,7 @@ app.include_router(accounts_router)
 app.include_router(meal_router)
 app.include_router(social_router)
 app.include_router(passwords_router)
+app.include_router(community_router)
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
                    allow_credentials=True, allow_methods=['GET', 'POST', 'PUT'],
                    allow_headers=['Content-Type', 'X-CSRF-Token', 'Authorization'])

@@ -382,11 +382,12 @@ def complete(provider: Provider, body: SocialCompletion, request: Request, respo
             response.headers['Cache-Control'] = 'no-store'
             return {'registration_required': True, 'email': email,
                     'name': str(claims.get('name', ''))[:80]}
-        if settings.age_min is None or not settings.service_consent_text:
-            raise HTTPException(503, '소셜 회원가입은 확정된 서비스 이용·개인정보 동의 문구 설정 후 가능합니다.')
+        current_policy = policy(request)
+        if not current_policy['signup_enabled']:
+            raise HTTPException(503, current_policy['notice'])
         if body.age < settings.age_min:
             raise HTTPException(422, f'만 {settings.age_min}세 이상만 가입할 수 있습니다.')
-        if not body.service_consent or body.consent_text != settings.service_consent_text:
+        if not body.service_consent or body.consent_text != current_policy['service_consent_text']:
             raise HTTPException(422, '현재 서비스 이용·개인정보 동의 내용을 확인하세요.')
         try:
             name = Signup.valid_name(body.name)

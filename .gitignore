@@ -15,4 +15,6 @@ dist/
 .runtime-logs/
 .private-uploads/
 .tmp-ui-check/
+**/test-results/
+**/playwright-report/
 !.env.example

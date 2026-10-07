@@ -1,6 +1,11 @@
 import React, {useId} from 'react';
 export function MenuIcon({page}) {
   const shapes = {
+    '내 지방이': <><circle cx="12" cy="14" r="8"/><path d="M12 6q-5-7-7-3 2 4 7 3Zm0 0q6-7 7-3-2 4-7 3ZM8 13h.1M16 13h.1M10 16q2 2 4 0"/></>,
+    '챌린지': <><path d="M7 3h10v8a5 5 0 0 1-10 0ZM7 5H3v3q0 5 5 5M17 5h4v3q0 5-5 5M12 16v5M8 21h8"/></>,
+    '코치 추천': <><circle cx="9" cy="7" r="3"/><path d="M3 21v-4a6 6 0 0 1 12 0v4M17 4h5v8h-5l-3 3v-3"/></>,
+    '운동·활동': <><circle cx="15" cy="4" r="2"/><path d="m8 9 4-2 4 4h5M12 7l-2 7 5 3v5M10 14l-5 7M4 10h4"/></>,
+    '커뮤니티': <><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M17 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 4 5v2"/></>,
     '홈': <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></>,
     '음식 추가': <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h5M12 15v4M10 17h4"/></>,
     '목표 설정': <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></>,

@@ -18,7 +18,7 @@ const googleErrors = {
   google_unavailable: 'Google 로그인을 사용할 수 없습니다. 설정을 확인한 뒤 다시 시도해 주세요.',
 };
 
-export default function SocialLogin({api, policy, onAuthenticated, disabled, signup = false}) {
+export default function SocialLogin({api, policy, onAuthenticated, disabled, signup = false, compact=false}) {
   const googleButton = useRef(null), active = useRef(false);
   const [providers, setProviders] = useState(null), [googleReady, setGoogleReady] = useState(false);
   const [working, setWorking] = useState(false), [error, setError] = useState('');
@@ -121,7 +121,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
       {providers?.google.authorization_code_enabled
         ? <button type="button" className="social-button google-login-button" disabled={locked}
             onClick={()=>window.location.assign('/api/auth/google/login')}>
-            Google로 {signup ? '회원가입' : '로그인'}
+            {compact?'Google로 시작하기':`Google로 ${signup ? '회원가입' : '로그인'}`}
           </button>
         : <div ref={googleButton} className="google-login-button" hidden={!googleReady}
             inert={locked ? true : undefined}/>}

@@ -1,0 +1,13 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {Brand} from './Visuals';
+import {Jibangi} from './Jibangi';
+import SocialLogin from './SocialLogin';
+import EmailAuthForm from './EmailAuthForm';
+
+export default function AuthWelcome({signup,onMode,policy,busy,api,onSubmit,onAuthenticated,onHomepage,error}){
+ const dialog=useRef(null),[open,setOpen]=useState(false);
+ useEffect(()=>{const node=dialog.current;if(open&&!node.open){node.showModal();node.querySelector('input')?.focus();}else if(!open&&node.open)node.close();},[open]);
+ function close(){if(!busy)setOpen(false);}
+ function changeMode(value){onMode(value);setOpen(true);}
+ return <><section className="auth-welcome" aria-label="로그인 및 회원가입"><div className="auth-welcome-art"><Brand onClick={onHomepage}/><p>오늘도 건강한 한 끼,<br/>지방이와 함께해요</p><div className="auth-garden"><span className="garden-leaf leaf-left"/><span className="garden-leaf leaf-right"/><Jibangi pose="heart"/></div></div><div className="auth-welcome-actions"><SocialLogin compact signup={signup} api={api} policy={policy} disabled={busy} onAuthenticated={onAuthenticated}/><button className="email-start" onClick={()=>setOpen(true)} disabled={busy}><span aria-hidden="true">✉</span> 이메일로 시작하기</button><p className="auth-welcome-bottom">이미 계정이 있으신가요? <button className="text-button" onClick={()=>changeMode(false)}>로그인</button></p><p className="auth-age">만 {policy?.age_min||18}세 이상부터 이용할 수 있습니다.</p></div></section><dialog ref={dialog} className="email-auth-dialog" aria-labelledby="email-dialog-title" onCancel={e=>{if(busy)e.preventDefault();else setOpen(false);}} onClose={()=>setOpen(false)} onClick={e=>{if(e.target===dialog.current){const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)close();}}}><div className="email-dialog-content"><button className="email-dialog-close" aria-label="이메일 로그인 팝업 닫기" disabled={busy} onClick={close}>×</button><p className="eyebrow">WELCOME TO CALODETECT</p><h2 id="email-dialog-title">{signup?'이메일로 회원가입':'이메일로 로그인'}</h2><p className="muted">오늘의 한 끼를 함께 기록해요.</p><div className="segmented" role="group" aria-label="인증 방식"><button className={!signup?'selected':''} aria-pressed={!signup} disabled={busy} onClick={()=>onMode(false)}>로그인</button><button className={signup?'selected':''} aria-pressed={signup} disabled={busy} onClick={()=>onMode(true)}>회원가입</button></div>{error&&<p className="error" role="alert">{error}</p>}{busy&&<p role="status" className="muted">처리 중입니다…</p>}<EmailAuthForm signup={signup} policy={policy} busy={busy} onSubmit={onSubmit} api={api}/></div></dialog></>;
+}

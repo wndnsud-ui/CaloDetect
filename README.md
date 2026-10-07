@@ -2,6 +2,14 @@
 
 작업 전 [필수 적용 규칙](docs/rules/README.md)을 먼저 읽어 주세요.
 
+## 확장 화면 로컬 실험
+
+지방이 젤리 3D는 `frontend/public/models/character/jibang.glb`와 분리 아이템 GLB를 로딩합니다. 모델 재생성은 루트에서 `npm.cmd --prefix frontend run models:jibangi`를 실행합니다. [품질 개선·검증 기록](docs/planning/JIBANGI_JELLY_QUALITY.md)에 재질·애니메이션·최적화 및 실기기 성능 확인 범위를 정리했습니다.
+
+현재 작업 브랜치에서 웹앱의 내 지방이·챌린지·운동/활동·커뮤니티·코치 추천·메뉴판 분석 화면을 실험합니다. 홈페이지 메인 이미지는 보존합니다. 3D 지방이는 드래그·좌우 버튼으로 회전하고 정면 복귀·손 흔들기·일시정지를 제공합니다. 기록 기반 실험 포인트로 모습이 달라집니다. 챌린지 참여·꾸미기·활동·소셜 실험 데이터는 현재 브라우저에만 저장되며 서버 원장·회원 간 공유·실제 코치 상담과 구분합니다. 메뉴판 OCR은 첫 실행 시 언어 자료 다운로드가 필요합니다.
+
+전체 기능의 완료/미완료 기준은 [확장 구현 대조표](docs/planning/EXPANSION_IMPLEMENTATION_STATUS.md)를 참고하세요. 새 패키지를 받으려면 `frontend`에서 `npm.cmd ci` 후 평소대로 개발 서버를 실행합니다. 프런트엔드 빌드는 `npm.cmd run build`, UI 검증은 실행 중인 localhost:5174 서버에서 `npx.cmd playwright test --config playwright.config.js`로 수행합니다. 테스트용 Chromium이 없으면 `npx.cmd playwright install chromium`으로 설치하거나 `CALODETECT_TEST_BROWSER`에 이미 설치된 Chromium 실행 파일 경로를 지정합니다.
+
 ## 2026-10-07 develop 업데이트와 데이터 보존
 
 이미 설치·실행한 팀원은 [업데이트 간편 가이드](CaloDetect_업데이트_간편가이드.md)의 VS Code develop 선택·Pull 안내를 따라 변경분을 받으세요.
@@ -56,7 +64,7 @@ if ($LASTEXITCODE -ne 0) { throw '원격 조회 실패' }
 git diff --name-status HEAD origin/develop
 git pull --ff-only origin develop
 if ($LASTEXITCODE -ne 0) { throw '업데이트 실패. 로컬 변경과 브랜치 차이를 확인하세요.' }
-.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
+..\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt
 if ($LASTEXITCODE -ne 0) { throw 'Backend 의존성 설치 실패' }
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_local.ps1
 if ($LASTEXITCODE -ne 0) { throw '설정 또는 DB 준비 실패' }
@@ -185,13 +193,13 @@ Get-ChildItem -Name
 Set-Location 'C:\projects\CaloDetect'
 
 # 1. Python 가상환경 생성 및 패키지 설치
-if (-not (Test-Path .\.venv-backend)) {
+if (-not (Test-Path ..\.venv-backend)) {
     py -m venv .venv-backend
     if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
 }
-.\.venv-backend\Scripts\python.exe -m pip install --upgrade pip
+..\.venv-backend\Scripts\python.exe -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
-.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt -r backend/requirements-vision.txt
+..\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-dev.txt -r backend/requirements-vision.txt
 if ($LASTEXITCODE -ne 0) { throw '명령 실패. 오류를 해결한 뒤 해당 단계부터 다시 실행하세요.' }
 
 # 2. 같은 PC의 기존 .env와 DB volume 재사용·신규 설정·테스트 계정 준비
@@ -200,7 +208,7 @@ if ($LASTEXITCODE -ne 0) { throw '로컬 설정 또는 데이터베이스 준비
 
 # 5. 백엔드 서버 실행
 $env:FRONTEND_ORIGIN='http://localhost:5174'
-.\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host ::1 --port 8000
+..\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host ::1 --port 8000
 ```
 
 ---
@@ -234,7 +242,7 @@ Set-Location 'C:\projects\CaloDetect'
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_local.ps1
 if ($LASTEXITCODE -ne 0) { throw '로컬 설정 또는 데이터베이스 준비에 실패했습니다.' }
 $env:FRONTEND_ORIGIN='http://localhost:5174'
-.\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host ::1 --port 8000
+..\.venv-backend\Scripts\python.exe -m uvicorn backend.app.main:app --reload --host ::1 --port 8000
 ```
 
 #### 터미널 B (프런트엔드)
@@ -300,7 +308,7 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 로컬 사진 분석 테스트는 `APP_ENV=development`, `LOCAL_TEST_IMAGE_ANALYSIS=true`, `IMAGE_STORAGE_DIR=.private-uploads`로 활성화합니다. Backend를 재시작한 뒤 로그인 → 사진 선택 → **사진 분석하기**를 누릅니다. 테스트 원본 사진은 Git에서 제외된 `.private-uploads`에 저장되고 분석 결과는 개발 DB에 기록됩니다. 자동 삭제·보관기간은 아직 정하지 않았으므로 테스트 사진만 사용하며, 이 설정을 운영 정책으로 사용하지 않습니다. 루프백 접속에서만 테스트 분석·원본 조회를 허용합니다. 모델 개선 선택 동의와 관리자 QA 조건은 유지합니다. YOLO 첫 실행 안내는 JSON 결과와 분리하고 런타임 설정은 `.runtime-logs/ultralytics`에 저장합니다.
 
 ```powershell
-.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-vision.txt
+..\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-vision.txt
 ```
 
 분석 기준은 conf=0.11, iou=0.45, imgsz=960, CPU입니다. 파일명 대신 서버 UUID로 이미지를 구분하고 사용자별 이미지 권한을 검사합니다. 탐지되지 않거나 추론 오류가 나도 직접 음식 선택을 제공합니다.
@@ -311,7 +319,7 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 
 사용자 요청에 따라 [가입 동의 검토용 초안](docs/rules/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. Google 로그인은 공개 Web Client ID와 기존 ID 토큰 검증 흐름을 사용하므로 Client Secret을 새 클론마다 복사할 필요가 없습니다. OAuth state 서명키·DB 비밀번호는 비공개 `.env`를 같은 PC의 `%LOCALAPPDATA%\CaloDetect\local.env`에서 재사용하고, 운영 설정과 비밀은 GitHub에 올리지 않습니다. 승인된 로컬 동의와 만 나이를 확인하며 기존 이메일 계정과 자동 연결하지 않습니다. Google Cloud의 테스트 사용자 등록이 필요합니다.
 
-1. Backend 의존성을 설치합니다: `.\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements.txt`. 기본 Google GIS 흐름은 공개 Client ID와 Backend의 서명·발급자·대상 앱·만료·nonce 검증을 사용하며 Client Secret은 필요하지 않습니다. Secret이 비공개 `.env`에 설정된 환경은 Authorization Code + PKCE도 사용합니다. state/nonce와 신규 가입 정보는 5분짜리 HttpOnly 쿠키로 보호하며 이메일·이름·토큰을 URL에 싣지 않습니다.
+1. Backend 의존성을 설치합니다: `..\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements.txt`. 기본 Google GIS 흐름은 공개 Client ID와 Backend의 서명·발급자·대상 앱·만료·nonce 검증을 사용하며 Client Secret은 필요하지 않습니다. Secret이 비공개 `.env`에 설정된 환경은 Authorization Code + PKCE도 사용합니다. state/nonce와 신규 가입 정보는 5분짜리 HttpOnly 쿠키로 보호하며 이메일·이름·토큰을 URL에 싣지 않습니다.
 2. Google Cloud에서 웹용 OAuth 클라이언트를 만들고 승인된 JavaScript 원본에 `http://localhost:5174`를 등록합니다. Authorization Code 흐름을 쓸 경우 승인된 리디렉션 URI에 `http://localhost:8000/api/auth/google/callback`도 등록합니다. OAuth 동의 화면은 테스트용 사용자로 제한하고 실제 Google 계정을 테스트 사용자로 추가합니다. 공개 `GOOGLE_CLIENT_ID`는 `.env.example`에 포함되어 새 클론에서도 사용됩니다.
 3. `scripts/setup_local.ps1`이 `OAUTH_STATE_SECRET`과 PostgreSQL 접속 정보를 생성하고 `%LOCALAPPDATA%\CaloDetect\local.env`에 저장합니다. 새 클론도 같은 Windows 계정이면 이 설정을 재사용합니다. HTTPS 환경에서는 `COOKIE_SECURE=true`, `FRONTEND_ORIGIN`은 실제 웹앱 원본으로 설정합니다.
 4. 서버를 재시작하고 Google의 로그인·취소·신규 가입·재로그인을 확인합니다. 기본 API와 `/api` 프록시를 같은 웹앱 원본에서 사용합니다. Google 신규 가입은 서비스 동의와 만 나이 확인을 마친 후 완료되며, 기존 이메일 계정과 자동 연결하지 않습니다. 소셜 로그인은 프로필 인증만 요청하며 Google Drive·Calendar 또는 Apple Health 권한을 요청하지 않습니다.
@@ -343,7 +351,7 @@ PASSWORD_RESET_SECRET=32자이상의무작위서버비밀키
 최초 관리자는 A 담당이 내부 CLI로만 생성합니다. 공개 승격 API는 없습니다.
 
 ```powershell
-.\.venv-backend\Scripts\python.exe -m backend.scripts.create_admin --email admin@example.com --age 승인된연령
+..\.venv-backend\Scripts\python.exe -m backend.scripts.create_admin --email admin@example.com --age 승인된연령
 .\.venv\Scripts\python.exe -m streamlit run streamlit/admin_qa.py --server.port 8502
 ```
 
@@ -364,7 +372,7 @@ docker compose up --build -d
 2026-10-07 업로드 전 확인: Backend 테스트 62개 통과·기본 검사에서 실제 YOLO smoke 1개 제외, 격리된 PostgreSQL+실제 YOLO 통합 테스트 9개 통과, React production build·pip check 성공. 임시 두 클론에서 비공개 DB·OAuth·SMTP 설정과 비밀키 재사용 확인, 기존 로컬 계정·비밀번호 해시·OAuth 식별자 및 프로필·식단 건수 유지 확인, 비공개 DB archive 생성·목록 검사 완료. 실제 Gmail 발송은 발신 계정 설정 후 검증이 필요하며 Google 실계정 인증 검증은 별도입니다. 음식 정확도 평가는 포함하지 않습니다. 이전 브라우저 검증 기록은 [화면과 검증 상세](docs/UI_VALIDATION.md)를 참고하세요.
 
 ```powershell
-.\.venv-backend\Scripts\python.exe -m pytest backend/tests -q
+..\.venv-backend\Scripts\python.exe -m pytest backend/tests -q
 cd frontend
 npm.cmd run build
 ```
@@ -374,7 +382,7 @@ npm.cmd run build
 ```powershell
 $env:RUN_POSTGRES_TESTS='1'
 $env:RUN_VISION_TEST='1'
-.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_p0_flow.py -q
+..\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_p0_flow.py -q
 Remove-Item Env:RUN_POSTGRES_TESTS
 Remove-Item Env:RUN_VISION_TEST
 ```
@@ -512,3 +520,10 @@ python -m streamlit run app.py
 접속 주소: http://localhost:8501
 
 샘플 사진은 `samples/` 폴더에 넣거나 화면에서 업로드할 수 있습니다.
+# 카드형 커뮤니티 실행
+
+커뮤니티의 `다른 회원 둘러보기`는 타 회원 공개 글만, `내가 쓴 글`은 본인 글만 조회합니다. 초기 화면에는 기존 사진을 사용한 5개의 가상 예시 글도 표시합니다. `예시 게시글 함께 보기`를 해제하면 실제 게시글만 표시합니다. 예시 반응·댓글은 체험용이며 새로고침하면 초기화됩니다.
+
+게시판 API는 기존 로그인 세션을 사용합니다. 최신 소스를 실행하기 전에 `.\.venv-backend\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head`로 `20261007_03`까지 적용합니다. 게시판 테이블 추가 마이그레이션이며 기존 식단 자료는 수정하지 않습니다.
+
+`커뮤니티`에서 사진과 글을 저장할 수 있습니다. 기본 공개 범위는 나만 보기이며, 회원에게 공개를 선택한 글은 다른 회원도 볼 수 있습니다. 베스트는 좋아요 수, 추천은 추천 수를 기준으로 정렬합니다. 사진은 기존 `IMAGE_STORAGE_DIR` 하위 `community`에 저장되므로 배포 시 해당 저장소도 유지해야 합니다.

@@ -72,6 +72,26 @@ def enrollment(body, **changes):
             'consent_text': 'TEST ONLY CONSENT', **changes}
 
 
+def test_google_gis_signup_uses_same_local_consent_policy(social, signing_key, monkeypatch):
+    _, engine = social
+    monkeypatch.setattr(settings, 'service_consent_text', None)
+    monkeypatch.setattr(settings, 'local_test_signup', True)
+    with TestClient(app, base_url='http://localhost', client=('127.0.0.1', 12345)) as client:
+        current = client.get('/auth/policy').json()
+        assert current['signup_enabled'] and current['local_test_mode']
+        body = identity(client, 'google', signing_key)
+        registration = enrollment(body, consent_text=current['service_consent_text'])
+        route = '/auth/social/google/complete'
+        assert client.post(route, json=registration, headers={'x-forwarded-for': '203.0.113.4'}).status_code == 503
+        assert client.post(route, json={**registration, 'consent_text': 'outdated'}).status_code == 422
+        assert client.post(route, json={**registration, 'service_consent': False}).status_code == 422
+        assert client.post(route, json=registration).status_code == 200
+        with Session(engine) as db:
+            user = db.scalar(select(User).where(User.oauth_provider == 'google'))
+            assert user.service_consent_text == current['service_consent_text']
+            assert user.role == 'user'
+
+
 @pytest.mark.parametrize('provider', ['google', 'apple'])
 def test_social_signup_login_and_age(social, signing_key, provider):
     client, engine = social

@@ -15,7 +15,7 @@ export function ForgotPassword({api, enabled, disabled}) {
     catch (err) {setError(err.message);}
     finally {setBusy(false);}
   }
-  return <section className="panel">
+  return <section className="forgot-password">
     <button type="button" className="text-button" disabled={disabled || busy} aria-expanded={open}
       onClick={()=>setOpen(value=>!value)}>비밀번호 찾기</button>
     {open && <form onSubmit={submit}>
@@ -51,7 +51,7 @@ export function PasswordForm({api, token, onChanged, onCancel}) {
     } catch (err) {setError(err.message);}
     finally {setBusy(false);}
   }
-  return <section className="panel auth-panel">
+  return <section className={`panel auth-panel${token ? '' : ' account-password'}`}>
     <h2>{token ? '비밀번호 재설정' : '비밀번호 변경'}</h2>
     <p className="muted">8~128자로 입력하세요. 변경 후 모든 기기에서 로그아웃됩니다.</p>
     <form onSubmit={submit}>

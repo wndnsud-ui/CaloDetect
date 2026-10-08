@@ -20,7 +20,52 @@
 /* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button{transition:none}}
 .feature-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.feature{min-width:0}.mini-bars{max-width:100%;gap:10px}.mini-bars i{flex-shrink:1}
-.auth-panel>.primary{width:100%;margin:10px 0}.auth-panel>.text-button{display:block;margin:10px auto;text-align:center}.account-details dd{white-space:nowrap}
+.auth-panel>.primary,.auth-panel>.auth-fields>.primary{width:100%;margin:10px 0}.auth-panel>.text-button{display:block;margin:10px auto;text-align:center}.account-details dd{white-space:nowrap}
+.auth-visual .auth-bowl{position:absolute;bottom:-130px;left:-105px;transform:rotate(-16deg);width:620px;max-width:none;height:auto;pointer-events:none;filter:drop-shadow(0 28px 35px #082d4550)}
+.auth-form .auth-panel{width:100%;max-width:none;min-width:0}
+.auth-panel>.notice,.auth-panel>.auth-fields,.auth-fields>label,.auth-fields>.notice{width:100%;box-sizing:border-box}
+.auth-fields>label:not(.check)>input{width:100%;min-width:0;box-sizing:border-box}
+/* 인증 화면은 참조 이미지처럼 동일한 두 패널과 정렬된 폼으로 표시한다. */
+.auth-layout>aside,.auth-layout>main>header,.auth-layout>main>footer{display:none}
+.integrated-app.auth-layout>main{width:100%;max-width:none;margin:0;padding:24px 16px}
+.integrated-app.auth-layout .auth-card{width:100%;max-width:900px;margin:0 auto;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-radius:22px;min-height:580px}
+.auth-layout .auth-visual{padding:40px}
+.auth-layout .auth-form{padding:45px 40px;min-width:0}
+.auth-layout .auth-form>.eyebrow{margin:0 0 12px}
+.auth-layout .auth-form>h2{margin:0;font-size:19px}
+.auth-layout .auth-form>.muted{margin:6px 0 26px}
+.auth-layout .auth-panel h3{margin:0 0 20px}
+.auth-layout .auth-panel .notice{padding:20px;border-radius:10px;line-height:1.8;margin:20px 0}
+.auth-layout .auth-fields>label:not(.check){display:block;margin:16px 0}
+.auth-layout .auth-fields>label:not(.check)>input{display:block;margin-top:8px;padding:12px;border:1px solid #dfe7e3;border-radius:9px}
+.auth-layout .auth-fields>.check{margin:16px 0;font-size:12px;gap:10px;align-items:center}
+.auth-layout .auth-fields>.check>input{width:14px;height:14px;padding:0;margin:0;flex-shrink:0}
+.auth-layout .auth-fields>.primary{display:block;width:100%;margin:32px 0 0}
+.integrated-app.auth-layout .auth-card{max-width:810px;min-height:1162px}
+.auth-layout .auth-visual{padding:36px}
+.auth-layout .auth-visual .brand{font-size:23px}
+.auth-layout .auth-visual h1{font-size:27px;margin:48px 0 15px}
+.auth-layout .auth-visual p{font-size:10px}
+.auth-layout .auth-form{padding:40px 36px}
+.auth-layout .auth-form>.eyebrow{font-size:8px;margin:0 0 12px}
+.auth-layout .auth-form>h2{font-size:17px}
+.auth-layout .auth-form>.muted{font-size:10px;margin:6px 0 26px}
+.auth-layout .segmented{margin:20px 0}
+.auth-layout .segmented button{font-size:10px;padding:10px}
+.auth-layout .social-divider,.auth-layout .social-login>.muted{font-size:10px}
+.auth-layout .auth-panel{border-radius:0;box-shadow:none}
+.auth-layout .auth-panel h3{font-size:14px;margin-bottom:20px}
+.auth-layout .auth-panel .notice{font-size:10px;padding:20px;line-height:1.9;margin:20px 0 26px}
+.auth-layout .auth-fields>label:not(.check){font-size:10px;margin:18px 0}
+.auth-layout .auth-fields>label:not(.check)>input{height:40px;margin-top:8px;padding:10px 12px}
+.auth-layout .auth-fields>.check{font-size:10px;margin:18px 0}
+.auth-layout .auth-fields>.primary{font-size:11px;height:42px;margin-top:30px}
+.integrated-app.auth-layout .auth-card-login{min-height:753px}
+.auth-card-login .auth-fields>.primary{width:100%;margin-top:30px}
+.auth-form .forgot-password{border:0;border-radius:0;box-shadow:none;background:transparent;padding:0;margin:8px 0 0}
+.forgot-password>.text-button{display:block;margin-left:auto;padding:8px 0;font-size:10px}
+.forgot-password>form{text-align:left;padding-top:16px}
+@media(max-width:760px){.integrated-app.auth-layout .auth-card{max-width:430px;grid-template-columns:1fr;min-height:0}.auth-layout .auth-form{padding:32px 27px}}
 /* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
 @media(max-width:760px){.feature-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .landing-header{display:flex;align-items:center}
@@ -139,6 +184,27 @@
 @media(max-width:760px){.landing-hero{padding-right:0;gap:0}.home-start{margin:24px 20px;padding:24px 20px}.hero-copy{padding:32px 24px 0}.hero-copy h1{font-size:clamp(30px,8vw,37px)}.home-start-heading h2{font-size:24px}.home-start-actions button{padding:15px 12px;gap:10px}.home-start-actions strong{font-size:13px}.home-start-actions small{font-size:10px}.landing-header .brand{font-size:clamp(17px,5vw,22px)}.header-actions button{padding:8px 9px}.landing-header{padding:0 16px}}
 
 /* Social authentication */
+.analysis-bars-monthly{display:grid;grid-template-columns:repeat(var(--day-count),minmax(0,1fr));gap:4px;overflow:visible}
+.analysis-target{font-size:12px;font-weight:600;color:#385f50;margin:12px 0 0}
+.streamlit-chart{display:block;width:100%;border:0;background:#fff;min-width:0}
+.account-page-title{font-size:28px;font-weight:800;letter-spacing:-1px;color:#193c32}
+.integrated-app .account-password{width:calc((100% - 24px)/2);max-width:none;margin:0 0 24px;padding:26px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:0 3px 14px #173a3303}
+.account-password h2{margin:0 0 12px}
+.account-password>.muted{margin:0 0 24px}
+.account-password .auth-fields>label{display:block;margin:16px 0;font-size:12px}
+.account-password .auth-fields>label>input{display:block;width:100%;margin-top:8px;padding:12px;border:1px solid #dfe7e3;border-radius:9px}
+.account-password .auth-fields>.primary{width:auto;margin:12px 0 0}
+.account-consent>p:first-child{margin-top:0}
+@media(max-width:760px){.integrated-app .account-password{width:100%}.account-page-title{font-size:23px}}
+.analysis-bars-daily{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;overflow:visible}
+.analysis-bars-daily .analysis-bar{width:100%;max-width:64px;min-width:0;justify-self:center;padding:0}
+.analysis-bars-daily .analysis-bar-track{border-radius:6px}
+.analysis-bars-monthly .analysis-bar{min-width:0;padding:0;font-size:10px}
+.analysis-bars-monthly .analysis-bar-value{display:none}
+.analysis-bars-monthly .analysis-bar-track{border-radius:3px}
+.analysis-bar-track{position:relative}
+.analysis-goal-line{position:absolute;left:0;right:0;border-top:1px dashed #956b25;z-index:1;transform:translateY(1px)}
+@media(max-width:760px){.analysis-bars-monthly{gap:2px}.analysis-bars-monthly .analysis-bar{font-size:8px}}
 .auth-fields{border:0;padding:0;margin:0;min-width:0}.auth-form .auth-panel{border:0;padding:18px 0 0;margin:24px 0 0;border-top:1px solid var(--line)}.auth-panel h3{font-size:16px;margin:0 0 20px}.social-login .google-login-button[hidden]{display:none}
 .social-login{border-top:1px solid var(--line);margin-top:24px;padding-top:18px}.social-divider{text-align:center;font-size:12px;color:#718578}.social-button{display:block;width:100%;border:1px solid #d5ded7;border-radius:8px;padding:12px;margin-top:12px;background:white;color:#234838}.google-login-button{min-height:44px;display:flex;justify-content:center}.social-login h3{font-size:18px}.social-login .error{margin-top:14px}
 /* Food photo selection and camera capture */

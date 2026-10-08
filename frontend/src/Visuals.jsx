@@ -1,6 +1,7 @@
 // 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 // 전달된 표시값만 시각화하며 실제 영양 계산이나 기록 저장은 수행하지 않는다.
 import React, {useId} from 'react';
+import StreamlitChart from './StreamlitChart';
 // 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 export function MenuIcon({page}) {
   const shapes = {
@@ -33,4 +34,4 @@ export function Brand({onClick}) {
 // 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 export function Bowl({small=false}) {return <div className={`food-bowl ${small?'small':''}`} role="img" aria-label="채소와 달걀을 담은 식사 일러스트"><div className="greens"/><div className="rice"/><div className="chicken"/><div className="egg"/><div className="avocado"/><div className="tomato one"/><div className="tomato two"/><div className="tomato three"/></div>;}
 // 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
-export function Ring({value=0,target,example=false}) {const percent=target?Math.min(100,Math.round(value/target*100)):0;return <div className="ring-wrap"><div className="ring" style={{'--progress':`${percent}%`}}><div><strong>{value.toLocaleString()}</strong><span>{target?`/ ${target.toLocaleString()} kcal`:'목표 설정 전'}</span></div></div><b>{target?`${percent}%`:'—'}</b>{example&&<small>화면 예시</small>}</div>;}
+export function Ring({value=0,target,example=false}) {return <div className="ring-wrap"><StreamlitChart kind="ring" data={{value,target}} height={190} title="하루 목표 대비 섭취 칼로리"/>{example&&<small>화면 예시</small>}</div>;}

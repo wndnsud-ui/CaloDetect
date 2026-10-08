@@ -1,5 +1,16 @@
 # CaloDetect · 칼로디텍트
 
+## React 내 Streamlit ECharts 그래프 실행
+
+홈의 칼로리 링, 일간·월별 분석 막대 및 탄단지 그래프는 별도 Streamlit 서버를 React iframe으로 표시합니다. 프론트엔드와 Backend 외에 아래 서버도 실행해야 합니다.
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m pip install -r streamlit/requirements-charts.txt
+.\.venv-backend\Scripts\python.exe -m streamlit run streamlit/charts.py --server.address 127.0.0.1 --server.port 8502 --server.headless true --browser.gatherUsageStats false
+```
+
+기본 그래프 주소는 현재 브라우저 호스트의 8502 포트입니다. 별도 호스팅 시 프론트엔드 `VITE_STREAMLIT_URL`을 설정하세요. 그래프 서버에는 표시용 영양값만 전달하며 로그인 토큰·개인 이메일·사진은 전달하지 않습니다. 현재 월별 날짜 선택 연동은 로컬 프론트엔드 5173 포트를 지원합니다.
+
 작업 전 [필수 적용 규칙](docs/rules/README.md)을 먼저 읽어 주세요.
 
 ## 2026-10-07 develop 업데이트와 데이터 보존

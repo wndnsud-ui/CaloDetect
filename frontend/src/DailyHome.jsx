@@ -35,7 +35,7 @@ export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api
  const week=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setUTCDate(monday.getUTCDate()+i);return d;});
  const value=k=>today?.totals[k]?.toLocaleString()??'—';
  return <div className="daily-home">
-  <header className="daily-header"><div className="daily-header-top"><div><p>나의 하루, 건강한 한 끼</p><h1>{current.getUTCMonth()+1}.{current.getUTCDate()} {['일','월','화','수','목','금','토'][current.getUTCDay()]}<span className="daily-today">{selectedDate===todayDate?'오늘':'선택한 날'}</span></h1></div><button className="daily-account" aria-label="내 계정" onClick={()=>onNavigate('마이페이지')}><MenuIcon page="마이페이지"/></button></div>
+  <header className="daily-header"><div className="daily-header-top"><div><p>나의 하루, 건강한 한 끼</p><h1>{current.getUTCMonth()+1}.{current.getUTCDate()} {['일','월','화','수','목','금','토'][current.getUTCDay()]}<span className="daily-today">{selectedDate===todayDate?'오늘':'선택한 날'}</span><button className="daily-account" aria-label="내 계정" onClick={()=>onNavigate('마이페이지')}><MenuIcon page="마이페이지"/></button></h1></div></div>
    <div className="daily-week" aria-label="이번 주 달력">{week.map((d,i)=>{const date=d.toISOString().slice(0,10);return <button type="button" key={date} className={date===selectedDate?'is-today':''} aria-label={`${date} 식단과 사진 보기`} aria-pressed={date===selectedDate} onClick={()=>setSelectedDate(date)}><span>{['월','화','수','목','금','토','일'][i]}</span><strong>{d.getUTCDate()}</strong></button>})}</div>
   </header>
   <div className="daily-body">

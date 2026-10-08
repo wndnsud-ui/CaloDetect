@@ -1,4 +1,5 @@
 ﻿@echo off
+REM Windows 기존 Streamlit 최초 설치/실행. Python 선택 → 가상환경 준비 → 패키지 설치 → 원본 데이터 검사 → 앱 실행 순서다.
 chcp 65001 > nul
 setlocal
 cd /d "%~dp0"
@@ -36,6 +37,7 @@ echo [3/4] 필요한 패키지 설치 중...
 if errorlevel 1 goto :error
 
 echo [4/4] 모델 및 영양 컬럼 검증 중...
+REM 모델·YAML·CSV 연결을 검사한 뒤 앱 실행으로 진행한다.
 ".venv\Scripts\python.exe" validate_data.py
 if errorlevel 1 goto :error
 
@@ -47,6 +49,7 @@ echo  http://localhost:8501
 echo ============================================================
 echo.
 
+REM 준비한 Python 환경에서 기존 Streamlit 앱을 시작한다.
 ".venv\Scripts\python.exe" -m streamlit run app.py
 
 exit /b 0

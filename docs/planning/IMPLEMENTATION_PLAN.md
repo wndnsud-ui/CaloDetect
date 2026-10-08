@@ -57,6 +57,6 @@ P1: OAuth, LLM, 재학습, 모델 registry, 운동 추천. Backlog는 ROADMAP.md
 
 ## P0 통합 검사 결과
 
-UI/회원 추가 검사: Backend 22 passed, 1 skipped. 격리 PostgreSQL + 실제 YOLO smoke 7 passed. Edge PC/모바일에서 음식/목표 계산, 가입, 목표 저장, 이름 수정, 세션 유지, 재로그인 복원, JS 오류/가로 넘침 검증 완료. [화면과 검증 상세](docs/UI_VALIDATION.md). 서비스 가입 연령과 동의 문구는 여전히 사용자 전달 대기다.
+UI/회원 추가 검사: Backend 22 passed, 1 skipped. 격리 PostgreSQL + 실제 YOLO smoke 7 passed. Edge PC/모바일에서 음식/목표 계산, 가입, 목표 저장, 이름 수정, 세션 유지, 재로그인 복원, JS 오류/가로 넘침 검증 완료. [화면과 검증 상세](../UI_VALIDATION.md). 서비스 가입 연령과 동의 문구는 여전히 사용자 전달 대기다.
 
 기존+회원+서비스 테스트 19 passed. 별도 PostgreSQL test schema에서 가입→프로필→저장→재로그인 유지, 데이터 분리/원자 저장, 다중 detection/Correction/QA/철회, 추천3개/acted, 잘못된 이미지/CSRF/연령, 실제 YOLO 빈 이미지 업로드 등 6 passed. PostgreSQL migration/seed 적용 성공. 브라우저 회원가입 폼·목표 계산, JS 오류 없음 확인. 실제 음식 인식 정확도/전체 UI 시나리오는 추가 검수 대상이다. 테스트용 정책은 운영 설정과 분리했다.

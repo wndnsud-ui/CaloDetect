@@ -1,7 +1,11 @@
+# 실제 모델의 클래스 목록과 YAML·영양 CSV의 일치 여부를 검사하는 실행 도구.
+# 앱 시작 전에 잘못된 모델·데이터 조합을 발견하기 위한 검사이며 모델 정확도 평가나 학습은 수행하지 않는다.
 """실행 전 데이터 및 실제 모델의 클래스 매칭을 확인합니다."""
 from data_config import MODEL_PATH, load_class_names, load_nutrition_frame
 
 
+# 실제 모델의 클래스 목록과 YAML·영양 CSV의 일치 여부를 검사하는 실행 도구.
+# 명령행으로 실행할 때 아래 초기화·검사·출력 순서를 수행한다.
 def main():
     from ultralytics import YOLO
 

@@ -1,0 +1,58 @@
+/* 회원 홈·사진 카드·목표 설정·분석 화면 스타일. PC 배치와 모바일 미디어쿼리를 함께 관리한다. */
+.daily-home{max-width:1120px;margin:0 auto;color:#193c32}.daily-header{background:linear-gradient(115deg,#178366,#0c5b46);color:white;padding:30px 42px 34px;border-radius:30px 30px 0 0}.daily-header-top{display:flex;align-items:center;justify-content:space-between}.daily-header-top p{font-size:13px;color:#c6e8db;margin:0 0 10px}.daily-header h1{color:white;font-size:34px;margin:0;display:flex;align-items:center;gap:15px}.daily-today{font-size:12px;border:1px solid #ffffff55;border-radius:20px;padding:5px 12px}.daily-account{display:grid;place-items:center;background:#ffffff18;border:1px solid #ffffff30;border-radius:50%;width:48px;height:48px;color:white;cursor:pointer}.daily-week{display:grid;grid-template-columns:repeat(7,1fr);margin-top:27px;text-align:center}.daily-week>div{display:flex;align-items:center;flex-direction:column;gap:12px}.daily-week span{display:grid;place-items:center;width:35px;height:35px;color:#b8dace;font-size:14px}.daily-week strong{font-size:18px;font-weight:500}.daily-week .is-today span{border-radius:50%;background:white;color:#137357;font-weight:800}.daily-body{position:relative;background:#f4f7f5;border-radius:30px 30px 0 0;margin-top:-14px;padding:28px;display:grid;gap:24px}.daily-home .panel,.daily-record-card{background:white;border:0;border-radius:28px;box-shadow:0 8px 30px #254a3610;margin:0;padding:28px}.daily-record-card{position:relative;display:grid;grid-template-columns:1fr 190px;align-items:center;gap:12px;padding:32px 40px}.daily-dismiss{position:absolute;top:12px;right:18px;border:0;background:none;font-size:30px;color:#8e9e97;cursor:pointer}.daily-record-copy h2{font-size:28px;line-height:1.5;letter-spacing:-1px;margin:8px 0 20px}.daily-kicker{font-size:12px;letter-spacing:1px;color:#688879;margin:0}.daily-soft-pill{display:inline-block;border-radius:30px;padding:10px 16px;background:#eaf6ef;color:#16805c;font-size:14px}.daily-bowl{height:170px;display:grid;place-items:center;overflow:hidden}.daily-bowl .food-bowl{position:relative;width:155px;height:155px;transform:rotate(-10deg)}.daily-record-card>.primary{grid-column:1/-1;width:100%;border-radius:16px;font-size:17px;padding:17px;margin-top:10px;display:flex;justify-content:center;gap:15px}.daily-home h2{color:#193c32}.daily-home .section-heading{margin-bottom:18px}.daily-home .section-heading h2,.daily-more h2{font-size:19px;margin:0}.daily-calories{display:flex;align-items:baseline;gap:8px}.daily-calories>strong{font-size:38px;letter-spacing:-1.5px;color:#152c24}.daily-calories>span{font-size:22px;font-weight:700}.daily-calories>small{margin-left:auto;background:#eaf5ee;border-radius:20px;padding:6px 12px;color:#577768;font-size:12px}.daily-macros{display:flex;gap:24px;margin:18px 0 26px;flex-wrap:wrap}.daily-macros>span{display:flex;align-items:center;gap:7px;font-size:13px;color:#6c7e75}.daily-macros b{color:#425c4e}.macro-dot{width:11px;height:11px;border-radius:4px;background:#79af81}.macro-dot.protein{background:#e5b76f}.macro-dot.fat{background:#63b6ae}.daily-food-card .today-meals{padding:0;box-shadow:none;border-radius:0}.daily-food-card .today-meals>.section-heading{display:none}.meal-time-icon{display:none}.daily-home .saved-meal-slot h3{display:flex;flex-direction:column;align-items:center;gap:12px;font-size:14px;color:#667c70;background:#f3f7f4;border-radius:18px;padding:20px 10px 15px;margin-bottom:10px}.daily-home .meal-time-icon{display:block;font-size:36px}.daily-home .saved-meal-add{min-height:70px;border:0;background:#edf5ef;border-radius:15px;gap:2px;font-size:12px;color:#608070}.daily-home .saved-meal-add>span{font-size:24px}.daily-home .saved-meal-photo{border-radius:16px}.daily-home .saved-meal-card strong{font-size:13px}.daily-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}.daily-energy .ring-wrap{margin:20px auto;text-align:center}.daily-energy .ring{margin:auto}.daily-home .muted{font-size:12px;line-height:1.8;color:#84938b}.daily-extra{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0 12px}.daily-extra>div{background:#f4f7f4;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px}.daily-extra span{font-size:13px;color:#718277}.daily-extra strong{font-size:22px}.daily-extra small{font-size:12px;font-weight:500}.daily-recommend{width:100%;background:#e9f5ee;border:0;border-radius:14px;padding:18px 14px;color:#216c50;text-align:left;margin:10px 0 14px;cursor:pointer;font:inherit;font-size:13px}.daily-recommend span{float:right}.daily-home button:focus-visible{outline:3px solid #79bc95;outline-offset:3px}
+/* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
+@media(max-width:760px){.daily-header{padding:25px 22px 32px;border-radius:24px 24px 0 0}.daily-header h1{font-size:28px}.daily-body{padding:16px;gap:18px;border-radius:24px 24px 0 0}.daily-home .panel,.daily-record-card{border-radius:24px;padding:22px}.daily-record-card{grid-template-columns:1fr;text-align:center;gap:0}.daily-record-copy h2{font-size:23px;margin:10px 0 18px}.daily-kicker{margin-top:6px}.daily-soft-pill{font-size:12px}.daily-bowl{height:145px;margin-top:12px}.daily-bowl .food-bowl{width:125px;height:125px}.daily-record-card>.primary{font-size:16px;padding:16px}.daily-home .saved-meal-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.daily-home .saved-meal-slot h3{font-size:12px;padding:16px 4px 12px;gap:8px}.daily-home .meal-time-icon{font-size:28px}.daily-home .saved-meal-add{font-size:10px;min-height:60px}.daily-macros{gap:10px;justify-content:space-between}.daily-macros>span{font-size:10px;gap:4px}.daily-calories>strong{font-size:32px}.daily-calories>span{font-size:18px}.daily-calories>small{font-size:10px}.daily-detail-grid{grid-template-columns:1fr;gap:18px}.daily-home .saved-meal-card strong{font-size:11px;overflow-wrap:anywhere}.daily-home .saved-meal-status{font-size:9px}.daily-home .saved-photo-empty{font-size:10px}.daily-home .saved-meal-card>span:last-child{font-size:10px}}
+.daily-home .daily-header{background:#146f55}
+.daily-header h1 .daily-account{width:42px;height:42px;flex-shrink:0}
+.daily-home .daily-record-card{grid-template-columns:1fr;text-align:center;padding:36px 40px 28px;gap:0}
+.daily-home .daily-record-copy h2{font-size:30px;line-height:1.5}
+.daily-home .daily-bowl{height:175px;margin:16px 0 10px}
+.daily-home .daily-record-card>.primary{max-width:680px;justify-self:center}
+.daily-home .saved-meal-slot{position:relative}
+.daily-home .saved-meal-slot:has(.saved-meal-add) h3{background:transparent;padding:0 0 10px;gap:12px}
+.daily-home .saved-meal-slot:has(.saved-meal-add) .meal-time-icon{display:grid;place-items:center;width:100%;height:112px;background:#f3f6f4;border-radius:20px;font-size:42px}
+.daily-home .saved-meal-slot:has(.saved-meal-add) .saved-meal-add{position:absolute;top:0;right:0;width:100%;height:112px;min-height:0;background:transparent;justify-content:flex-start;align-items:flex-end;padding:8px 12px;font-size:0;border-radius:20px}
+.daily-home .saved-meal-slot:has(.saved-meal-add) .saved-meal-add span{font-size:28px;color:#a0b6a8}
+/* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
+@media(max-width:760px){
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"]{position:fixed;bottom:0;left:0;right:0;z-index:30;margin:0;background:#fff;border:1px solid #e4ebe6;border-radius:24px 24px 0 0;box-shadow:0 -5px 24px #244b3210;display:flex;align-items:center;padding:10px 8px calc(10px + env(safe-area-inset-bottom));gap:2px;overflow-x:auto}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"] button{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;min-width:64px;flex:1;padding:9px 6px;font-size:10px;border-radius:15px;background:transparent;color:#8b9e92}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"] button.active{color:#146f55;background:#edf6ef}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"] button:nth-child(2){background:#146f55;color:white;border-radius:50%;min-width:56px;max-width:56px;height:56px;margin:0 5px}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"] .sidebar-menu-icon{display:block;width:23px;height:23px}
+ .shell.integrated-app>main{padding-bottom:110px}
+ .shell.integrated-app:has(.daily-home)>aside{padding:14px 20px;border:0;background:#146f55}
+ .shell.integrated-app:has(.daily-home)>aside>.brand{color:white;font-size:21px}
+ .shell.integrated-app:has(.daily-home)>aside>.aside-bottom{display:none}
+ .shell.integrated-app:has(.daily-home)>main{padding:0 0 110px}
+ .shell.integrated-app:has(.daily-home)>main>header{display:none}
+ .daily-home .daily-header{border-radius:0;padding-top:16px}
+ .daily-home .daily-record-card{padding:28px 20px 20px}
+ .daily-home .daily-record-copy h2{font-size:23px}
+ .daily-home .daily-bowl{height:160px}
+ .daily-home .saved-meal-slot:has(.saved-meal-add) .meal-time-icon{height:78px;font-size:30px;border-radius:16px}
+ .daily-home .saved-meal-slot:has(.saved-meal-add) .saved-meal-add{height:78px;padding:2px 7px}
+ .daily-home .saved-meal-slot:has(.saved-meal-add) .saved-meal-add span{font-size:23px}
+}
+.daily-week>button{display:flex;align-items:center;flex-direction:column;gap:12px;border:0;background:transparent;color:white;font:inherit;padding:0;cursor:pointer;border-radius:16px}
+.daily-week>button:hover{background:#ffffff12}
+.daily-date-controls{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.daily-date-controls label{display:flex;align-items:center;gap:12px;font-size:13px;color:#577768;margin:0}
+.daily-date-controls input{width:auto;padding:8px 12px}
+
+/* Use the available desktop width; keep the compact vertical mobile card. */
+/* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
+@media(min-width:761px){
+ .daily-home{max-width:1000px;width:100%;margin:0 auto;min-width:0}
+ .daily-home .daily-body{padding:24px;gap:22px}
+ .daily-home .daily-record-card{min-height:285px}
+ .daily-home .daily-food-card{min-height:350px}
+ .daily-home .daily-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+ .daily-home .daily-detail-grid>.panel{min-height:328px}
+ .daily-home .daily-record-card{grid-template-columns:minmax(0,1fr) minmax(180px,25%);grid-template-rows:auto auto;text-align:left;column-gap:32px;row-gap:20px;padding:32px 40px}
+ .daily-home .daily-record-copy{grid-column:1;grid-row:1;min-width:0}
+ .daily-home .daily-record-copy h2{font-size:clamp(24px,2vw,32px);margin:8px 0 18px}
+ .daily-home .daily-bowl{grid-column:2;grid-row:1 / 3;height:220px;margin:0}
+ .daily-home .daily-bowl .food-bowl{width:190px;height:190px}
+ .daily-home .daily-record-card>.primary{grid-column:1;grid-row:2;justify-self:start;max-width:440px;margin:0}
+}

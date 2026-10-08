@@ -1,0 +1,18 @@
+/* 음식별 히스토리 표의 검색 도구·행·숫자 열과 모바일 가로 스크롤 스타일. */
+.meal-history .history-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:26px}
+.meal-history .history-heading h1{margin-bottom:10px}.meal-history .history-heading p{margin-bottom:0}.meal-history .history-heading .primary{margin:0;white-space:nowrap}
+.history-database{background:#fff;border:1px solid var(--line,#dfe8e3);border-radius:14px;overflow:hidden}
+.history-toolbar{display:flex;align-items:flex-end;gap:16px;padding:22px 24px;border-bottom:1px solid var(--line,#dfe8e3)}
+.meal-history .history-toolbar label{display:block;margin:0;font-size:12px;color:#60776f}.meal-history .history-toolbar input,.meal-history .history-toolbar select{margin:8px 0 0;min-height:42px;font-size:14px;background:#fff}
+.history-search{flex:1;max-width:380px}.history-count{margin-left:auto;padding-bottom:12px;font-size:13px;color:#60776f;white-space:nowrap}
+.history-table-scroll{overflow-x:auto}.history-table-scroll:focus-visible{outline:2px solid #00836d;outline-offset:-2px}
+.history-database table{width:100%;min-width:1050px;border-collapse:collapse;font-size:14px;text-align:left}
+.history-database caption{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%)}
+.history-database thead{background:#f3f7f5;color:#60776f}.history-database th,.history-database td{padding:19px 20px;border-bottom:1px solid #e8eeeb;white-space:nowrap}
+.history-database thead th{font-size:12px;font-weight:600}.history-database thead small{margin-left:5px;color:#8a9d95;font-weight:400}
+.history-database tbody th{font-weight:600;min-width:150px}.history-database tbody tr:hover{background:#f6faf8}
+.history-database .history-number{text-align:right;font-variant-numeric:tabular-nums}.history-calories{font-weight:700;color:#007b68}.history-date{font-variant-numeric:tabular-nums}.history-serving{color:#72867e;font-size:12px}
+.history-meal-tag{display:inline-block;padding:5px 11px;border-radius:6px;font-size:12px;background:#e6f3eb;color:#28735a}.history-meal-breakfast{background:#faf0dd;color:#927026}.history-meal-dinner{background:#eceafa;color:#6b5a96}.history-meal-snack{background:#f9eaf0;color:#985a72}
+.history-empty{text-align:center;padding:48px 20px;color:#72867e}.history-table-note{padding:16px 24px;margin:0;font-size:12px;color:#72867e}
+/* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
+@media(max-width:700px){.meal-history .history-heading{align-items:flex-start;flex-direction:column;gap:18px}.history-toolbar{flex-wrap:wrap;padding:18px;gap:12px}.history-search{flex-basis:100%;max-width:none}.history-toolbar label:not(.history-search){flex:1}.history-count{width:100%;margin:0;padding:0}.history-table-note{padding:16px 18px;line-height:1.7}}

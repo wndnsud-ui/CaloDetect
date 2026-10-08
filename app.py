@@ -1,3 +1,5 @@
+# 기존 Streamlit 음식 탐지·식단 다이어리 화면. 모델 추론, 사용자 보정, 영양 조회와 시각화를 한 화면에서 연결한다.
+# React/FastAPI 회원 서비스와 별도로 유지하는 기존 앱이며, 가상 식단 데이터는 실제 회원 기록과 구분해서 읽어야 한다.
 import os  # 운영체제 파일 경로 및 존재 여부 확인용 라이브러리 임포트
 import random  # 가상 데이터 생성 시 무작위 값 추출용 라이브러리 임포트
 from datetime import datetime, timedelta  # 날짜 및 시간 계산용 라이브러리 임포트
@@ -245,6 +247,7 @@ st.markdown(
 
 
 # [3] CSV 영양 데이터 로드 및 정제 함수
+# 공통 검증을 통과한 영양 CSV를 기존 Streamlit 조회 구조로 불러온다.
 @st.cache_data  # 동일한 파일 경로와 수정 시각일 경우 결과를 캐싱하여 로딩 속도 최적화
 def load_nutrition_db(csv_path, csv_modified_time):
     
@@ -281,6 +284,7 @@ NUTRITION_DB = load_nutrition_db(
 )
 
 # [4] 비전 AI 모델 로드 및 추론 함수
+# 기존 모델 경로에서 YOLO 모델을 읽어 Streamlit 추론에 재사용한다.
 @st.cache_resource
 def load_ensemble_models():
     class_names = load_class_names()
@@ -293,6 +297,7 @@ def load_ensemble_models():
     return [{"model": model, "label": "best.pt", "weight": 1.0}], class_names, []
 
 
+# 두 박스의 교집합/합집합 면적 비율을 계산해 겹치는 탐지를 비교한다.
 def calculate_iou(box1, box2):
     intersection_x1 = max(box1[0], box2[0])
     intersection_y1 = max(box1[1], box2[1])
@@ -310,7 +315,9 @@ def calculate_iou(box1, box2):
     return intersection / union if union > 0 else 0.0
 
 
+# 같은 탐지 묶음의 박스 좌표를 신뢰도 가중치로 합친다.
 def fuse_cluster(cluster):
+    # 탐지 신뢰도 × 모델 가중치를 좌표 평균의 가중치로 사용한다.
     weighted_scores = [
         detection["conf"] * detection["model_weight"]
         for detection in cluster
@@ -329,6 +336,7 @@ def fuse_cluster(cluster):
     return fused_box, fused_confidence
 
 
+# 겹침 기준으로 같은 클래스의 박스를 묶어 가중 평균 박스와 신뢰도를 구성한다.
 def weighted_box_fusion(detections, iou_threshold=0.55):
     sorted_detections = sorted(
         detections,
@@ -373,6 +381,7 @@ def weighted_box_fusion(detections, iou_threshold=0.55):
     )
 
 
+# 기존 YOLO 추론 흐름으로 입력 이미지의 음식 박스·클래스·신뢰도를 추출한다.
 def run_5th_model(image, conf_val=0.08, iou_val=0.45, imgsz_val=960):
     models, class_names, _ = load_ensemble_models()
 
@@ -409,6 +418,7 @@ def run_5th_model(image, conf_val=0.08, iou_val=0.45, imgsz_val=960):
         confidence = detection["conf"]
         xyxy = detection["box"]
         x1, y1, x2, y2 = map(int, xyxy)
+        # 탐지 박스를 이미지 경계 안으로 제한해 잘못된 crop 영역을 피한다.
         crop_box = (
             max(0, x1),
             max(0, y1),
@@ -440,6 +450,7 @@ def run_5th_model(image, conf_val=0.08, iou_val=0.45, imgsz_val=960):
 
 
 # [5] 가상 데이터 생성 및 세션 상태 초기화 함수
+# 기존 화면 확인용 가상 식단 데이터를 생성한다. 실제 회원의 저장 기록이나 모델 검증 결과가 아니다.
 def generate_mock_meals(count=20):
     # 영양 데이터베이스(NUTRITION_DB)에 등록된 모든 음식명(키)들을 리스트로 추출
     sample_keys = list(NUTRITION_DB.keys())
@@ -800,6 +811,7 @@ ECHARTS_NAVY = "#16324F"
 ECHARTS_TEAL = "#238A8D"
 ECHARTS_BORDER = "#E3E9ED"
 
+# 전달받은 차트 옵션을 기존 Streamlit ECharts 컴포넌트로 렌더링한다.
 def render_echart(options, height="330px", key=None):
     return st_echarts(
         options=options,
@@ -1237,6 +1249,7 @@ if view_mode == "📊 종합 통계 대시보드":
         )
 
         # 사용자가 사진을 통해 직접 입력한 행에만 배경색을 입혀 시각적으로 강조하는 스타일 함수
+        # 식단 표에서 실제 입력 데이터가 구분되도록 표시 스타일을 반환한다.
         def highlight_real_data(row):
             if row["데이터구분"] == "직접입력":
                 return [

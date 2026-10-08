@@ -1,3 +1,5 @@
+# 회귀 테스트: social_auth 관련 기능의 성공·오류·권한 조건을 검사한다.
+# fixture/monkeypatch로 테스트 의존성을 준비하며 실제 외부 인증·메일 발송 검증과는 구분한다.
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -23,11 +25,13 @@ from backend.app.social_auth import (
 from backend.app import social_auth
 
 
+# signing_key: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 @pytest.fixture(scope='module')
 def signing_key():
     return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
+# social: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 @pytest.fixture
 def social(monkeypatch, signing_key):
     monkeypatch.setattr(settings, 'local_test_signup', False)
@@ -45,6 +49,7 @@ def social(monkeypatch, signing_key):
                             lambda token: SimpleNamespace(key=signing_key.public_key()))
     engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
     Base.metadata.create_all(engine)
+    # connection: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
     def connection():
         with Session(engine) as db:
             yield db
@@ -55,6 +60,7 @@ def social(monkeypatch, signing_key):
     engine.dispose()
 
 
+# identity: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 def identity(client, provider, signing_key, **changes):
     challenge = client.post(f'/auth/social/{provider}/challenge', json={})
     assert challenge.status_code == 200
@@ -67,11 +73,14 @@ def identity(client, provider, signing_key, **changes):
             'state': pending['state']}
 
 
+# enrollment: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 def enrollment(body, **changes):
     return {**body, 'name': 'Social User', 'age': 18, 'service_consent': True,
             'consent_text': 'TEST ONLY CONSENT', **changes}
 
 
+# 회귀 검사: 소셜 · 가입 · 로그인 · 연령.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 @pytest.mark.parametrize('provider', ['google', 'apple'])
 def test_social_signup_login_and_age(social, signing_key, provider):
     client, engine = social
@@ -104,11 +113,14 @@ def test_social_signup_login_and_age(social, signing_key, provider):
     with Session(engine) as db:
         user = db.scalar(select(User))
         user.age = 17
+        # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.commit()
     assert client.get('/users/me').status_code == 403
     assert client.post(route, json=identity(client, provider, signing_key)).status_code == 403
 
 
+# 회귀 검사: 거부 · 잘못된 · 신원.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 @pytest.mark.parametrize('provider', ['google', 'apple'])
 @pytest.mark.parametrize('changes', [
     {'aud': 'different-app'}, {'iss': 'https://attacker.example'}, {'nonce': 'wrong-nonce'},
@@ -124,6 +136,8 @@ def test_rejects_invalid_identity(social, signing_key, provider, changes):
         assert db.scalar(select(AuthSession)) is None
 
 
+# 회귀 검사: 서명 · state · 요청 출처.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_signature_state_and_origin(social, signing_key):
     client, _ = social
     assert client.post('/auth/social/google/challenge', json={},
@@ -139,6 +153,8 @@ def test_signature_state_and_origin(social, signing_key):
     assert client.post('/auth/social/google/complete', json=body).status_code == 401
 
 
+# 회귀 검사: 이메일 · 계정 · 자동 · 연결.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_email_accounts_are_not_automatically_linked(social, signing_key):
     client, engine = social
     signup = {'email': 'social@example.com', 'password': 'secure-test-password', 'name': 'Email Member',
@@ -152,6 +168,8 @@ def test_email_accounts_are_not_automatically_linked(social, signing_key):
         assert db.scalar(select(User)).oauth_provider is None
 
 
+# 회귀 검사: 제공자 · 설정 · 동의 · 차단 조건.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_provider_settings_and_consent_gate(social, signing_key, monkeypatch):
     client, engine = social
     monkeypatch.setattr(settings, 'oauth_state_secret', None)
@@ -182,6 +200,8 @@ def test_provider_settings_and_consent_gate(social, signing_key, monkeypatch):
         assert db.scalar(select(User)) is None
 
 
+# 회귀 검사: Google · 인증 · code · 로그인 · 리디렉션 · state · nonce · PKCE.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_google_authorization_code_login_redirect_uses_state_nonce_and_pkce(social):
     client, _ = social
     response = client.get('/auth/google/login', follow_redirects=False)
@@ -201,27 +221,37 @@ def test_google_authorization_code_login_redirect_uses_state_nonce_and_pkce(soci
     assert params['nonce'] == [pending['nonce']]
 
 
+# 회귀 검사: Google · 인증 · code · 가입 · 기존 · 회원 · 로그인.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_google_authorization_code_signup_and_existing_user_login(social, signing_key, monkeypatch):
     client, engine = social
     captured = {}
 
+    # TokenResponse: 를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
     class TokenResponse:
+        # raise_for_status: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
         def raise_for_status(self):
             return None
 
+        # json: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
         def json(self):
             return {'id_token': captured['id_token']}
 
+    # TokenClient: 를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
     class TokenClient:
+        # __init__: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
         def __init__(self, timeout):
             assert timeout == 10
 
+        # __aenter__: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
         async def __aenter__(self):
             return self
 
+        # __aexit__: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
         async def __aexit__(self, *args):
             return None
 
+        # post: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
         async def post(self, url, data):
             captured['url'] = url
             captured['data'] = data
@@ -231,6 +261,7 @@ def test_google_authorization_code_signup_and_existing_user_login(social, signin
     monkeypatch.setattr(KEYS['google'], 'get_signing_key_from_jwt',
                         lambda token: SimpleNamespace(key=signing_key.public_key()))
 
+    # callback: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
     def callback():
         start = client.get('/auth/google/login', follow_redirects=False)
         pending = jwt.decode(client.cookies.get(GOOGLE_STATE_COOKIE),
@@ -283,6 +314,8 @@ def test_google_authorization_code_signup_and_existing_user_login(social, signin
     assert client.get('/users/me').status_code == 200
 
 
+# 회귀 검사: Google · 인증 · code · 거부 · state · 리디렉션 · URI.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_google_authorization_code_rejects_bad_state_and_redirect_uri(social, monkeypatch):
     client, _ = social
     start = client.get('/auth/google/login', follow_redirects=False)
@@ -298,6 +331,8 @@ def test_google_authorization_code_rejects_bad_state_and_redirect_uri(social, mo
     assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is False
 
 
+# 회귀 검사: Google · 가입 · 쿠키 · 거부 · 변조 · 암호문.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_google_signup_cookie_rejects_modified_ciphertext(social):
     import base64
     client, _ = social

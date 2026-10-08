@@ -1,6 +1,10 @@
+// Google 인증 SDK/Authorization Code 로그인과 신규 가입 보완 폼.
+// 서버의 제공자 설정으로 사용 가능 여부를 판단하고 인증 검증·계정 생성은 Backend에 맡긴다.
 import React, { useEffect, useRef, useState } from 'react';
 
+// SDK 주소별 진행 Promise를 공유해 컴포넌트 재진입 시 중복 script 추가를 막는다.
 const scripts = new Map();
+// 동일 SDK 주소의 Promise를 공유해 중복 로딩을 막고 실패한 항목은 제거해 재시도를 허용한다.
 function loadScript(src) {
   if (!scripts.has(src)) scripts.set(src, new Promise((resolve, reject) => {
     const script = document.createElement('script');
@@ -18,12 +22,14 @@ const googleErrors = {
   google_unavailable: 'Google 로그인을 사용할 수 없습니다. 설정을 확인한 뒤 다시 시도해 주세요.',
 };
 
+// Google 인증 SDK/Authorization Code 로그인과 신규 가입 보완 폼.
 export default function SocialLogin({api, policy, onAuthenticated, disabled, signup = false}) {
   const googleButton = useRef(null), active = useRef(false);
   const [providers, setProviders] = useState(null), [googleReady, setGoogleReady] = useState(false);
   const [working, setWorking] = useState(false), [error, setError] = useState('');
   const [pending, setPending] = useState(null), [generation, setGeneration] = useState(0);
 
+  // 제공자 인증 결과를 Backend에서 검증하고 기존 회원 로그인 또는 신규 가입 보완 입력으로 연결한다.
   async function finish(provider, data, suggestedName = '') {
     setWorking(true); setError('');
     try {
@@ -38,12 +44,15 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
     finally {if (active.current) setWorking(false);}
   }
 
+  // 의존값 변경/마운트에 맞춰 외부 데이터 또는 브라우저 자원을 동기화한다. 반환하는 정리 함수는 이전 작업/자원을 해제한다.
   useEffect(() => {
     active.current = true;
+    // effect 정리 뒤 완료되는 SDK/정책 조회가 현재 화면을 갱신하지 않게 한다.
     let cancelled = false;
     setGoogleReady(false); setPending(null); setError('');
     googleButton.current?.replaceChildren();
 
+    // 제공자 설정과 반환 URL을 읽어 Google SDK 또는 Authorization Code 인증 화면을 준비한다.
     async function setup() {
       try {
         const config = await api('/auth/social/policy');
@@ -54,6 +63,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
         const signupReturn = params.get('social_signup') === 'google';
         const errorCode = params.get('social_error');
         if (signupReturn || errorCode || params.has('social_success')) {
+          // 소셜 반환 안내를 읽은 뒤 URL을 정리해 새로고침에서 같은 반환 처리를 반복하지 않게 한다.
           window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
         }
         if (signupReturn) {
@@ -96,6 +106,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
     return () => {cancelled = true; active.current = false;};
   }, [generation, signup]);
 
+  // 신규 소셜 회원의 이름·만 나이·현재 동의 문구를 전송한다. Authorization Code 반환은 가입 쿠키, GIS는 인증 토큰 검증 경로를 사용한다.
   async function register(event) {
     event.preventDefault();
     const form = Object.fromEntries(new FormData(event.currentTarget));

@@ -1,3 +1,6 @@
+// 회원 웹앱의 상태와 화면 전환을 조정하는 상위 컴포넌트.
+// 세션 복원 → 음식/프로필/식단 조회 → 사진 분석/보정 → 서버 영양 미리보기 → 식단 저장 흐름을 연결한다.
+// API 호출은 HttpOnly 쿠키와 CSRF 헤더를 사용하고 영양 계산·권한 판단은 Backend 결과를 따른다.
 import React, { useEffect, useState } from 'react';
 import { Brand, Bowl, MenuIcon } from './Visuals';
 import Calculators from './Calculators';
@@ -16,9 +19,13 @@ import { readApiResponse } from './apiResponse';
 import './style.css';
 import './reference.css';
 
+// HttpOnly 쿠키 원문 대신 서버가 준 CSRF 토큰만 모듈 메모리에 보관한다. 로그아웃/비밀번호 변경 시 비운다.
 let csrf = '';
+// 요청 본문 유무에 따라 조회/변경 호출을 구성하고 공통 응답 파서로 결과를 읽는다.
 async function api(path, body, method = 'POST') {
+  // 사진 업로드는 브라우저가 multipart boundary를 붙이도록 Content-Type을 직접 지정하지 않는다.
   const form = body instanceof FormData;
+  // credentials: include로 세션 쿠키를 보내고 JSON 본문과 CSRF 헤더는 필요한 경우에만 추가한다.
   const response = await fetch(`/api${path}`, {credentials: 'include', method: body === undefined ? 'GET' : method,
     headers: {...(!form && body !== undefined ? {'Content-Type': 'application/json'} : {}), ...(csrf ? {'X-CSRF-Token': csrf} : {})},
     body: body === undefined ? undefined : form ? body : JSON.stringify(body)});
@@ -27,8 +34,10 @@ async function api(path, body, method = 'POST') {
   return data;
 }
 const meals = {breakfast:'아침',lunch:'점심',dinner:'저녁',snack:'간식'};
+// 공통 영양 요약 컴포넌트에 서버 계산 결과를 전달한다.
 function Nutrition({data}) {return <NutritionSummary data={data}/>}
 
+// 회원 세션·식단·프로필·사진 분석 상태를 관리하고 선택된 서비스 화면에 전달한다.
 export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [resetToken, setResetToken] = useState(takeResetToken);
   const [authLoading,setAuthLoading] = useState(true);
@@ -41,7 +50,9 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [rows,setRows] = useState([]), [mealType,setMealType] = useState('lunch'), [consent,setConsent] = useState(false);
   const [exclude,setExclude] = useState([]), [goal,setGoal] = useState(null);
   const [totals,setTotals] = useState(null), [previewError,setPreviewError] = useState(''), [mealError,setMealError] = useState('');
+  // 빈 식단·100개 초과·잘못된 수량/음식 ID는 UI에서 저장을 막는다. 서버도 요청을 다시 검증한다.
   const validMeal = rows.length > 0 && rows.length <= 100 && rows.every(row => Number.isFinite(Number(row.serving_multiplier)) && Number(row.serving_multiplier) > 0 && Number(row.serving_multiplier) <= 100 && foods.some(food => food.class_id === row.class_id));
+  // 음식 행/수량 변경 시 서버 영양 미리보기를 갱신한다. active는 이전 요청의 늦은 결과가 새 합계를 덮지 못하게 한다.
   useEffect(()=>{
     let active=true;setTotals(null);setPreviewError('');setMealError('');
     if(rows.length && rows.every(r=>Number(r.serving_multiplier)>0 && Number(r.serving_multiplier)<=100)) {
@@ -50,10 +61,13 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     }
     return()=>{active=false;};
   },[rows]);
+  // 화면 이름이 바뀌면 상위 진입점에 전달해 현재 탭의 마지막 화면을 기억한다. 이 effect는 자원 정리 함수가 필요하지 않다.
   useEffect(()=>{onPageChange?.(page)},[page,onPageChange]);
+  // 최초 진입 시 음식/가입 정책을 병렬 조회하고 HttpOnly 쿠키로 로그인 상태를 복원한다.
   useEffect(() => {
     let active=true;
     Promise.all([api('/foods'),api('/auth/policy')]).then(([f,p]) => {if(active){setFoods(f.items);setPolicy(p)}}).catch(e => {if(active)setError(e.message)});
+    // 401은 정상 비회원으로 처리한다. 로그인 복원 후 계정 조회만 실패한 경우 회원 상태를 유지하고 오류를 안내한다.
     async function restoreSession(){
       try {
         const d=await api('/users/me');if(!active)return;
@@ -64,26 +78,41 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     }
     restoreSession();return()=>{active=false;};
   }, []);
+  // 현재 회원의 프로필·오늘 영양·히스토리·동의를 다시 조회한다.
   async function loadAccount() {const [t,h,p,c] = await Promise.all([api('/analytics/today'),api('/meals/history'),api('/users/me/profile'),api('/users/me/consent')]);setToday(t);setHistory(h.items);setProfile(p.profile);setConsent(c.model_improvement_consent);}
+  // 비동기 작업의 진행/오류 상태를 공통 처리해 중복 제출과 사용자 안내를 관리한다.
   async function run(work) {setBusy(true);setError('');setMessage('');try {await work()} catch(e){setError(e.message)} finally {setBusy(false)}}
+  // 상위 화면 선택을 바꾸고 페이지별 메시지/오류 상태를 정리한다.
   function navigate(p){setPage(p);setError('');setMessage('')}
+  // 폼 값을 가입/로그인 요청 형태로 변환하고 성공 후 세션과 회원 데이터를 복원한다.
   async function authenticate(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));if(signup){data.age=Number(data.age);data.service_consent=data.service_consent==='on';data.consent_text=policy.service_consent_text}
     await run(async()=>{const result=await api(signup ? '/auth/signup':'/auth/login',data);setUser(result.user);setPage(file?'음식 추가':'홈');await loadAccount()})}
+  // 선택 사진을 FormData로 분석 요청하고 탐지 ID·클래스·신뢰도를 수정 가능한 음식 행으로 만든다.
   async function scan(e){e.preventDefault();if(!file)return;setScanStatus('working');setScanError('');await run(async()=>{try{const form=new FormData();form.append('file',file);const result=await api('/meals/detect',form);setImage(result);setScanStatus('success');setRows(result.detections.map(d=>({key:d.id,class_id:d.class_id,serving_multiplier:1,detection_id:d.id,confidence:d.confidence,bbox:d.bbox})));setMessage(result.detections.length ? `사진 분석을 완료했습니다. 인식된 음식 ${result.detections.length}개의 이름과 섭취량을 확인해 주세요.` : '분석은 완료되었지만 인식된 음식이 없습니다. 다른 사진으로 시도하거나 음식을 직접 추가해 주세요.')}catch(err){setScanStatus('error');setScanError(err.message);throw err;}})}
+  // 새 사진을 선택할 때 이전 탐지·수정 행·분석 오류를 초기화해 서로 다른 사진 결과가 섞이지 않게 한다.
   function selectPhoto(next){setScanStatus('idle');setScanError('');setFile(next);setImage(null);setRows([]);setError('');setMessage('')}
+  // 안정적인 UUID 행 키를 생성해 음식 직접 선택 행을 추가한다.
   function addFood(){setRows(r=>[...r,{key:crypto.randomUUID(),class_id:foods[0]?.class_id||0,serving_multiplier:1,detection_id:null}])}
+  // 일치하는 행 키의 음식/섭취량만 갱신하고 다른 행은 유지한다.
   function updateRow(key,changes){setRows(r=>r.map(row=>row.key===key?{...row,...changes}:row))}
+  // 저장 성공 식단을 먼저 반영하고 계정 재조회 실패는 저장 실패와 구분해 안내한다.
   async function showSavedMeal(saved, text) {
     setHistory(current=>[saved,...current.filter(meal=>meal.id!==saved.id)]);
     setPage('히스토리');setMessage(text);
     try {await loadAccount();}
     catch {setError('식단은 저장되었습니다. 추가 정보를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.');}
   }
+  // 유효한 행을 서버 요청 형태로 보내 저장한다. 성공 후 사진/행을 비우고 저장된 식단 화면으로 이동한다.
   async function saveMeal(){if(!validMeal||busy)return;setMealError('');await run(async()=>{try{const saved=await api('/meals',{meal_type:mealType,items:rows.map(r=>({class_id:r.class_id,serving_multiplier:Number(r.serving_multiplier),detection_id:r.detection_id}))});setRows([]);setImage(null);setFile(null);await showSavedMeal(saved,'식단을 저장했습니다.')}catch(err){setMealError(err.message);throw err;}})}
+  // 신체 정보 숫자를 변환해 서버 미리보기 후 로그인 회원의 프로필을 저장한다.
   async function saveProfile(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));['age','height','weight','target_calories'].forEach(k=>data[k]=Number(data[k]));await run(async()=>{const preview=await api('/profiles/calorie-preview',data);setGoal(preview);if(user){await api('/users/me/profile',data,'PUT');await loadAccount();setMessage('목표가 저장되었습니다.')}})}
+  // 식사 구분과 제외 음식으로 서버 추천을 요청한다.
   async function generate(){await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,exclude_foods:exclude})))}
+  // 추천 ID와 선택 음식으로 식단을 저장해 서버가 추천 선택 상태도 함께 기록하도록 한다.
   async function recordRecommended(item){await run(async()=>{const saved=await api('/meals',{meal_type:mealType,recommendation_id:recommendation.id,items:[{class_id:item.class_id,serving_multiplier:1,detection_id:null}]});setRecommendation(null);await showSavedMeal(saved,'추천 메뉴를 식단으로 저장했습니다.')})}
+  // 서버 세션을 종료하고 회원·사진·식단·추천 상태와 CSRF를 비운다.
   async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setPage('홈')})}
+  // 비밀번호 변경으로 무효화된 회원 상태를 비우고 새 비밀번호 로그인 화면을 표시한다.
   function passwordChanged(text){csrf='';setResetToken(null);setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setConsent(false);setSignup(false);setPage('로그인');setError('');setMessage(text);}
   const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} onSubmit={authenticate} api={api}/>;
   if(resetToken&&!authLoading)return <div className="shell integrated-app"><main><PasswordForm api={api} token={resetToken}

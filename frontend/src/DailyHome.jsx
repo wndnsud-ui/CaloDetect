@@ -1,16 +1,22 @@
+// 회원 홈의 한국 시간 달력, 날짜별 식단 사진과 영양 합계를 표시한다.
+// 오늘은 상위 컴포넌트의 최신 상태를 사용하고 과거 날짜는 월별 API에서 조회한다. 빠른 날짜 변경 시 오래된 응답은 무시한다.
 import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
 import {Ring, Bowl, MenuIcon} from './Visuals';
 import './dashboard.css';
 
+// 회원 홈의 한국 시간 달력, 날짜별 식단 사진과 영양 합계를 표시한다.
 export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api}) {
  const [showTip,setShowTip]=useState(true);
+ // 브라우저 현지 시간 대신 Asia/Seoul의 연·월·일을 사용해 Backend 날짜와 일치시킨다.
  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
  const part=key=>parts.find(p=>p.type===key).value;
  const todayDate=liveToday?.date||`${part('year')}-${part('month')}-${part('day')}`;
  const [selectedDate,setSelectedDate]=useState(todayDate);
  const [pastDay,setPastDay]=useState(null),[error,setError]=useState(''),[retry,setRetry]=useState(0);
+ // 의존값 변경/마운트에 맞춰 외부 데이터 또는 브라우저 자원을 동기화한다. 반환하는 정리 함수는 이전 작업/자원을 해제한다.
  useEffect(()=>{
+  // 선택 날짜가 바뀌면 이전 결과를 비우고 정리 함수가 이전 요청의 늦은 응답을 무시하게 한다.
   let active=true;setPastDay(null);setError('');
   if(!user||selectedDate===todayDate)return;
   const [year,month]=selectedDate.split('-');
@@ -21,7 +27,9 @@ export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api
   }).catch(err=>{if(active)setError(err.message)});
   return()=>{active=false};
  },[api,user?.id,selectedDate,todayDate,retry]);
+ // 오늘 데이터는 상위 최신 상태를 재사용하고 과거 날짜는 조회 결과를 사용한다.
  const today=selectedDate===todayDate?liveToday:pastDay;
+ // 한국 날짜의 정오를 고정한 뒤 UTC getter로 달력을 계산해 브라우저 시간대 차이에 따른 날짜 이동을 피한다.
  const current=new Date(`${selectedDate}T12:00:00+09:00`);
  const monday=new Date(current); monday.setUTCDate(current.getUTCDate()-((current.getUTCDay()+6)%7));
  const week=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setUTCDate(monday.getUTCDate()+i);return d;});

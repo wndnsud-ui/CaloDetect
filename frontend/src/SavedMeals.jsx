@@ -1,10 +1,14 @@
+// 아침·점심·저녁·간식별 저장된 식단과 인증된 이미지 URL을 표시하는 공통 카드.
+// 사진 없는 직접 기록과 미기록을 구분하고 식단 추가는 전달받은 콜백으로 처리한다.
 import React, {useState} from 'react';
 
+// 아침·점심·저녁·간식별 저장된 식단과 인증된 이미지 URL을 표시하는 공통 카드.
 function SavedPhoto({url, name}) {
   const [failed,setFailed]=useState(false);
   return failed ? <div className="saved-photo-empty">사진을 불러올 수 없습니다</div> : <img className="saved-meal-photo" src={url} alt={`${name} 저장한 식단 사진`} onError={()=>setFailed(true)}/>;
 }
 
+// 아침·점심·저녁·간식별 저장된 식단과 인증된 이미지 URL을 표시하는 공통 카드.
 export default function SavedMeals({meals=[],onNavigate,onAddMeal,title='오늘의 식단'}) {
   const Card = onNavigate ? 'button' : 'div';
   return <section className="panel today-meals"><div className="section-heading"><h2>{title}</h2>{onNavigate&&<button className="text-button" onClick={()=>onNavigate('히스토리')}>전체 기록 보기 →</button>}</div>

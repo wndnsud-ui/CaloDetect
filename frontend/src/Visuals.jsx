@@ -1,4 +1,7 @@
+// 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
+// 전달된 표시값만 시각화하며 실제 영양 계산이나 기록 저장은 수행하지 않는다.
 import React, {useId} from 'react';
+// 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 export function MenuIcon({page}) {
   const shapes = {
     '홈': <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></>,
@@ -11,6 +14,7 @@ export function MenuIcon({page}) {
   };
   return <svg className="sidebar-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[page]}</svg>;
 }
+// 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 export function Brand({onClick}) {
   const id=useId();
   return <button type="button" className="brand" onClick={onClick} aria-label="CaloDetect 홈">
@@ -26,5 +30,7 @@ export function Brand({onClick}) {
     </svg><span className="brand-wordmark">CaloDetect</span>
   </button>;
 }
+// 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 export function Bowl({small=false}) {return <div className={`food-bowl ${small?'small':''}`} role="img" aria-label="채소와 달걀을 담은 식사 일러스트"><div className="greens"/><div className="rice"/><div className="chicken"/><div className="egg"/><div className="avocado"/><div className="tomato one"/><div className="tomato two"/><div className="tomato three"/></div>;}
+// 브랜드, 음식 일러스트, 메뉴 아이콘과 칼로리 링 등 재사용 가능한 SVG 표시 컴포넌트.
 export function Ring({value=0,target,example=false}) {const percent=target?Math.min(100,Math.round(value/target*100)):0;return <div className="ring-wrap"><div className="ring" style={{'--progress':`${percent}%`}}><div><strong>{value.toLocaleString()}</strong><span>{target?`/ ${target.toLocaleString()} kcal`:'목표 설정 전'}</span></div></div><b>{target?`${percent}%`:'—'}</b>{example&&<small>화면 예시</small>}</div>;}

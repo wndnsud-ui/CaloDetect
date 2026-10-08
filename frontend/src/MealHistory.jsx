@@ -1,3 +1,5 @@
+// 식단 항목을 음식 한 개당 한 행으로 펼치는 기록 표.
+// 음식명 검색·식사 유형 필터·날짜 정렬은 받은 기록 범위 안에서 수행하며 영양값은 저장된 서버 값을 표시한다.
 import React, { useState } from 'react';
 import './meal-history.css';
 
@@ -5,10 +7,12 @@ const meals = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간�
 const columns = [['cal','열량','kcal'], ['carbs','탄수화물','g'], ['protein','단백질','g'], ['fat','지방','g'], ['sugar','당류','g'], ['sodium','나트륨','mg']];
 const format = value => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('ko-KR', {maximumFractionDigits:1});
 
+// 식단 항목을 음식 한 개당 한 행으로 펼치는 기록 표.
 export default function MealHistory({history, onAdd}) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [order, setOrder] = useState('desc');
+  // 식단별 중첩 항목을 평탄화한 뒤 음식명/식사 조건을 적용한다. 원본 history 배열은 바꾸지 않는다.
   const rows = history.flatMap(meal => meal.items.map(item => ({meal, item})))
     .filter(({meal, item}) => (type === 'all' || meal.meal_type === type) && item.food_name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => order === 'desc' ? b.meal.meal_date.localeCompare(a.meal.meal_date) : a.meal.meal_date.localeCompare(b.meal.meal_date));

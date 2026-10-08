@@ -1,3 +1,5 @@
+# 회귀 테스트: p0_flow 관련 기능의 성공·오류·권한 조건을 검사한다.
+# fixture/monkeypatch로 테스트 의존성을 준비하며 실제 외부 인증·메일 발송 검증과는 구분한다.
 import io
 import os
 from uuid import uuid4
@@ -16,6 +18,7 @@ from backend.app.models import Base, User, Meal, Detection, RetrainingSample, Re
 from backend.scripts.seed_foods import seed
 
 
+# env: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 @pytest.fixture
 def env(monkeypatch, tmp_path):
     monkeypatch.setattr(settings, 'local_test_image_analysis', False)
@@ -31,6 +34,7 @@ def env(monkeypatch, tmp_path):
     Base.metadata.create_all(engine)
     with Session(engine) as db:
         seed(db)
+    # session: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
     def session():
         with Session(engine) as db:
             yield db
@@ -52,6 +56,7 @@ def env(monkeypatch, tmp_path):
         engine.dispose()
 
 
+# account: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 def account(client, email='one@example.com'):
     response = client.post('/auth/signup', json={'email':email,'password':'test-password-123',
         'name':'Tester','age':30,'service_consent':True,'consent_text':'TEST ONLY consent'})
@@ -61,6 +66,8 @@ def account(client, email='one@example.com'):
     return data['user']
 
 
+# 회귀 검사: 월간 · 분석.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_month_analysis(env):
     from datetime import date
     client, engine, _ = env
@@ -69,6 +76,7 @@ def test_month_analysis(env):
         {'class_id':0, 'serving_multiplier':1}]}).json()
     with Session(engine) as db:
         db.get(Meal, saved['id']).meal_date = date(2024, 2, 29)
+        # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.commit()
     result = client.get('/analytics/month?year=2024&month=2')
     assert result.status_code == 200
@@ -85,17 +93,21 @@ def test_month_analysis(env):
     assert empty['averages'] is None
 
 
+# 현재 회원의 저장된 프로필을 반환하고 아직 없으면 null로 표시한다.
 def profile(client):
     response = client.put('/users/me/profile', json={'height':175,'weight':70,'age':30,'sex':'male',
         'activity_level':'moderate','goal_type':'maintain','target_calories':2500})
     assert response.status_code == 200, response.text
 
 
+# png: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 def png():
     data=io.BytesIO(); Image.new('RGB',(100,100),'white').save(data,format='PNG')
     return data.getvalue()
 
 
+# 회귀 검사: 가입 · 프로필 · 식단 · 로그아웃 · 재로그인.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_register_profile_meal_logout_and_relogin(env):
     client,engine,_=env
     user=account(client); profile(client)
@@ -116,11 +128,14 @@ def test_register_profile_meal_logout_and_relogin(env):
     assert client.post('/users/1/make-admin',json={}).status_code==404
 
 
+# 회귀 검사: 회원 · 분리 · 원자적 · 저장.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_user_isolation_and_atomic_save(env):
     client,engine,_=env
     first=account(client)
     with Session(engine) as db:
         d=Detection(user_id=first['id'],image_path='test.jpg',image_group_id='group',predicted_label='a',confidence=.9,bbox=[0,0,10,10],model_version='test')
+                  # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.add(d);db.commit();detection_id=d.id
     client.post('/auth/logout',json={}); account(client,'two@example.com')
     response=client.post('/meals',json={'meal_type':'lunch','items':[{'class_id':0,'serving_multiplier':1},{'class_id':1,'serving_multiplier':1,'detection_id':detection_id}]})
@@ -131,6 +146,8 @@ def test_user_isolation_and_atomic_save(env):
     assert client.get('/admin/retraining/samples').status_code==403
 
 
+# 회귀 검사: 탐지 · 보정 · QA · 동의.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_detection_correction_qa_consent(env):
     client,engine,monkeypatch=env
     user=account(client)
@@ -151,6 +168,7 @@ def test_detection_correction_qa_consent(env):
     assert client.get(image_path).status_code == 200
     with Session(engine) as db:
         assert len(db.scalars(select(RetrainingSample)).all())==1
+                                             # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.get(User,user['id']).role='admin';db.commit()
     samples=client.get('/admin/retraining/samples').json()['items'];sample_id=samples[0]['id']
     assert client.post(f'/admin/retraining/samples/{sample_id}/approve',json={}).status_code==200
@@ -165,6 +183,8 @@ def test_detection_correction_qa_consent(env):
         assert next(s for s in samples if s.qa_status=='PENDING').excluded is True
 
 
+# 회귀 검사: 모델 · 동의 · 승인 · 문구.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_model_consent_requires_approved_wording(env):
     client, _, monkeypatch = env
     account(client)
@@ -174,6 +194,8 @@ def test_model_consent_requires_approved_wording(env):
     assert client.put('/users/me/consent', json={'model_improvement_consent': False}).status_code == 200
 
 
+# 회귀 검사: 추천 · 세 후보 · 선택 기록.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_recommendations_three_and_acted(env):
     client,engine,_=env
     account(client);profile(client)
@@ -191,6 +213,8 @@ def test_recommendations_three_and_acted(env):
         assert db.get(RecommendationLog,data['id']).acted is True
 
 
+# 회귀 검사: 이미지 · 연령 · CSRF.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_bad_image_age_and_csrf(env):
     client,_,_=env
     denied=client.post('/auth/signup',json={'email':'minor@example.com','password':'test-password-123',
@@ -202,6 +226,8 @@ def test_bad_image_age_and_csrf(env):
     assert client.post('/meals',json={'meal_type':'lunch','items':[{'class_id':0,'serving_multiplier':1}]}).status_code==403
 
 
+# 회귀 검사: 실제 · YOLO · 빈 · 이미지.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 @pytest.mark.skipif(os.environ.get('RUN_VISION_TEST') != '1', reason='Explicit actual YOLO smoke check')
 def test_actual_yolo_blank_image(env):
     client,_,_=env
@@ -212,6 +238,8 @@ def test_actual_yolo_blank_image(env):
     assert client.get(result.json()['image_url'].replace('/api','')).status_code==200
 
 
+# 회귀 검사: 로컬 · 이미지 · 분석 · 운영 · or · 원격 · 클라이언트.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_local_image_analysis_is_not_enabled_for_production_or_remote_clients(env):
     remote, _, monkeypatch = env
     monkeypatch.setattr(settings, 'local_test_image_analysis', True)

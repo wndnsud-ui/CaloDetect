@@ -1,5 +1,11 @@
 # 변경 이력
 
+## 2026-10-08
+
+- 항목: 전체 프로그램 소스의 상세 한국어 주석. 변경 전: 파일/함수 설명과 주요 처리 흐름의 주석 수준이 파일마다 달랐음. 변경 후: Backend API·인증·ORM/요청 필드·계산/집계/추천·YOLO worker·기존 Streamlit·React 컴포넌트·스타일·테스트·migration·실행/설정/백업 스크립트 등 73개 파일에 역할, 입력/출력, 권한, 트랜잭션, 단위와 비동기 정리 흐름 설명 추가. 이유: 사용자 전체 코드 주석 요청. 영향: 소스 주석만 추가하며 실행 코드·DB schema·API 계약·원본 모델/CSV/YAML·Master Spec과 미확정 정책은 유지. 작업 브랜치: `docs/detail-code-comments`.
+- 검증: 기존 소스 행 보존 및 전체 Python AST 동일성 확인. Backend 62개 통과·실제 YOLO smoke 1개 기본 제외. React production build 성공(기본 dist 쓰기 권한 오류를 피해 Git에서 제외된 `.runtime-logs/comment-build` 사용). PowerShell 구문과 주석 외 변경 여부 추가 검사. 서버 실행·DB migration·외부 인증/메일 발송은 수행하지 않음.
+- 후속 실행·업로드: 사용자 요청으로 README 재실행 절차에 따라 기존 로컬 설정/DB를 재사용해 Backend와 React를 실행하고 웹 HTTP 200·API/DB health·음식 150개 조회를 확인. 이후 사용자 요청으로 두 개발 서버와 PostgreSQL 컨테이너를 중지하고 주석 변경을 develop에 업로드. 개인 .env·DB·업로드 사진·빌드 산출물은 Git에서 제외하며 기존 DB volume은 보존.
+
 ## 2026-10-07
 
 - 항목: 업데이트 간편가이드 절차 통합. 사용자 제공 VS Code develop Pull 안내와 업데이트 이후 터미널 A/B 재실행·브라우저 확인 절차를 하나의 MD에 통합. Git 명령을 두 줄 코드 블록으로 유지하고 기존 가상환경·개인 설정·DB 재사용. 문서만 변경; 서버 실행 없음.

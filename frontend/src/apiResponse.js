@@ -1,3 +1,6 @@
+// fetch 응답을 한 번 읽어 JSON 또는 사용자용 오류로 변환한다.
+// HTTP 오류뿐 아니라 비어 있거나 JSON이 아닌 응답도 실패로 처리해 화면에서 서버 연결 문제를 설명할 수 있게 한다.
+// 응답 text를 한 번 읽어 JSON으로 해석하고 HTTP 실패/잘못된 본문을 Error로 변환한다.
 export async function readApiResponse(response) {
   const body = await response.text();
   let data;

@@ -1,3 +1,4 @@
+/* 음식별 히스토리 표의 검색 도구·행·숫자 열과 모바일 가로 스크롤 스타일. */
 .meal-history .history-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:26px}
 .meal-history .history-heading h1{margin-bottom:10px}.meal-history .history-heading p{margin-bottom:0}.meal-history .history-heading .primary{margin:0;white-space:nowrap}
 .history-database{background:#fff;border:1px solid var(--line,#dfe8e3);border-radius:14px;overflow:hidden}
@@ -13,4 +14,5 @@
 .history-database .history-number{text-align:right;font-variant-numeric:tabular-nums}.history-calories{font-weight:700;color:#007b68}.history-date{font-variant-numeric:tabular-nums}.history-serving{color:#72867e;font-size:12px}
 .history-meal-tag{display:inline-block;padding:5px 11px;border-radius:6px;font-size:12px;background:#e6f3eb;color:#28735a}.history-meal-breakfast{background:#faf0dd;color:#927026}.history-meal-dinner{background:#eceafa;color:#6b5a96}.history-meal-snack{background:#f9eaf0;color:#985a72}
 .history-empty{text-align:center;padding:48px 20px;color:#72867e}.history-table-note{padding:16px 24px;margin:0;font-size:12px;color:#72867e}
+/* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
 @media(max-width:700px){.meal-history .history-heading{align-items:flex-start;flex-direction:column;gap:18px}.history-toolbar{flex-wrap:wrap;padding:18px;gap:12px}.history-search{flex-basis:100%;max-width:none}.history-toolbar label:not(.history-search){flex:1}.history-count{width:100%;margin:0;padding:0}.history-table-note{padding:16px 18px;line-height:1.7}}

@@ -1,8 +1,12 @@
+// 비밀번호 재설정 메일 요청, 토큰 기반 재설정과 로그인 중 변경 UI.
+// 비밀번호 확인은 제출 전에 검사하고 성공 시 상위 컴포넌트가 기존 회원 상태를 비우고 재로그인을 안내한다.
 import React, {useState} from 'react';
 
+// 메일 요청 폼과 준비/진행/결과 상태를 표시한다. 서버의 동일 응답으로 가입 여부를 추측하지 않는다.
 export function ForgotPassword({api, enabled, disabled}) {
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(''), [error, setError] = useState('');
+  // 이메일을 서버에 보내 재설정 메일을 요청한다. 계정 유무와 관계없는 동일 안내를 표시하고 진행 상태를 항상 해제한다.
   async function submit(event) {
     event.preventDefault();
     const email = new FormData(event.currentTarget).get('email');
@@ -28,8 +32,10 @@ export function ForgotPassword({api, enabled, disabled}) {
   </section>;
 }
 
+// 토큰이 있으면 재설정, 없으면 현재 비밀번호 확인 방식의 변경 폼을 구성한다.
 export function PasswordForm({api, token, onChanged, onCancel}) {
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  // 새 비밀번호 확인이 일치하면 token 유무에 따라 재설정/현재 비밀번호 변경 API를 호출한다. 확인 입력은 서버에 보내지 않는다.
   async function submit(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -64,6 +70,7 @@ export function PasswordForm({api, token, onChanged, onCancel}) {
   </section>;
 }
 
+// URL fragment에서 재설정 토큰을 읽고 즉시 주소에서 제거해 화면 전환 뒤 남지 않게 한다.
 export function takeResetToken() {
   const params = new URLSearchParams(window.location.hash.slice(1));
   const token = params.get('password_reset');

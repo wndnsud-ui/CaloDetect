@@ -1,3 +1,5 @@
+# 회귀 테스트: passwords 관련 기능의 성공·오류·권한 조건을 검사한다.
+# fixture/monkeypatch로 테스트 의존성을 준비하며 실제 외부 인증·메일 발송 검증과는 구분한다.
 from unittest.mock import MagicMock
 
 import pytest
@@ -13,6 +15,7 @@ from backend.tests.test_accounts import accounts, register
 REAL_SENDER = passwords.send_reset_email
 
 
+# setup_reset: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 @pytest.fixture
 def setup_reset(accounts, monkeypatch):
     client, engine = accounts
@@ -30,6 +33,8 @@ def setup_reset(accounts, monkeypatch):
     return client, engine, sent
 
 
+# 회귀 검사: 재설정 · 단일 · 사용 · 폐기 · 전체 · 세션.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_reset_single_use_and_revokes_all_sessions(setup_reset):
     client, _, sent = setup_reset
     old_cookie = client.cookies.get(COOKIE)
@@ -50,6 +55,8 @@ def test_reset_single_use_and_revokes_all_sessions(setup_reset):
     assert client.post('/auth/login', json={'email':'one@example.com', 'password':'replacement-password'}).status_code == 200
 
 
+# 회귀 검사: 미가입 · 소셜 · 동일 · 응답 · 발송.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_unknown_and_social_same_response_no_delivery(setup_reset):
     client, engine, sent = setup_reset
     known = client.post('/auth/password/forgot', json={'email':'one@example.com'})
@@ -58,6 +65,7 @@ def test_unknown_and_social_same_response_no_delivery(setup_reset):
         user = db.scalar(select(User))
         user.oauth_provider = 'google'
         user.oauth_subject = 'test-subject'
+        # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.commit()
     social = client.post('/auth/password/forgot', json={'email':'one@example.com'})
     assert known.json() == unknown.json() == social.json()
@@ -70,6 +78,8 @@ def test_unknown_and_social_same_response_no_delivery(setup_reset):
     assert client.post('/auth/login', json={'email':'one@example.com', 'password':'secure-test-password'}).status_code == 401
 
 
+# 회귀 검사: 변경 · 현재 · 비밀번호 · CSRF · 재설정 · 무효화.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_change_current_password_csrf_and_reset_invalidation(setup_reset):
     client, _, sent = setup_reset
     csrf = client.get('/users/me').json()['csrf_token']
@@ -86,6 +96,8 @@ def test_change_current_password_csrf_and_reset_invalidation(setup_reset):
     assert client.post('/auth/login', json={'email':'one@example.com', 'password':'changed-password'}).status_code == 200
 
 
+# 회귀 검사: 만료 · 변조 · 짧은 · 비밀번호 · 요청 출처.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_expired_tampered_short_password_and_origin(setup_reset, monkeypatch):
     client, _, sent = setup_reset
     client.post('/auth/password/forgot', json={'email':'one@example.com'})
@@ -101,6 +113,8 @@ def test_expired_tampered_short_password_and_origin(setup_reset, monkeypatch):
     assert client.post('/auth/password/reset', json=body).status_code == 400
 
 
+# 회귀 검사: 설정 · 횟수 · 제한.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_configuration_and_rate_limits(setup_reset, monkeypatch):
     client, _, _ = setup_reset
     monkeypatch.setattr(settings, 'password_reset_secret', None)
@@ -115,6 +129,8 @@ def test_configuration_and_rate_limits(setup_reset, monkeypatch):
     assert client.post('/auth/password/forgot', json={'email':'missing@example.com'}).status_code == 429
 
 
+# 회귀 검사: Gmail · 발송 · STARTTLS · fragment · 링크.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_gmail_delivery_starttls_and_fragment_link(setup_reset, monkeypatch):
     # Restore the real sender that this fixture replaced for endpoint tests.
     smtp = MagicMock()
@@ -131,6 +147,8 @@ def test_gmail_delivery_starttls_and_fragment_link(setup_reset, monkeypatch):
     assert '/#password_reset=test-reset-token' in message.get_content()
 
 
+# 회귀 검사: 메일 · 실패 · 로그 · 민감 · 데이터.
+# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_mail_failure_logs_no_sensitive_data(setup_reset, monkeypatch, caplog):
     monkeypatch.setattr(passwords.smtplib, 'SMTP', MagicMock(side_effect=OSError('private SMTP details')))
     REAL_SENDER('private@example.com', 'secret-reset-token')

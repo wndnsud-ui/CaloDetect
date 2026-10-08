@@ -1,3 +1,5 @@
+# FastAPI 인증을 사용하는 Streamlit 관리자 QA 화면.
+# 토큰은 Streamlit 세션에 보관하고 샘플 조회·이미지·승인/거절은 관리자 API로만 처리한다. DB를 직접 수정하지 않는다.
 """Authenticated QA client. Never connects directly to the database."""
 import os
 import sys
@@ -10,6 +12,7 @@ st.title('CaloDetect 관리자 QA')
 base = os.environ.get('CALODETECT_API_URL', 'http://127.0.0.1:8000').rstrip('/')
 
 
+# Streamlit 세션의 Bearer 토큰으로 Backend API를 호출하고 HTTP/JSON 오류를 화면용 예외로 변환한다.
 def call(method, path, **kwargs):
     token = st.session_state.get('qa_token')
     headers = {'Authorization': f'Bearer {token}'} if token else {}
@@ -23,6 +26,7 @@ def call(method, path, **kwargs):
     return response
 
 
+# Streamlit 재실행 사이에 관리자 토큰이 없으면 검수 화면 대신 로그인 폼을 보여준다.
 if not st.session_state.get('qa_token'):
     with st.form('admin_login'):
         email = st.text_input('관리자 이메일')
@@ -32,6 +36,7 @@ if not st.session_state.get('qa_token'):
         try:
             login_response = call('POST', '/auth/login', json={'email':email,'password':password})
             result = login_response.json()
+            # 일반 회원 로그인으로 생긴 세션은 즉시 폐기하고 QA 화면 진입을 거부한다.
             if result['user']['role'] != 'admin':
                 # Revoke the issued session even for a rejected ordinary user.
                 requests.post(base+'/auth/logout',cookies=login_response.cookies,
@@ -42,6 +47,7 @@ if not st.session_state.get('qa_token'):
         except (requests.RequestException, RuntimeError) as error:
             st.error(str(error))
 else:
+    # 회원 API의 로그아웃은 쿠키+CSRF 경로이므로 현재 토큰으로 CSRF를 조회한 뒤 세션을 종료한다.
     if st.button('로그아웃'):
         # The auth route uses cookie + CSRF. Fetch session CSRF through a cookie request.
         token = st.session_state.qa_token
@@ -63,6 +69,7 @@ else:
                     st.image(picture, width=350)
                 except RuntimeError as error:
                     st.warning(str(error))
+                # 대기 상태만 승인/거절 버튼을 표시한다. 서버도 상태·동의를 다시 검사하므로 UI만으로 권한을 판단하지 않는다.
                 if item['qa_status'] == 'PENDING':
                     approve, reject = st.columns(2)
                     for column, action, label in [(approve,'approve','승인'),(reject,'reject','거절')]:

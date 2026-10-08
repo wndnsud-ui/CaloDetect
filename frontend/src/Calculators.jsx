@@ -1,7 +1,10 @@
+// 비회원도 사용할 수 있는 음식 영양·목표 칼로리 미리보기 화면.
+// 입력 숫자를 변환해 Backend 계산 API에 전달하며 프로필 저장은 전달된 콜백이 있을 때만 수행한다.
 import React, { useEffect, useState } from 'react';
 import { readApiResponse } from './apiResponse';
 import './style.css';
 
+// 요청 본문 유무에 따라 조회/변경 호출을 구성하고 공통 응답 파서로 결과를 읽는다.
 async function api(path, body) {
   const response = await fetch(`/api${path}`, body === undefined ? {} : {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
@@ -11,6 +14,7 @@ async function api(path, body) {
 }
 
 const sections = ['홈', '음식 추가', '목표 설정', '식사 추천', '히스토리'];
+// 비회원도 사용할 수 있는 음식 영양·목표 칼로리 미리보기 화면.
 export default function Calculators({ initialTab = '음식 추가', onSaveProfile, profile }) {
   const [tab, setTab] = useState(initialTab);
   const [foods, setFoods] = useState([]);
@@ -21,6 +25,7 @@ export default function Calculators({ initialTab = '음식 추가', onSaveProfil
   const [nutrition, setNutrition] = useState(null);
   const [goal, setGoal] = useState(null);
   const [busy, setBusy] = useState(false);
+  // 의존값 변경/마운트에 맞춰 외부 데이터 또는 브라우저 자원을 동기화한다. 반환하는 정리 함수는 이전 작업/자원을 해제한다.
   useEffect(() => {
     let active = true;
     Promise.all([api('/foods'), api('/system/status')]).then(([catalog, system]) => {
@@ -28,11 +33,13 @@ export default function Calculators({ initialTab = '음식 추가', onSaveProfil
     }).catch(e => {if (active) setError(`서버 연결 실패: ${e.message} FastAPI 실행 상태를 확인하세요.`);});
     return () => {active = false;};
   }, []);
+  // 선택 음식과 숫자로 변환한 기준량 배율을 Backend 계산 API로 보낸다.
   async function calculate(e) {
     e.preventDefault(); setBusy(true); setError(''); setNutrition(null);
     try {setNutrition(await api('/nutrition/calculate', {class_id: selected, serving_multiplier: Number(portion)}));}
     catch (e) {setError(e.message);} finally {setBusy(false);}
   }
+  // 신체 정보 숫자를 변환해 권장 범위를 조회하고 저장 버튼일 때만 전달된 저장 콜백을 실행한다.
   async function preview(e) {
     e.preventDefault(); setBusy(true); setError(''); setGoal(null);
     const data = Object.fromEntries(new FormData(e.currentTarget));

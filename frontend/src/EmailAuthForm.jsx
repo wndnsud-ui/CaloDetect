@@ -1,6 +1,9 @@
+// 로그인/회원가입 이메일 폼. 서버 가입 정책에 맞춰 이름·만 나이·필수 동의 항목을 표시한다.
+// 요청 처리는 상위 onSubmit에 맡기고 비밀번호 찾기 화면을 함께 제공한다.
 import React from 'react';
 import {ForgotPassword} from './PasswordTools';
 
+// 로그인/회원가입 이메일 폼. 서버 가입 정책에 맞춰 이름·만 나이·필수 동의 항목을 표시한다.
 export default function EmailAuthForm({signup, policy, busy, onSubmit, api}) {
   return <><form key={signup ? 'signup' : 'login'} className="panel auth-panel" onSubmit={onSubmit}>
     <h3>{signup ? '이메일로 회원가입' : '이메일로 로그인'}</h3>

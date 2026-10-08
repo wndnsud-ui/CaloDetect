@@ -1,5 +1,7 @@
+// 사진 분석의 대기·진행·성공·실패 상태와 탐지 결과를 표시한다. 탐지 실패 시에도 음식 직접 선택 흐름을 안내한다.
 import React from 'react';
 
+// 사진 분석의 대기·진행·성공·실패 상태와 탐지 결과를 표시한다. 탐지 실패 시에도 음식 직접 선택 흐름을 안내한다.
 export default function ScanResult({status, error, result}) {
   if (status === 'working') return <p className="notice" role="status">사진을 업로드하고 음식을 분석하고 있습니다. 잠시 기다려 주세요.</p>;
   if (status === 'error') return <p className="error scan-feedback" role="alert">사진 분석 실패: {error}</p>;

@@ -1,3 +1,5 @@
+// 기존 월별 분석 API로 일간 식사별·월간 날짜별 영양 차트를 표시한다.
+// 미기록(null)과 0 섭취량을 구분하며 월 차트의 날짜를 선택하면 해당 일간 기록으로 이동한다.
 import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
 
@@ -5,7 +7,9 @@ const nutrients = {cal:['칼로리','kcal'], carbs:['탄수화물','g'], protein
 const types = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간식'};
 const kstDate = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Asia/Seoul'}).format(new Date());
 
+// 실제 영양값의 최대치를 기준으로 막대 높이를 표시하고 null은 미기록으로 구분한다.
 function Bars({items, unit, onSelect}) {
+  // 모든 값이 0/미기록이어도 분모는 최소 1로 유지해 막대 높이의 0 나눗셈을 피한다.
   const max = Math.max(1, ...items.map(item=>item.value ?? 0));
   return <div className="analysis-bars">{items.map(item=><button type="button" key={item.label} className="analysis-bar" onClick={()=>onSelect?.(item)} aria-label={`${item.label}: ${item.value == null ? '미기록' : `${item.value} ${unit}`}`}>
     <span className="analysis-bar-value">{item.value == null ? '—' : item.value.toLocaleString()}</span>
@@ -14,11 +18,14 @@ function Bars({items, unit, onSelect}) {
   </button>)}</div>;
 }
 
+// 기존 월별 분석 API로 일간 식사별·월간 날짜별 영양 차트를 표시한다.
 export default function MealAnalytics({api}) {
   const [date,setDate] = useState(kstDate), [mode,setMode] = useState('daily');
   const [metric,setMetric] = useState('cal'), [data,setData] = useState(null);
   const [error,setError] = useState(''), [retry,setRetry] = useState(0);
+  // 월이 같으면 조회 결과를 재사용한다. 날짜 선택만 바뀌면 같은 월 자료에서 해당 일자를 찾는다.
   const month = date.slice(0,7);
+  // 의존값 변경/마운트에 맞춰 외부 데이터 또는 브라우저 자원을 동기화한다. 반환하는 정리 함수는 이전 작업/자원을 해제한다.
   useEffect(()=>{
     let active=true; setData(null); setError('');
     const [year,number]=month.split('-');
@@ -26,8 +33,10 @@ export default function MealAnalytics({api}) {
     return()=>{active=false};
   },[api,month,retry]);
   const day=data?.days.find(item=>item.date===date);
+  // 일간은 날짜 합계, 월간은 서버의 기록일 평균을 표시한다.
   const totals=mode==='daily'?day?.totals:data?.averages;
   const [label,unit]=nutrients[metric];
+  // 일간은 저장 음식의 식사 유형별 합계, 월간은 서버 날짜별 합계를 사용하며 미기록은 null을 유지한다.
   const bars=mode==='daily'?Object.entries(types).map(([key,label])=>{
     const meals=day?.meals.filter(meal=>meal.meal_type===key) || [];
     return {label,value:meals.length ? Math.round(meals.flatMap(meal=>meal.items).reduce((sum,item)=>sum+item.nutrition[metric],0)*100)/100 : null};

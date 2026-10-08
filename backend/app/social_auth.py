@@ -1,3 +1,5 @@
+# 소셜 인증의 제공자 설정, challenge, Google Authorization Code + PKCE와 가입 완료 처리.
+# 서명·발급자·앱 대상·만료·state/nonce를 검증하고 계정 식별은 제공자와 subject로 수행한다. 이메일 일치만으로 기존 계정을 연결하지 않는다.
 """Google/Apple identity verification; secrets and provider tokens stay out of logs."""
 import base64
 import hashlib
@@ -39,6 +41,7 @@ KEYS = {
 }
 
 
+# 제공자별 공개 Client ID·리디렉션·기능 준비 상태를 구성한다.
 def provider_config(provider):
     client_id = settings.google_client_id if provider == 'google' else settings.apple_client_id
     enabled = bool(client_id and settings.oauth_state_secret)
@@ -64,11 +67,14 @@ def provider_config(provider):
             'redirect_uri': settings.apple_redirect_uri if enabled and provider == 'apple' else None}
 
 
+# 프런트엔드가 표시할 제공자 설정과 소셜 가입 가능 상태를 반환한다.
+# HTTP GET /auth/social/policy: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.get('/auth/social/policy')
 def social_policy():
     return {provider: provider_config(provider) for provider in ('google', 'apple')}
 
 
+# 선택한 제공자의 인증 설정이 준비됐는지 검사하고 미설정이면 안내 오류를 발생시킨다.
 def require_provider(provider):
     config = provider_config(provider)
     if not config['enabled']:
@@ -76,38 +82,47 @@ def require_provider(provider):
     return config
 
 
+# 제공자별 인증 challenge 쿠키 이름을 구성해 서로 다른 인증 흐름을 구분한다.
 def cookie_name(provider):
     return f'calodetect_oauth_{provider}'
 
 
+# 짧은 유효기간·HttpOnly·SameSite 등 임시 인증 쿠키의 공통 옵션을 만든다.
 def oauth_cookie_options(max_age=300):
     return {'httponly': True, 'secure': settings.cookie_secure,
             'samesite': 'lax', 'max_age': max_age, 'path': '/'}
 
 
+# Google 인증 완료/실패 뒤 state와 신규 가입 임시 쿠키를 정리한다.
 def clear_google_oauth_cookies(response):
     response.delete_cookie(GOOGLE_STATE_COOKIE, path='/', secure=settings.cookie_secure,
                             httponly=True, samesite='lax')
     clear_google_signup_cookie(response)
 
 
+# 신규 Google 회원가입 보완 단계의 임시 쿠키를 같은 옵션으로 제거한다.
 def clear_google_signup_cookie(response):
     response.delete_cookie(GOOGLE_SIGNUP_COOKIE, path='/', secure=settings.cookie_secure,
                            httponly=True, samesite='lax')
 
 
+# 서버 state 비밀키에서 AES-GCM 키를 만들어 가입 임시 데이터의 기밀성과 무결성을 보호한다.
 def google_signup_cipher():
+    # 비밀키에서 고정 길이 32바이트 AES 키를 파생한다. 원문 설정을 클라이언트에 전송하지 않는다.
     key = hashlib.sha256(settings.oauth_state_secret.encode()).digest()
     return AESGCM(key)
 
 
+# 가입용 claims를 무작위 nonce로 AES-GCM 암호화하고 쿠키에 담을 URL-safe 문자열로 인코딩한다.
 def seal_google_signup(claims):
+    # AES-GCM 암호화마다 새 96비트 nonce를 사용한다. 고정 AAD는 다른 쿠키 용도와 구분한다.
     nonce = secrets.token_bytes(12)
     payload = json.dumps(claims, separators=(',', ':')).encode()
     encrypted = google_signup_cipher().encrypt(nonce, payload, GOOGLE_SIGNUP_COOKIE_AAD)
     return base64.urlsafe_b64encode(nonce + encrypted).decode().rstrip('=')
 
 
+# 가입 쿠키를 복호화하고 provider·subject·만료를 확인한다. 변조/형식 오류는 동일한 인증 실패로 처리한다.
 def open_google_signup(request):
     value = request.cookies.get(GOOGLE_SIGNUP_COOKIE, '')
     try:
@@ -115,6 +130,7 @@ def open_google_signup(request):
         ciphertext = base64.urlsafe_b64decode(encoded.encode())
         if len(ciphertext) < 29:
             raise ValueError
+        # 인증 태그를 함께 확인하므로 암호문 변조는 InvalidTag로 거부된다.
         payload = google_signup_cipher().decrypt(ciphertext[:12], ciphertext[12:], GOOGLE_SIGNUP_COOKIE_AAD)
         claims = json.loads(payload)
         if (claims.get('provider') != 'google' or not isinstance(claims.get('sub'), str)
@@ -125,6 +141,8 @@ def open_google_signup(request):
         raise HTTPException(401, 'Google 회원가입 요청이 만료되었습니다. 다시 시작하세요.')
 
 
+# 출처와 제공자 설정을 확인해 5분 유효 state/nonce challenge를 서명 쿠키로 보관한다.
+# HTTP POST /auth/social/{provider}/challenge: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.post('/auth/social/{provider}/challenge')
 def challenge(provider: Provider, request: Request, response: Response):
     require_origin(request)
@@ -138,6 +156,8 @@ def challenge(provider: Provider, request: Request, response: Response):
     return {'nonce': nonce, 'state': state}
 
 
+# state·nonce·PKCE verifier를 준비하고 S256 challenge를 포함한 Google 인증 URL로 이동시킨다.
+# HTTP GET /auth/google/login: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.get('/auth/google/login')
 def google_login(request: Request):
     require_origin(request)
@@ -146,6 +166,7 @@ def google_login(request: Request):
         raise HTTPException(503, 'Google OAuth 클라이언트 ID·보안 키·리디렉션 URI 설정이 필요합니다.')
 
     state, nonce = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+    # PKCE verifier는 서버 임시 쿠키에만 보관하고 인증 URL에는 SHA-256 challenge만 보낸다.
     verifier = secrets.token_urlsafe(64)
     challenge_value = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip('=')
     pending = jwt.encode({'state': state, 'nonce': nonce, 'verifier': verifier,
@@ -168,12 +189,16 @@ def google_login(request: Request):
     return response
 
 
+# 서명된 임시 state를 확인하고 code를 PKCE로 교환한 뒤 Google ID 토큰을 검증한다.
+# 기존 subject는 로그인하고 신규 subject는 암호화된 가입 쿠키로 보완 입력을 연결한다.
+# HTTP GET /api/auth/google/callback: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.get('/api/auth/google/callback')
 async def google_callback(request: Request, code: str | None = None,
                           state: str | None = None, error: str | None = None,
                           db: Session = Depends(database)):
     frontend = settings.frontend_origin.rstrip('/')
     fallback = f'{frontend}/?social_error=google_auth_failed'
+    # callback 쿼리의 state만 믿지 않고 서버가 서명해 둔 임시 인증 쿠키와 대조한다.
     raw_pending = request.cookies.get(GOOGLE_STATE_COOKIE, '')
     try:
         pending = jwt.decode(raw_pending, settings.oauth_state_secret, algorithms=['HS256'],
@@ -269,6 +294,8 @@ async def google_callback(request: Request, code: str | None = None,
     return response
 
 
+# 검증된 임시 Google 가입 정보를 화면에 전달한다.
+# HTTP GET /auth/social/google/pending: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.get('/auth/social/google/pending')
 def google_pending(request: Request, response: Response):
     require_origin(request)
@@ -278,13 +305,20 @@ def google_pending(request: Request, response: Response):
             'email': claims['email'], 'name': claims.get('name', '')}
 
 
+# GoogleRegistration: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
 class GoogleRegistration(RequestModel):
+    # 사용자 표시 이름. 앞뒤 공백과 길이는 요청 모델에서 검증한다.
     name: str = Field(min_length=1, max_length=80)
+    # 만 나이. 타입/범위 검사 외에 가입·로그인 서비스가 최소 연령을 확인한다.
     age: int = Field(gt=0, le=120)
+    # 현재 서비스 필수 동의의 수락 여부. 실제 허용은 정책 검사에서 판단한다.
     service_consent: bool
+    # 화면에서 확인한 필수 동의 문구. 서버 현재 문구와 정확히 일치해야 가입할 수 있다.
     consent_text: str = Field(max_length=4000)
 
 
+# 인증된 Google 가입 정보와 현재 필수 동의·만 나이를 검사해 신규 계정과 세션을 만든다.
+# HTTP POST /auth/social/google/register: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.post('/auth/social/google/register')
 def google_register(body: GoogleRegistration, request: Request, response: Response,
                     db: Session = Depends(database)):
@@ -301,6 +335,7 @@ def google_register(body: GoogleRegistration, request: Request, response: Respon
         name = Signup.valid_name(body.name)
     except ValueError:
         raise HTTPException(422, '이름을 입력하세요.')
+    # 이메일 비밀번호 기능과 소셜 인증 계정의 처리 경로를 구분한다.
     if db.scalar(select(User).where(User.oauth_provider == 'google',
                                     User.oauth_subject == claims['sub'])):
         response.delete_cookie(GOOGLE_SIGNUP_COOKIE, path='/', secure=settings.cookie_secure,
@@ -316,8 +351,10 @@ def google_register(body: GoogleRegistration, request: Request, response: Respon
                 oauth_provider='google', oauth_subject=claims['sub'])
     db.add(user)
     try:
+        # commit 전 SQL을 반영해 생성 ID·제약 오류를 확인한다. 아직 변경을 최종 확정한 것은 아니다.
         db.flush()
     except IntegrityError:
+        # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
         db.rollback()
         raise HTTPException(409, '이미 등록된 Google 계정 또는 이메일입니다. 다시 로그인하세요.')
     result = open_session(db, user, response, request)
@@ -325,15 +362,21 @@ def google_register(body: GoogleRegistration, request: Request, response: Respon
     return result
 
 
+# SocialCompletion: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
 class SocialCompletion(RequestModel):
     id_token: str = Field(min_length=1, max_length=16000)
     state: str | None = Field(default=None, max_length=256)
+    # 사용자 표시 이름. 앞뒤 공백과 길이는 요청 모델에서 검증한다.
     name: str | None = Field(default=None, min_length=1, max_length=80)
+    # 만 나이. 타입/범위 검사 외에 가입·로그인 서비스가 최소 연령을 확인한다.
     age: int | None = Field(default=None, gt=0, le=120)
+    # 현재 서비스 필수 동의의 수락 여부. 실제 허용은 정책 검사에서 판단한다.
     service_consent: bool = False
+    # 화면에서 확인한 필수 동의 문구. 서버 현재 문구와 정확히 일치해야 가입할 수 있다.
     consent_text: str | None = Field(default=None, max_length=4000)
 
 
+# 제공자 공개키로 ID 토큰 서명·issuer·audience·만료·nonce와 필요한 claims를 검증한다.
 def verify_identity(provider, token, nonce, client_id):
     try:
         key = KEYS[provider].get_signing_key_from_jwt(token).key
@@ -352,6 +395,8 @@ def verify_identity(provider, token, nonce, client_id):
     return claims
 
 
+# challenge와 ID 토큰 검증 후 기존 제공자/subject 계정을 로그인하거나 신규 가입 입력을 처리한다.
+# HTTP POST /auth/social/{provider}/complete: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.post('/auth/social/{provider}/complete')
 def complete(provider: Provider, body: SocialCompletion, request: Request, response: Response,
              db: Session = Depends(database)):
@@ -398,8 +443,10 @@ def complete(provider: Provider, body: SocialCompletion, request: Request, respo
                     service_consent_text=body.consent_text, oauth_provider=provider, oauth_subject=claims['sub'])
         db.add(user)
         try:
+            # commit 전 SQL을 반영해 생성 ID·제약 오류를 확인한다. 아직 변경을 최종 확정한 것은 아니다.
             db.flush()
         except IntegrityError:
+            # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
             db.rollback()
             raise HTTPException(409, '이미 등록된 소셜 계정 또는 이메일입니다. 다시 로그인하세요.')
     require_service_age(user)

@@ -3,7 +3,7 @@ import { defineConfig } from 'vite';
 
 // 환경변수로 Backend 주소를 바꿀 수 있으며 기본값은 로컬 IPv6 loopback이다.
 const target = process.env.CALODETECT_API_TARGET || 'http://[::1]:8000';
-export default defineConfig({server: {port: 5173, strictPort: true, proxy: {'/api': {
+export default defineConfig({server: {port: 5174, strictPort: true, proxy: {'/api': {
   target,
   changeOrigin: true,
   // 브라우저 /api 접두사를 제거해 Backend의 실제 라우트와 연결한다.

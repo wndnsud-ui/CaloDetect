@@ -9,7 +9,7 @@
 .\.venv-backend\Scripts\python.exe -m streamlit run streamlit/charts.py --server.address 127.0.0.1 --server.port 8502 --server.headless true --browser.gatherUsageStats false
 ```
 
-기본 그래프 주소는 현재 브라우저 호스트의 8502 포트입니다. 별도 호스팅 시 프론트엔드 `VITE_STREAMLIT_URL`을 설정하세요. 그래프 서버에는 표시용 영양값만 전달하며 로그인 토큰·개인 이메일·사진은 전달하지 않습니다. 현재 월별 날짜 선택 연동은 로컬 프론트엔드 5173 포트를 지원합니다.
+기본 그래프 주소는 현재 브라우저 호스트의 8502 포트입니다. 별도 호스팅 시 프론트엔드 `VITE_STREAMLIT_URL`을 설정하세요. 그래프 서버에는 표시용 영양값만 전달하며 로그인 토큰·개인 이메일·사진은 전달하지 않습니다. 현재 월별 날짜 선택 연동은 로컬 프론트엔드 5174 포트를 지원합니다.
 
 작업 전 [필수 적용 규칙](docs/rules/README.md)을 먼저 읽어 주세요.
 

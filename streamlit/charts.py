@@ -64,7 +64,7 @@ try:
     selection=st_echarts(spec,height='250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '46px',events=events,key='chart')
     if events and isinstance(selection,int) and 0<=selection<len(data['items']):
         origin=st.query_params.get('parent_origin','')
-        if origin in ('http://localhost:5173','http://127.0.0.1:5173'):
+        if origin in ('http://localhost:5174','http://127.0.0.1:5174'):
             message={'type':'calodetect-chart-select','chartId':st.query_params.get('chart_id'),'date':data['items'][selection].get('date')}
             # 정적 스크립트에 JSON만 삽입한다. 사용자 문자열의 HTML 종료 태그를 이스케이프한다.
             encoded=json.dumps(message).replace('<','\\u003c')

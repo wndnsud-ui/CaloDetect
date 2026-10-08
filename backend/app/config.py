@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # 명시적인 로컬 사진 분석 테스트 플래그. 운영 이미지 보관 정책 승인과 다르다.
     local_test_image_analysis: bool = False
     # 허용할 브라우저 원본과 메일/소셜 인증 반환 주소의 기준.
-    frontend_origin: str = 'http://localhost:5173'
+    frontend_origin: str = 'http://localhost:5174'
     # 가입·프로필의 최소 만 나이. 현재 확정 기준은 18세다.
     age_min: int | None = Field(default=18, ge=18, le=120)
     # 서버 사진 저장 폴더. 상대 경로면 프로젝트 루트 기준으로 해석한다.

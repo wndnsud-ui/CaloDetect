@@ -134,6 +134,8 @@ def require_origin(request: Request):
     allowed = {settings.frontend_origin.rstrip('/'), str(request.base_url).rstrip('/')}
     if settings.frontend_origin == 'http://localhost:5173':
         allowed.add('http://127.0.0.1:5173')
+    if settings.frontend_origin == 'http://localhost:5174':
+        allowed.add('http://127.0.0.1:5174')
     if request.headers.get('origin') and request.headers['origin'].rstrip('/') not in allowed:
         raise HTTPException(403, '허용되지 않은 요청 출처입니다.')
     if request.headers.get('sec-fetch-site') == 'cross-site':

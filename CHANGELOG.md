@@ -2,6 +2,8 @@
 
 ## 2026-10-12
 
+- 항목: 로컬 실행 가이드 추가. 변경 후: `CaloDetect_로컬_실행가이드.md`에 Backend(8000)·Streamlit 그래프(8502)·Frontend(5174) 터미널 3개 실행 명령과 Docker·ECONNREFUSED·package.json 위치 등 자주 발생한 오류 해결표 정리. 이유: 사용자 실행 명령 정리 및 .md 파일 요청. 영향: 문서만 추가; 코드·DB·Master Spec 보존.
+
 - 항목: 차트 의존성 기본 설치 포함. 변경 전: Backend 설치에서 별도 Streamlit/ECharts requirements가 제외되고 업데이트 간편가이드에 그래프 서버 실행 단계가 없음. 변경 후: Backend requirements에 Streamlit 1.57 이상/2 미만과 streamlit-echarts 0.4.0 추가, 기존 앱 requirements도 동일 Streamlit 범위로 통일. README에 통합 설치 및 그래프 health 안내, 업데이트 가이드에 터미널 C 그래프 서버 실행 추가. 이유: 사용자 차트 미표시와 requirements 설치 포함 요청. 영향: Python 의존성 및 실행 안내; 그래프 코드·DB·Master Spec 보존.
 
 - 항목: 팀원용 로컬 더미 식단 생성 스크립트. 변경 전: 현재 PC의 테스트 DB에만 더미 기록 생성. 변경 후: `python -m backend.scripts.seed_demo_meals`로 기존 로컬 테스트 계정에 실행일 기준 최근 30일 식단 120건·음식 210개 생성 가능. 기존 CSV 영양 계산 재사용, 개발/로컬 설정과 테스트 계정 확인, 날짜·계정·끼니별 UUID로 중복 방지, 기존 회원/기록 보존. 이유: 사용자 현재 더미 데이터 상태를 develop에 공유 요청. 영향: 선택 실행 CLI와 README만 추가; DB 파일·개인 설정·사진은 업로드하지 않고 DB schema·Master Spec 유지. 실제 생성 120건/210개, 재실행 추가 0건/0개, 다른 계정 식단 건수 유지 및 웹 조회·로그인 정상 확인.

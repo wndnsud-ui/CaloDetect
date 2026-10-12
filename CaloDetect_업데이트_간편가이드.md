@@ -52,7 +52,20 @@ $env:CALODETECT_API_TARGET='http://[::1]:8000'
 npm.cmd run dev -- --host localhost --port 5174
 ```
 
-## 4. 브라우저에서 확인하기
+## 4. 새 터미널 C — 그래프 서버 켜기
+
+Backend 패키지 갱신 시 Streamlit/ECharts도 함께 설치됩니다. 그래프를 표시하려면 프로젝트 루트에서 별도 PowerShell 터미널을 열고 아래 블록을 실행한 채 유지하세요.
+
+```powershell
+$projectRoot = git rev-parse --show-toplevel
+if ($LASTEXITCODE -ne 0) { throw '기존 CaloDetect 폴더에서 실행하세요.' }
+Set-Location -LiteralPath $projectRoot
+.\.venv-backend\Scripts\python.exe -m streamlit run streamlit/charts.py --server.address 127.0.0.1 --server.port 8502 --server.headless true --browser.gatherUsageStats false
+```
+
+http://localhost:8502/_stcore/health 에서 `ok`가 표시되면 그래프 서버가 실행 중입니다.
+
+## 5. 브라우저에서 확인하기
 
 **http://localhost:5174**를 열고 기존 계정으로 로그인하세요. 이전 화면이 보이면 **Ctrl+F5**로 새로고침합니다.
 

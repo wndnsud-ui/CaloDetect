@@ -16,6 +16,8 @@ Git 업데이트 후 기존 로컬 DB 준비 절차를 완료한 상태에서 �
 
 홈의 칼로리 링, 일간·월별 분석 막대 및 탄단지 그래프는 별도 Streamlit 서버를 React iframe으로 표시합니다. 프론트엔드와 Backend 외에 아래 서버도 실행해야 합니다.
 
+`backend/requirements.txt`와 이를 포함하는 `backend/requirements-dev.txt` 설치 시 차트 의존성도 함께 설치됩니다. 기존 설치에서 차트 패키지만 추가하려면 아래 첫 줄을 실행하세요. 서버 실행 명령은 별도 터미널에서 실행한 채로 유지해야 합니다. 그래프가 보이지 않으면 http://localhost:8502/_stcore/health 접속 시 `ok`가 표시되는지 확인하세요.
+
 ```powershell
 .\.venv-backend\Scripts\python.exe -m pip install -r streamlit/requirements-charts.txt
 .\.venv-backend\Scripts\python.exe -m streamlit run streamlit/charts.py --server.address 127.0.0.1 --server.port 8502 --server.headless true --browser.gatherUsageStats false

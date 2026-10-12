@@ -2,6 +2,8 @@
 
 ## 2026-10-12
 
+- 항목: 일간 칼로리 분석 총합 강조. 사용자 참고 이미지에 맞춰 아침·점심·저녁·간식 뒤에 Backend 날짜 합계 기반 총 칼로리 막대 추가, 제목의 총 kcal와 마지막 막대 값·축 제목을 빨간색 표시. 기존 목표 칼로리 점선과 합계를 포함한 축 범위 유지. 월별·다른 영양소 표시, 저장 데이터·Master Spec 유지.
+
 - 항목: 로컬 실행 가이드 추가. 변경 후: `CaloDetect_로컬_실행가이드.md`에 Backend(8000)·Streamlit 그래프(8502)·Frontend(5174) 터미널 3개 실행 명령과 Docker·ECONNREFUSED·package.json 위치 등 자주 발생한 오류 해결표 정리. 이유: 사용자 실행 명령 정리 및 .md 파일 요청. 영향: 문서만 추가; 코드·DB·Master Spec 보존.
 
 - 항목: 차트 의존성 기본 설치 포함. 변경 전: Backend 설치에서 별도 Streamlit/ECharts requirements가 제외되고 업데이트 간편가이드에 그래프 서버 실행 단계가 없음. 변경 후: Backend requirements에 Streamlit 1.57 이상/2 미만과 streamlit-echarts 0.4.0 추가, 기존 앱 requirements도 동일 Streamlit 범위로 통일. README에 통합 설치 및 그래프 health 안내, 업데이트 가이드에 터미널 C 그래프 서버 실행 추가. 이유: 사용자 차트 미표시와 requirements 설치 포함 요청. 영향: Python 의존성 및 실행 안내; 그래프 코드·DB·Master Spec 보존.

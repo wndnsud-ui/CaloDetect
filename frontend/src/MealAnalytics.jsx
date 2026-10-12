@@ -39,12 +39,14 @@ export default function MealAnalytics({api, targetCalories}) {
     const day=data?.days.find(day=>day.date===date);
     return {label:String(index+1),date,value:day?.totals?.[metric]??null};
   });
+  // 총합은 Backend가 반환한 날짜별 칼로리를 사용한다. 미기록과 0 kcal를 구분한다.
+  if(mode==='daily'&&metric==='cal') bars.push({label:'총 칼로리',value:day?.totals?.cal??null,isTotal:true});
   return <><p className="eyebrow">MEAL ANALYTICS</p><h1>기록으로 보는 나의 식단.</h1>
     <section className="panel"><div className="analysis-controls"><div className="segmented" role="group" aria-label="분석 기간">{[['daily','일간 분석'],['monthly','월별 분석']].map(([key,label])=><button key={key} className={mode===key?'selected':''} aria-pressed={mode===key} onClick={()=>setMode(key)}>{label}</button>)}</div>
     <label>{mode==='daily'?'날짜':'월'}<input type={mode==='daily'?'date':'month'} value={mode==='daily'?date:month} onChange={e=>{if(e.target.value)setDate(mode==='daily'?e.target.value:`${e.target.value}-01`)}}/></label>
     <label>영양 항목<select value={metric} onChange={e=>setMetric(e.target.value)}>{Object.entries(nutrients).map(([key,[label]])=><option key={key} value={key}>{label}</option>)}</select></label></div>
     {error?<div role="alert"><p className="error">{error}</p><button className="text-button" onClick={()=>setRetry(value=>value+1)}>다시 불러오기</button></div>:!data?<p role="status">분석 기록을 불러오고 있습니다…</p>:<>
-    <h2>{mode==='daily'?`${date} 식사별 ${label}`:`${month}월 일별 ${label}${metric==='cal'?`(목표 칼로리: ${targetCalories>0?`${targetCalories}kcal`:'미설정'})`:''}`}</h2>
+    <h2>{mode==='daily'?`${date} 식사별 ${label}`:`${month}월 일별 ${label}${metric==='cal'?`(목표 칼로리: ${targetCalories>0?`${targetCalories}kcal`:'미설정'})`:''}`}{mode==='daily'&&metric==='cal'&&day?.totals?.cal!=null&&<span className="analysis-calorie-total"> (총 {day.totals.cal.toLocaleString()}kcal)</span>}</h2>
     {mode==='daily'&&metric==='cal'&&<p className="analysis-target">목표 칼로리: {targetCalories>0?`${targetCalories}kcal`:'미설정'}</p>}
     <p className="muted">단위: {unit} · 한국 시간 기준 · —는 미기록입니다.{mode==='monthly'&&' 막대를 누르면 해당 날짜의 일간 분석을 볼 수 있습니다.'}</p>
     {mode==='daily'&&!day?.totals?<p className="empty">이 기간에 기록된 식단이 없습니다.</p>:<Bars items={bars} unit={unit} monthly={mode==='monthly'} target={metric==='cal'?targetCalories:undefined} onSelect={mode==='monthly'?item=>{setDate(item.date);setMode('daily')}:undefined}/>}

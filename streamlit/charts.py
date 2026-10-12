@@ -27,14 +27,20 @@ def options(data):
         values=[None if item.get('value') is None else number(item['value']) for item in items]
         target=number(data.get('target'))
         maximum=max(1,target,*[v or 0 for v in values])
-        series={'type':'bar','data':values,'barMaxWidth':18 if data.get('monthly') else 64,
+        # 일간 총합의 라벨만 강조하고 일반 식사와 월별 그래프 표시는 유지한다.
+        highlighted=[bool(item.get('isTotal')) and not data.get('monthly') for item in items]
+        bar_values=[{'value':value,'label':{'color':'#ff3b45','fontWeight':'bold'}} if total else value
+                    for value,total in zip(values,highlighted)]
+        axis_labels=[{'value':item['label'],'textStyle':{'color':'#ff3b45','fontWeight':'bold'}} if total else item['label']
+                     for item,total in zip(items,highlighted)]
+        series={'type':'bar','data':bar_values,'barMaxWidth':18 if data.get('monthly') else 64,
                 'showBackground':True,'backgroundStyle':{'color':'#edf3eb','borderRadius':4},
                 'itemStyle':{'color':'#268461','borderRadius':[4,4,0,0]},
                 'label':{'show':True,'position':'top','fontSize':10}}
         if target:
-            series['markLine']={'symbol':'none','label':{'show':False},'lineStyle':{'color':'#956b25','type':'dashed'},'data':[{'yAxis':target}]}
+            series['markLine']={'symbol':'none','label':{'show':False},'lineStyle':{'color':'#956b25','type':'dashed'},'data':[{'name':'목표 칼로리','yAxis':target}]}
         base.update({'tooltip':{'trigger':'axis'},'grid':{'left':42,'right':12,'top':28,'bottom':32},
-                     'xAxis':{'type':'category','data':[item['label'] for item in items],'axisLabel':{'interval':0,'fontSize':9},'axisTick':{'show':False}},
+                     'xAxis':{'type':'category','data':axis_labels,'axisLabel':{'interval':0,'fontSize':9},'axisTick':{'show':False}},
                      'yAxis':{'type':'value','max':maximum,'axisLabel':{'fontSize':10},'splitLine':{'lineStyle':{'color':'#edf3eb'}}},'series':[series]})
     elif kind=='ring':
         value=number(data.get('value')); target=number(data.get('target'))

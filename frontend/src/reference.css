@@ -186,7 +186,7 @@
 /* Social authentication */
 .analysis-bars-monthly{display:grid;grid-template-columns:repeat(var(--day-count),minmax(0,1fr));gap:4px;overflow:visible}
 .analysis-target{font-size:12px;font-weight:600;color:#385f50;margin:12px 0 0}
-.analysis-calorie-total{color:#ff3b45;font-size:16px;font-weight:600}
+.analysis-calorie-total{color:inherit;font-size:16px;font-weight:inherit}
 .streamlit-chart{display:block;width:100%;border:0;background:#fff;min-width:0}
 .account-page-title{font-size:28px;font-weight:800;letter-spacing:-1px;color:#193c32}
 .integrated-app .account-password{width:calc((100% - 24px)/2);max-width:none;margin:0 0 24px;padding:26px;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:0 3px 14px #173a3303}

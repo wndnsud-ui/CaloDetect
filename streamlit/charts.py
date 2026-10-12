@@ -27,13 +27,9 @@ def options(data):
         values=[None if item.get('value') is None else number(item['value']) for item in items]
         target=number(data.get('target'))
         maximum=max(1,target,*[v or 0 for v in values])
-        # 일간 총합의 라벨만 강조하고 일반 식사와 월별 그래프 표시는 유지한다.
-        highlighted=[bool(item.get('isTotal')) and not data.get('monthly') for item in items]
-        bar_values=[{'value':value,'label':{'color':'#ff3b45','fontWeight':'bold'}} if total else value
-                    for value,total in zip(values,highlighted)]
-        axis_labels=[{'value':item['label'],'textStyle':{'color':'#ff3b45','fontWeight':'bold'}} if total else item['label']
-                     for item,total in zip(items,highlighted)]
-        series={'type':'bar','data':bar_values,'barMaxWidth':18 if data.get('monthly') else 64,
+        # 총합도 다른 식사와 동일한 글자색·굵기로 표시한다.
+        axis_labels=[item['label'] for item in items]
+        series={'type':'bar','data':values,'barMaxWidth':18 if data.get('monthly') else 64,
                 'showBackground':True,'backgroundStyle':{'color':'#edf3eb','borderRadius':4},
                 'itemStyle':{'color':'#268461','borderRadius':[4,4,0,0]},
                 'label':{'show':True,'position':'top','fontSize':10}}

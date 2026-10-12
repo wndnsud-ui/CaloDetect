@@ -136,6 +136,16 @@ def test_rejects_invalid_identity(social, signing_key, provider, changes):
         assert db.scalar(select(AuthSession)) is None
 
 
+@pytest.mark.parametrize('offset,expected', [(5, 200), (120, 401)])
+def test_google_identity_clock_skew_is_bounded(social, signing_key, offset, expected):
+    client, engine = social
+    body = identity(client, 'google', signing_key, iat=utcnow() + timedelta(seconds=offset))
+    response = client.post('/auth/social/google/complete', json=enrollment(body))
+    assert response.status_code == expected
+    with Session(engine) as db:
+        assert (db.scalar(select(User)) is not None) == (expected == 200)
+
+
 # 회귀 검사: 서명 · state · 요청 출처.
 # 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
 def test_signature_state_and_origin(social, signing_key):
@@ -316,7 +326,7 @@ def test_google_authorization_code_signup_and_existing_user_login(social, signin
 
 # 회귀 검사: Google · 인증 · code · 거부 · state · 리디렉션 · URI.
 # 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
-def test_google_authorization_code_rejects_bad_state_and_redirect_uri(social, monkeypatch):
+def test_google_authorization_code_rejects_bad_state_and_redirect_uri(social, monkeypatch, caplog):
     client, _ = social
     start = client.get('/auth/google/login', follow_redirects=False)
     assert start.status_code == 307
@@ -326,6 +336,9 @@ def test_google_authorization_code_rejects_bad_state_and_redirect_uri(social, mo
     assert response.status_code == 303
     assert response.headers['location'].endswith('?social_error=google_auth_failed')
     assert GOOGLE_STATE_COOKIE not in client.cookies
+    assert 'stage=state_match' in caplog.text
+    assert 'authorization-code' not in caplog.text
+    assert start.cookies.get(GOOGLE_STATE_COOKIE) not in caplog.text
 
     monkeypatch.setattr(settings, 'google_redirect_uri', 'http://attacker.example/api/auth/google/callback')
     assert client.get('/auth/social/policy').json()['google']['authorization_code_enabled'] is False

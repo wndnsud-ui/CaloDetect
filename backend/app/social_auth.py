@@ -5,6 +5,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import time
 from datetime import timedelta
@@ -29,12 +30,15 @@ from .schemas import RequestModel
 from .security import require_service_age
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 Provider = Literal['google', 'apple']
 GOOGLE_STATE_COOKIE = 'calodetect_oauth_google'
 GOOGLE_SIGNUP_COOKIE = 'calodetect_google_signup'
 GOOGLE_AUTHORIZATION_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth'
 GOOGLE_TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token'
 GOOGLE_SIGNUP_COOKIE_AAD = b'calodetect-google-signup-v1'
+# 제공자와 서버 사이의 작은 시각 차이만 허용한다. 내부 state/가입 쿠키에는 적용하지 않는다.
+IDENTITY_CLOCK_SKEW_SECONDS = 30
 KEYS = {
     'google': jwt.PyJWKClient('https://www.googleapis.com/oauth2/v3/certs', timeout=5),
     'apple': jwt.PyJWKClient('https://appleid.apple.com/auth/keys', timeout=5),
@@ -204,15 +208,18 @@ async def google_callback(request: Request, code: str | None = None,
         pending = jwt.decode(raw_pending, settings.oauth_state_secret, algorithms=['HS256'],
                              options={'require': ['exp', 'state', 'nonce', 'verifier', 'provider']})
     except (jwt.PyJWTError, AttributeError):
+        logger.warning('Google OAuth failed: stage=state_cookie cookie_present=%s', bool(raw_pending))
         response = RedirectResponse(fallback, status_code=303)
         clear_google_oauth_cookies(response)
         return response
     if (pending['provider'] != 'google' or not state
             or not hmac.compare_digest(state.encode(), pending['state'].encode())):
+        logger.warning('Google OAuth failed: stage=state_match')
         response = RedirectResponse(fallback, status_code=303)
         clear_google_oauth_cookies(response)
         return response
     if error or not code:
+        logger.warning('Google OAuth failed: stage=authorization_response')
         response = RedirectResponse(fallback, status_code=303)
         clear_google_oauth_cookies(response)
         return response
@@ -234,16 +241,22 @@ async def google_callback(request: Request, code: str | None = None,
             })
             token_response.raise_for_status()
             token_data = token_response.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        # URL·응답 본문·예외 문자열에는 code/token이 포함될 수 있어 기록하지 않는다.
+        status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+        logger.warning('Google OAuth failed: stage=token_exchange exception=%s status=%s',
+                       type(exc).__name__, status)
         response = RedirectResponse(fallback, status_code=303)
         clear_google_oauth_cookies(response)
         return response
     if not isinstance(token_data, dict):
+        logger.warning('Google OAuth failed: stage=token_response_format')
         response = RedirectResponse(fallback, status_code=303)
         clear_google_oauth_cookies(response)
         return response
     id_token = token_data.get('id_token')
     if not isinstance(id_token, str) or not id_token:
+        logger.warning('Google OAuth failed: stage=id_token_missing')
         response = RedirectResponse(fallback, status_code=303)
         clear_google_oauth_cookies(response)
         return response
@@ -255,6 +268,8 @@ async def google_callback(request: Request, code: str | None = None,
         if len(email) > 254:
             raise ValueError('Invalid email length')
     except (HTTPException, ValueError, TypeError, AttributeError) as exc:
+        logger.warning('Google OAuth failed: stage=identity_validation exception=%s status=%s',
+                       type(exc).__name__, getattr(exc, 'status_code', None))
         target = f'{frontend}/?social_error=google_auth_failed'
         if isinstance(exc, HTTPException) and exc.status_code == 503:
             target = f'{frontend}/?social_error=google_unavailable'
@@ -268,6 +283,7 @@ async def google_callback(request: Request, code: str | None = None,
         try:
             require_service_age(user)
         except HTTPException:
+            logger.warning('Google OAuth failed: stage=account_age')
             response = RedirectResponse(f'{frontend}/?social_error=google_auth_failed', status_code=303)
             clear_google_oauth_cookies(response)
             return response
@@ -383,12 +399,15 @@ def verify_identity(provider, token, nonce, client_id):
         claims = jwt.decode(token, key, algorithms=['RS256'], audience=client_id,
                             issuer=['https://accounts.google.com', 'accounts.google.com'] if provider == 'google'
                             else 'https://appleid.apple.com',
+                            leeway=IDENTITY_CLOCK_SKEW_SECONDS,
                             options={'require': ['exp', 'iat', 'iss', 'aud', 'sub', 'nonce']})
     except jwt.PyJWKClientConnectionError:
         raise HTTPException(503, '인증 제공자에 연결하지 못했습니다. 잠시 후 다시 시도하세요.')
-    except jwt.PyJWTError:
+    except jwt.PyJWTError as exc:
+        logger.warning('Social identity failed: stage=jwt_validation exception=%s', type(exc).__name__)
         raise HTTPException(401, '소셜 인증 정보가 유효하지 않습니다. 다시 로그인하세요.')
     if not isinstance(claims['nonce'], str) or not hmac.compare_digest(claims['nonce'].encode(), nonce.encode()):
+        logger.warning('Social identity failed: stage=nonce_match')
         raise HTTPException(401, '소셜 인증 요청이 일치하지 않습니다. 다시 로그인하세요.')
     if not isinstance(claims['sub'], str) or not claims['sub'] or len(claims['sub']) > 255:
         raise HTTPException(401, '소셜 계정 식별자가 유효하지 않습니다.')

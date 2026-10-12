@@ -1,5 +1,17 @@
 # CaloDetect · 칼로디텍트
 
+## 로컬 테스트 계정 더미 식단 생성
+
+Git 업데이트 후 기존 로컬 DB 준비 절차를 완료한 상태에서 프로젝트 루트에서 실행합니다.
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_demo_meals
+```
+
+`test@calodetect.local`에 실행일 기준 최근 30일 아침·점심·저녁·간식 120건, 음식 항목 210개를 추가합니다. 로그인 비밀번호는 최초 생성 기준 `CaloTest!2026`이며 기존 계정의 변경한 비밀번호는 유지됩니다. 영양값은 기존 CSV와 Backend 계산 함수를 사용합니다. 기존 기록과 다른 계정은 보존하며 같은 날짜의 더미 기록은 재실행해도 중복 생성하지 않습니다. 개발 환경과 로컬 테스트 가입 설정에서만 실행할 수 있고, 테스트 계정과 음식 카탈로그가 먼저 준비되어 있어야 합니다.
+
+생성 후 웹을 새로고침하면 조회됩니다. GitHub에는 생성 스크립트만 포함되며 각 PC의 DB 데이터는 자동으로 복사되지 않습니다. 웹 주소: http://localhost:5174
+
 ## React 내 Streamlit ECharts 그래프 실행
 
 홈의 칼로리 링, 일간·월별 분석 막대 및 탄단지 그래프는 별도 Streamlit 서버를 React iframe으로 표시합니다. 프론트엔드와 Backend 외에 아래 서버도 실행해야 합니다.

@@ -4,6 +4,14 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // SDK 주소별 진행 Promise를 공유해 컴포넌트 재진입 시 중복 script 추가를 막는다.
 const scripts = new Map();
+function GoogleLogo() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{flexShrink: 0}}>
+    <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-1.99 3.02v2.51h3.23c1.89-1.74 2.98-4.3 2.98-7.36Z"/>
+    <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.23-2.51c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.61-4.12H3.05v2.59A10 10 0 0 0 12 22Z"/>
+    <path fill="#FBBC05" d="M6.39 13.92A6 6 0 0 1 6.08 12c0-.67.11-1.31.31-1.92V7.49H3.05A10 10 0 0 0 2 12c0 1.61.38 3.14 1.05 4.51l3.34-2.59Z"/>
+    <path fill="#EA4335" d="M12 5.96c1.47 0 2.79.51 3.83 1.51l2.87-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.95 5.49l3.34 2.59C7.18 7.72 9.39 5.96 12 5.96Z"/>
+  </svg>;
+}
 // 동일 SDK 주소의 Promise를 공유해 중복 로딩을 막고 실패한 항목은 제거해 재시도를 허용한다.
 function loadScript(src) {
   if (!scripts.has(src)) scripts.set(src, new Promise((resolve, reject) => {
@@ -98,6 +106,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
             googleButton.current?.replaceChildren();
             window.google.accounts.id.renderButton(googleButton.current, {
               type: 'standard', theme: 'outline', size: 'large',
+              width: Math.min(400, googleButton.current?.clientWidth || 375),
               text: signup ? 'signup_with' : 'signin_with', locale: 'ko',
             });
             setGoogleReady(true);
@@ -136,17 +145,20 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
       <button type="button" className="social-button kakao-login-button"
         disabled={locked || !providers?.kakao?.enabled}
         onClick={()=>window.location.assign('/api/auth/kakao/login')}>
-        카카오로 {signup ? '회원가입' : '로그인'}{providers && !providers.kakao?.enabled ? ' · 준비 중' : ''}
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" style={{flexShrink: 0}}>
+          <path fill="currentColor" d="M12 3C6.5 3 2 6.5 2 10.8c0 2.8 1.9 5.3 4.7 6.7l-1.2 4 4.7-2.9c.6.1 1.2.1 1.8.1 5.5 0 10-3.5 10-7.9S17.5 3 12 3Z"/>
+        </svg>
+        <span>카카오로 {signup ? '회원가입' : '로그인'}{providers && !providers.kakao?.enabled ? ' · 준비 중' : ''}</span>
       </button>
       {providers?.google.authorization_code_enabled
         ? <button type="button" className="social-button google-login-button" disabled={locked}
             onClick={()=>window.location.assign('/api/auth/google/login')}>
-            Google로 {signup ? '회원가입' : '로그인'}
+            <GoogleLogo/><span>Google 계정으로 {signup ? '회원가입' : '로그인'}</span>
           </button>
         : <div ref={googleButton} className="google-login-button" hidden={!googleReady}
             inert={locked ? true : undefined}/>}
       {providers && !providers.google.enabled && <button type="button" className="social-button google-login-button" disabled>
-        Google로 {signup ? '회원가입' : '로그인'} · 준비 중
+        <GoogleLogo/><span>Google 계정으로 {signup ? '회원가입' : '로그인'} · 준비 중</span>
       </button>}
       {providers && !providers.google.enabled && <p className="muted" role="status">
         Google 계정 연결이 준비 중입니다. 연결 완료 후 사용할 수 있습니다.

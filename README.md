@@ -29,7 +29,7 @@ Git 업데이트 후 기존 로컬 DB 준비 절차를 완료한 상태에서 �
 
 ## 2026-10-07 develop 업데이트와 데이터 보존
 
-이미 설치·실행한 팀원은 [업데이트 간편 가이드](CaloDetect_업데이트_간편가이드.md)의 VS Code develop 선택·Pull 안내를 따라 변경분을 받으세요.
+이미 설치·실행한 팀원은 아래 업데이트 절차로 변경분을 받고, [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)에 따라 서버를 실행하세요.
 
 이번 업로드는 Google 로그인(GIS / Authorization Code + PKCE), Apple 버튼 제거, 이메일 비밀번호 찾기·변경, 로컬 테스트 계정 생성, 재클론 설정 재사용, DB 백업, 실행 가이드, 홈페이지 배경 교체를 포함합니다. 네이버 주소도 재설정 메일을 받을 수 있으며 발신 Gmail 설정은 비공개 `.env`에 필요합니다.
 
@@ -63,7 +63,7 @@ if ($LASTEXITCODE -ne 0) { throw 'DB 백업 실패' }
 | 인증 화면 | `frontend/src/EmailAuthForm.jsx`, `frontend/src/SocialLogin.jsx`, `frontend/src/PasswordTools.jsx`, `frontend/src/entry.jsx`, `frontend/src/main.jsx`, `frontend/src/reference.css` | Google만 표시, 비밀번호 찾기·변경·링크 화면 |
 | 로컬 실행·보존 | `.env.example`, `.gitignore`, `compose.yaml`, `scripts/setup_local.ps1`, `scripts/backup_local_db.ps1`, `backend/scripts/seed_local_test_account.py`, `backend/scripts/start.py`, `frontend/vite.config.js` | 설정 재사용, DB 고정 volume·백업, 테스트 계정, API 프록시 |
 | 검증 | `backend/tests/test_social_auth.py`, `backend/tests/test_passwords.py`, `backend/tests/test_local_test_account.py`, `backend/tests/test_local_setup.py` | 인증·비밀번호·계정 보존·재클론 설정 검사 |
-| 문서 | `README.md`, `CHANGELOG.md`, `docs/rules/PENDING_DECISIONS.md`, `CaloDetect_팀원_실행가이드.md`, `google_oauth_2_0.md` | 실행·설정·변경사항·보존 조건 |
+| 문서 | `README.md`, `CHANGELOG.md`, `docs/rules/PENDING_DECISIONS.md`, `CaloDetect_로컬_실행가이드.md`, `google_oauth_2_0.md` | 실행·설정·변경사항·보존 조건 |
 | 이미지 | `frontend/public/images/hero-bg.webp` | 홈페이지 배경 교체 |
 
 ### 변경된 내용만 업데이트하기
@@ -156,7 +156,7 @@ UX 변경과 미확정 정책은 [보류 및 결정 대기 사항](docs/rules/PE
 
 ## 새 웹 환경 실행 — 팀원용 간편 설치
 
-아래는 최초 설치와 터미널 A/B 실행을 위한 로컬 개발용 안내입니다. 이미 실행한 팀원의 업데이트는 [팀원 간편 안내](CaloDetect_팀원_실행가이드.md)를 참고하세요. 최초 클론은 `develop`을 사용하며, 코드 변경은 아래 팀 GitHub 협업 방침의 브랜치·PR 절차를 따릅니다. DB 볼륨과 기존 폴더는 삭제하지 않습니다.
+아래는 최초 설치와 터미널 A/B 실행을 위한 로컬 개발용 안내입니다. 이미 설치한 팀원의 재실행은 [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)를 참고하고, 업데이트는 위 업데이트 절차를 따르세요. 최초 클론은 `develop`을 사용하며, 코드 변경은 아래 팀 GitHub 협업 방침의 브랜치·PR 절차를 따릅니다. DB 볼륨과 기존 폴더는 삭제하지 않습니다.
 
 `.env`와 PostgreSQL 데이터는 GitHub에 올리지 않습니다. `scripts/setup_local.ps1`은 첫 설정에서 비공개 `%LOCALAPPDATA%\CaloDetect\local.env`에 환경 설정을 보관하고, 같은 Windows 계정의 새 클론에서는 이를 재사용합니다. DB는 고정된 Docker volume `calodetect_postgres_data`를 사용하므로 저장소 폴더 이름이나 재클론이 달라져도 같은 PC의 기존 회원·식단 데이터를 유지합니다. 다른 PC는 별도 로컬 DB를 사용합니다. `.env`·비밀번호·API 키·업로드 사진을 커밋하지 마세요.
 

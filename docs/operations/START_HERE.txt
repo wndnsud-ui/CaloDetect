@@ -1,13 +1,11 @@
-CaloDetect 바로 실행 안내
-=========================
+CaloDetect 실행 안내
+====================
 
-현재 PC: 02_RUN_ONLY.bat 더블 클릭
-다른 PC 최초 설치: 01_SETUP_AND_RUN.bat 더블 클릭
-가상환경 설치 후 재실행: 02_RUN_ONLY.bat 더블 클릭
+최초 설치: 프로젝트 루트 README.md의 새 웹 환경 실행 절차
+설치 후 재실행: 프로젝트 루트 CaloDetect_로컬_실행가이드.md
 
-브라우저 주소: http://localhost:8501
-샘플 사진: samples 폴더에 jpg/png 파일 추가
+Docker DB, Backend(8000), Streamlit 그래프(8502), Frontend(5174)를 실행합니다.
+브라우저 주소: http://localhost:5174
 
-이 폴더의 best.pt, data.yaml, 영양 CSV를 함께 보관하세요.
-최초 패키지 설치에는 인터넷 연결이 필요합니다.
-컬럼 설명은 README.md를 확인하세요.
+구형 독립 앱과 전용 실행 스크립트는 2026-10-13 사용자 승인으로 제거되었습니다.
+모델 best.pt, data.yaml, 영양 CSV와 개인 설정·기존 DB는 유지하세요.

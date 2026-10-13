@@ -41,8 +41,9 @@
 
 다음 항목은 결정 대기에 포함하지 않습니다.
 
+- 구형 독립 Streamlit 앱: 사용자 승인(2026-10-13)으로 app.py와 전용 실행 스크립트 제거. React/FastAPI 웹, Streamlit 그래프·관리자 QA는 유지. Master Spec 원문은 보존하고 이 후속 결정을 적용한다.
 - 가입·로그인 최소 연령: 만 18세.
-- 인증: 이메일/비밀번호와 HttpOnly 세션 쿠키. 사용자 결정(2026-10-07)으로 소셜 로그인은 Google만 진행하며 Apple 버튼과 인증 초기화는 화면에서 제거.
+- 인증: 이메일/비밀번호와 HttpOnly 세션 쿠키. 사용자 결정(2026-10-07)으로 소셜 로그인은 Google을 지원하고 사용자 승인(2026-10-13)으로 카카오 REST API 로그인·가입을 추가. Apple 버튼과 인증 초기화는 화면에서 제거. 카카오 앱 등록·이메일 동의 및 실제 계정 로그인 검증은 별도 확인.
 - 영양 데이터: 기존 `CaloDetect_nutrition_all_matched.csv` 사용 승인. 기존 `class_id`·`food_name` 연결 보존.
 
 기존 [구현 계획](../planning/IMPLEMENTATION_PLAN.md)의 초기 TBD 표보다 이후 [변경 이력](../../CHANGELOG.md)의 명시적 승인 내용을 우선하여 정리했습니다.

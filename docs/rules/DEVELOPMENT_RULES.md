@@ -2,7 +2,7 @@
 
 - Master Spec: `docs/rules/CaloDetect_Codex_통합_업무지시서_20261002_v11.md`. 원문은 수정하지 않는다.
 - 기존 프로젝트 전체 재작성, 기존 동작 코드 삭제, 모델/CSV/YAML 덮어쓰기 금지.
-- 사용자 웹은 React, Backend는 FastAPI/SQLAlchemy/Pydantic/PostgreSQL. 기존 Streamlit 보존.
+- 사용자 웹은 React, Backend는 FastAPI/SQLAlchemy/Pydantic/PostgreSQL. Streamlit 그래프·관리자 QA 보존. 사용자 승인(2026-10-13)으로 구형 독립 app.py 및 전용 실행 스크립트 제거; 이후 작업에서 복구하지 않는다.
 - P0 우선. P1/Backlog의 빈 API나 파일을 미리 생성하지 않는다.
 - TBD를 임의 확정하지 않는다. 결정은 CHANGELOG.md에 기록한다.
 - Python/DB가 계산하고 LLM은 설명만 한다. P0에 LLM 없음.

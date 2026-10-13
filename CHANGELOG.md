@@ -2,6 +2,12 @@
 
 ## 2026-10-13
 
+- 항목: 카카오 이메일 미제공 가입 허용. 사용자 앱의 account_email 권한 없음 상태 확인 후 이메일 필수 조건 제거. 카카오 고유 회원번호로 인증하며 이메일 미제공 계정은 기존 DB email 제약 호환용 비배달 내부 식별값 저장, 공개 응답과 가입·마이페이지에는 내부 값 숨김. 이메일 제공 계정의 기존 충돌 방지와 연령·동의 확인 유지. DB schema·Master Spec 유지. 검증: Backend 전체 69개 통과·YOLO smoke 1개 제외, Frontend production build 성공, 실제 서버 정상 응답. 사용자 요청으로 GitHub main 업로드.
+
+- 항목: 카카오 로그인·회원가입 연결. 사용자 요청으로 REST API 인가 코드·서명 state·서버 토큰 교환·회원번호 조회와 기존 HttpOnly 세션 로그인 구현. 신규 계정은 암호화된 5분 가입 쿠키로 이름·만 나이·필수 동의 입력 후 가입하며 확인된 이메일 필요, 이메일 일치 자동 연결 금지. Frontend 카카오 버튼·반환 안내·가입 보완 폼 연결. 비공개 기존 KAKAO 설정 재사용, 공개 설정 예시·README 업데이트. 검증: 카카오·기존 소셜 인증 30개 통과, Frontend production build 성공, 실서버 policy enabled 및 Frontend 경유 인가 리다이렉트 307·콜백 주소 확인. 실제 카카오 계정 인증·제공자 동의 설정은 브라우저 검증 필요. DB schema·Master Spec 유지.
+
+- 항목: 구형 독립 Streamlit 앱 제거. 사용자 요청으로 app.py(사진 탐지·보정, 세션 식단/가상 데이터, 차트·CSV 다운로드)와 전용 최초 설치/재실행 스크립트 4개 제거. README·실행 진입 안내·아키텍처·구현 계획·개발 규칙에 현재 React/FastAPI 실행 경로와 승인 예외 반영. Streamlit 그래프·관리자 QA, 모델·YAML·CSV·DB와 Master Spec 원문 유지. 과거 검증 기록은 당시 상태로 보존. 검증: 삭제 앱·스크립트의 실행 참조 없음, git diff --check 통과, 현재 Backend DB health·그래프 health·Frontend HTTP 200 확인.
+
 - 항목: 실행 가이드 통합. 사용자 요청으로 로컬 실행 가이드만 남기고 팀원 실행 가이드와 업데이트 간편 가이드를 삭제. README의 링크를 로컬 실행 가이드 및 기존 업데이트 절차로 연결. 영향: 문서만 변경; 실행 코드·DB·Master Spec 보존. 검증: 삭제 문서로 연결되는 README 링크가 없는지 확인.
 
 ## 2026-10-12

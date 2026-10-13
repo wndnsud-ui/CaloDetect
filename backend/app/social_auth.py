@@ -75,7 +75,9 @@ def provider_config(provider):
 # HTTP GET /auth/social/policy: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.get('/auth/social/policy')
 def social_policy():
-    return {provider: provider_config(provider) for provider in ('google', 'apple')}
+    from .kakao_auth import kakao_config
+    return {**{provider: provider_config(provider) for provider in ('google', 'apple')},
+            'kakao': kakao_config()}
 
 
 # 선택한 제공자의 인증 설정이 준비됐는지 검사하고 미설정이면 안내 오류를 발생시킨다.

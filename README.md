@@ -149,7 +149,7 @@ UX 변경과 미확정 정책은 [보류 및 결정 대기 사항](docs/rules/PE
 | FastAPI | 회원·프로필·식단·탐지·추천·Correction·관리자 QA API |
 | PostgreSQL/SQLAlchemy | 회원/식단/탐지/추천/QA 영구 저장, 순차 Alembic revision 20261002_01 → 20261002_02 |
 | 기존 YOLO26m | best.pt 재사용. 원본 유지. JPG/PNG 분석 API, 이미지별 탐지 ID 반환 |
-| 기존 Streamlit | app.py 보존, 별도 streamlit/admin_qa.py 인증된 관리자 QA 클라이언트 추가 |
+| Streamlit | streamlit/charts.py 그래프 서버와 streamlit/admin_qa.py 관리자 QA 유지; 구형 독립 앱 제거 |
 | 정책 미확정 | 동의 문구, 이미지 저장/보관, 추천 출처/기준·영양 목표 |
 
 가상 회원/식단/추천 결과를 실제 데이터처럼 제공하지 않습니다. 영양값은 사용자 승인된 기존 `CaloDetect_nutrition_all_matched.csv`를 사용합니다. v11의 `(1).csv`는 현재 없으며 원본 데이터를 변경하지 않았습니다. 추천 엔진은 남은 칼로리·최근 음식 반복·제외 음식·선호 분류·다양성을 적용하고 실제 데이터의 영양값과 이유를 반환합니다. 미정 탄단지 목표·당류/나트륨 기준·끼니 적합성을 평가했다고 표시하지 않습니다.
@@ -330,9 +330,17 @@ Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 �
 
 분석 기준은 conf=0.11, iou=0.45, imgsz=960, CPU입니다. 파일명 대신 서버 UUID로 이미지를 구분하고 사용자별 이미지 권한을 검사합니다. 탐지되지 않거나 추론 오류가 나도 직접 음식 선택을 제공합니다.
 
+### 카카오 로그인 설정
+
+카카오 REST API 인가 코드 방식으로 로그인·회원가입을 지원합니다. 로그인 화면의 카카오 버튼을 누르면 인증 후 기존 회원은 로그인하고 신규 회원은 이름·만 나이·필수 동의를 확인합니다. 계정 식별은 카카오 회원번호로 하며 이메일이 같아도 기존 이메일/Google 계정에 자동 연결하지 않습니다.
+
+비공개 `.env`에 `KAKAO_CLIENT_ID`(REST API 키), `KAKAO_CLIENT_SECRET`, `KAKAO_REDIRECT_URI=http://localhost:8000/api/auth/kakao/callback`을 설정하세요. 카카오디벨로퍼스에서 카카오 로그인을 활성화하고 같은 Redirect URI를 등록하세요. Client Secret 활성화 시 서버 설정이 필요합니다. 이메일 동의 권한이 없어도 카카오 고유 회원번호로 가입·로그인할 수 있습니다. 확인된 이메일이 제공될 때만 사용하며, 이메일 미제공 시 DB 호환용 내부 식별값을 저장하고 API·화면에는 이메일 없음으로 표시합니다. 이메일 미제공 계정은 이메일 비밀번호 로그인·재설정 대상이 아닙니다. 키·토큰은 프론트엔드에 저장하지 않습니다.
+
+로컬 접속 주소는 http://localhost:5174 입니다. 등록·이메일 동의 설정은 [카카오 공식 문서](https://developers.kakao.com/docs/ko/kakaologin/prerequisite)를 참고하세요. 현재 서버 경로·모의 제공자 인증 검증은 완료했으며 실제 카카오 계정 로그인은 브라우저에서 확인해야 합니다.
+
 ### Google 로그인 설정
 
-로그인 화면 상단의 **로그인 / 회원가입**에서 방식을 선택합니다. 회원가입에는 **Google로 회원가입**, **이메일로 회원가입**을 제공하며, 소셜 가입은 비밀번호를 따로 입력하지 않습니다. 서버 설정이 없는 제공자는 연결 준비 상태를 안내하고 버튼을 누르면 진행할 수 없는 이유를 표시합니다. 기존 이메일 로그인은 신규 가입 동의 문구 설정 여부와 무관하게 사용할 수 있습니다. 새 소셜 계정은 제공자 인증 후 이름·만 나이·승인된 서비스 동의를 입력해 가입을 마칩니다. 기존 소셜 계정은 `(oauth_provider, oauth_subject)`로 로그인하며 이메일 변경으로 새 계정을 만들거나 기존 이메일 회원과 자동 연결하지 않습니다. 기존 이메일과 충돌하면 기존 방식으로 로그인해야 하며 계정 연결 UI는 제공하지 않습니다.
+로그인 화면 상단의 **로그인 / 회원가입**에서 방식을 선택합니다. 회원가입에는 **Google로 회원가입**, **카카오로 회원가입**, **이메일로 회원가입**을 제공하며, 소셜 가입은 비밀번호를 따로 입력하지 않습니다. 서버 설정이 없는 제공자는 연결 준비 상태를 안내하고 버튼을 누르면 진행할 수 없는 이유를 표시합니다. 기존 이메일 로그인은 신규 가입 동의 문구 설정 여부와 무관하게 사용할 수 있습니다. 새 소셜 계정은 제공자 인증 후 이름·만 나이·승인된 서비스 동의를 입력해 가입을 마칩니다. 기존 소셜 계정은 `(oauth_provider, oauth_subject)`로 로그인하며 이메일 변경으로 새 계정을 만들거나 기존 이메일 회원과 자동 연결하지 않습니다. 기존 이메일과 충돌하면 기존 방식으로 로그인해야 하며 계정 연결 UI는 제공하지 않습니다.
 
 사용자 요청에 따라 [가입 동의 검토용 초안](docs/rules/SERVICE_CONSENT_DRAFT.md)을 작성했습니다. 초안을 환경변수로 자동 적용하지 않습니다. Google 로그인은 공개 Web Client ID와 기존 ID 토큰 검증 흐름을 사용하므로 Client Secret을 새 클론마다 복사할 필요가 없습니다. OAuth state 서명키·DB 비밀번호는 비공개 `.env`를 같은 PC의 `%LOCALAPPDATA%\CaloDetect\local.env`에서 재사용하고, 운영 설정과 비밀은 GitHub에 올리지 않습니다. 승인된 로컬 동의와 만 나이를 확인하며 기존 이메일 계정과 자동 연결하지 않습니다. Google Cloud의 테스트 사용자 등록이 필요합니다.
 
@@ -485,11 +493,9 @@ git push
 
 [개발 규칙](AGENTS.md) · [구현 계획/TBD](docs/planning/IMPLEMENTATION_PLAN.md) · [구조](docs/design/ARCHITECTURE.md) · [데이터 스키마](docs/design/DATA_SCHEMA.md) · [모델 현황](docs/model/MODEL_EXPERIMENTS.md) · [로드맵](docs/planning/ROADMAP.md) · [변경 이력](CHANGELOG.md)
 
-## 기존 Streamlit 실행 안내
+## 로컬 실행
 
-최초 설치는 `01_SETUP_AND_RUN.bat`, 이후 실행은 `02_RUN_ONLY.bat`을 더블 클릭하세요.
-현재 PC에 설치된 Python과 프로젝트 내 차트 패키지를 사용합니다.
-가상환경이 있으면 해당 환경을 우선 사용하며, 준비된 환경이 없으면 설치 스크립트를 실행합니다.
+최초 설치는 위 새 웹 환경 실행 절차를 따르세요. 설치 후 재실행은 [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)를 사용합니다. 사용자 웹은 React/FastAPI로 실행하며 Streamlit은 그래프 서버와 관리자 QA에 사용합니다.
 
 ## 모델 및 데이터
 
@@ -522,18 +528,8 @@ git push
 
 ## 다른 PC에서 최초 설치
 
-Python 3.10 이상이 설치된 상태에서 `01_SETUP_AND_RUN.bat`을 실행하세요.
-패키지 설치 후 모델과 컬럼을 검증하고 Streamlit을 실행합니다.
-이후에는 `02_RUN_ONLY.bat`을 실행하세요.
+위 새 웹 환경 실행 절차에 따라 Backend·Frontend 의존성과 Docker DB를 준비하세요. 이후 [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)에 따라 세 서버를 실행합니다.
 
-직접 실행하는 경우 이 폴더에서:
+접속 주소: http://localhost:5174
 
-```powershell
-python -m pip install -r requirements.txt
-python validate_data.py
-python -m streamlit run app.py
-```
-
-접속 주소: http://localhost:8501
-
-샘플 사진은 `samples/` 폴더에 넣거나 화면에서 업로드할 수 있습니다.
+모델·데이터 검증은 기존 Python 환경에서 `python validate_data.py`로 실행할 수 있습니다.

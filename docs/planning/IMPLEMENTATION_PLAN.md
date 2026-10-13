@@ -7,7 +7,7 @@
 | best.pt | 실제 YAML 메타데이터 yolo26m.yaml / m, 150 클래스 | REUSE / DO NOT TOUCH | B | P0 |
 | data.yaml, 기존 CSV | 150 클래스 일치, 기준량 unit 보유 | REUSE / DO NOT TOUCH | B | P0 |
 | 음식명 연결·영양 계산 | class_id/food_name 조회, 배율 계산 | REUSE | B | P0 |
-| app.py | Streamlit 분석·보정·가상 기록·대시보드 | 보존, 관리자 QA 전환은 추후 MODIFY | B | P0 |
+| 구형 독립 Streamlit 앱 | 사용자 승인(2026-10-13)으로 app.py 및 전용 실행 스크립트 제거 | 제거 완료; 그래프·관리자 QA 유지 | B | P0 |
 | 회원/프로필 | 없음 | NEW | A | P0 |
 | DB/API | 없음 | NEW | A | P0 |
 | 사용자 화면 | Streamlit만 존재 | React NEW | C | P0 |
@@ -20,7 +20,7 @@
 
 ## 현재 단계
 
-React 회원/프로필/사진/식단/추천 UI, FastAPI P0 API, PostgreSQL 모델·migration·음식 적재, 기존 YOLO worker, Correction·동의·관리자 QA를 통합했다. 기존 app.py/모델/데이터는 보존한다. 가입 연령·동의 문구·이미지·추천 출처 정책 활성화는 팀 승인 대기다. 미정 탄단지 목표·당류/나트륨·끼니 적합성 점수는 계산하지 않는다.
+React 회원/프로필/사진/식단/추천 UI, FastAPI P0 API, PostgreSQL 모델·migration·음식 적재, 기존 YOLO worker, Correction·동의·관리자 QA를 통합했다. 사용자 승인(2026-10-13)으로 구형 app.py는 제거했다. 모델·데이터와 Streamlit 그래프·관리자 QA는 유지한다. 가입 연령·동의 문구·이미지·추천 출처 정책 활성화는 팀 승인 대기다. 미정 탄단지 목표·당류/나트륨·끼니 적합성 점수는 계산하지 않는다.
 
 ## 순서와 범위
 

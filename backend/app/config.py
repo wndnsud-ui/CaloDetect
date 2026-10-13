@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     google_redirect_uri: str = 'http://localhost:8000/api/auth/google/callback'
     apple_client_id: str | None = None
     apple_redirect_uri: str | None = None
+    kakao_client_id: str | None = None
+    kakao_client_secret: str | None = None
+    kakao_redirect_uri: str = 'http://localhost:8000/api/auth/kakao/callback'
     # state 서명과 가입 임시 정보 보호에 쓰는 서버 비밀키.
     oauth_state_secret: str | None = Field(default=None, min_length=32)
 

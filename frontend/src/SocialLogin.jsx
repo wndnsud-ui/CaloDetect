@@ -18,7 +18,10 @@ function loadScript(src) {
 
 const googleErrors = {
   account_conflict: '이 이메일은 다른 로그인 방식으로 이미 가입되어 있습니다. 기존 방식으로 로그인해 주세요.',
-  signup_unavailable: 'Google 가입은 승인된 서비스 이용·개인정보 동의 문구 설정 후 사용할 수 있습니다.',
+  signup_unavailable: '소셜 가입은 서비스 이용·개인정보 동의 문구 설정 후 사용할 수 있습니다.',
+  kakao_unavailable: '카카오 로그인 설정을 확인한 뒤 다시 시도해 주세요.',
+  kakao_auth_failed: '카카오 인증에 실패했거나 취소되었습니다. 다시 시도해 주세요.',
+  kakao_email_required: '카카오의 확인된 이메일이 필요합니다. 이메일 제공에 동의하거나 다른 가입 방식을 사용해 주세요.',
   google_unavailable: 'Google 로그인을 사용할 수 없습니다. 설정을 확인한 뒤 다시 시도해 주세요.',
 };
 
@@ -60,7 +63,8 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
         setProviders(config);
 
         const params = new URLSearchParams(window.location.search);
-        const signupReturn = params.get('social_signup') === 'google';
+        const signupProvider = params.get('social_signup');
+        const signupReturn = ['google', 'kakao'].includes(signupProvider);
         const errorCode = params.get('social_error');
         if (signupReturn || errorCode || params.has('social_success')) {
           // 소셜 반환 안내를 읽은 뒤 URL을 정리해 새로고침에서 같은 반환 처리를 반복하지 않게 한다.
@@ -68,13 +72,13 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
         }
         if (signupReturn) {
           try {
-            const result = await api('/auth/social/google/pending', undefined, 'GET');
+            const result = await api(`/auth/social/${signupProvider}/pending`, undefined, 'GET');
             if (!cancelled && result.registration_required) {
               setPending({...result, authorization_code: true});
             }
           } catch (err) {if (!cancelled) setError(err.message);}
         } else if (errorCode) {
-          setError(googleErrors[errorCode] || 'Google 인증에 실패했습니다. 다시 시도해 주세요.');
+          setError(googleErrors[errorCode] || '소셜 인증에 실패했습니다. 다시 시도해 주세요.');
         }
 
         if (config.google.enabled && !config.google.authorization_code_enabled) {
@@ -118,7 +122,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
     }
     setWorking(true); setError('');
     try {
-      const result = await api('/auth/social/google/register', data);
+      const result = await api(`/auth/social/${pending.provider}/register`, data);
       if (active.current) await onAuthenticated(result);
     } catch (err) {if (active.current) setError(err.message);}
     finally {if (active.current) setWorking(false);}
@@ -127,8 +131,13 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
   const locked = disabled || working;
   return <section className="social-login" aria-label={signup ? '소셜 회원가입' : '소셜 로그인'}>
     <p className="social-divider">{signup ? '소셜 계정으로 회원가입' : '소셜 계정으로 로그인'}</p>
-    <p className="muted">{signup ? 'Google 계정 선택 → 이름·만 나이·동의 확인 → 가입 완료' : '처음 이용하는 소셜 계정은 인증 후 회원가입으로 이어집니다.'}</p>
+    <p className="muted">{signup ? '소셜 계정 선택 → 이름·만 나이·동의 확인 → 가입 완료' : '처음 이용하는 소셜 계정은 인증 후 회원가입으로 이어집니다.'}</p>
     <div hidden={!!pending}>
+      <button type="button" className="social-button kakao-login-button"
+        disabled={locked || !providers?.kakao?.enabled}
+        onClick={()=>window.location.assign('/api/auth/kakao/login')}>
+        카카오로 {signup ? '회원가입' : '로그인'}{providers && !providers.kakao?.enabled ? ' · 준비 중' : ''}
+      </button>
       {providers?.google.authorization_code_enabled
         ? <button type="button" className="social-button google-login-button" disabled={locked}
             onClick={()=>window.location.assign('/api/auth/google/login')}>
@@ -144,7 +153,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
       </p>}
     </div>
     {pending && <form onSubmit={register}>
-      <h3>Google 회원가입 마무리</h3><p className="muted">{pending.email}</p>
+      <h3>{pending.provider === 'kakao' ? '카카오' : 'Google'} 회원가입 마무리</h3><p className="muted">{pending.email}</p>
       <label>이름<input name="name" required maxLength="80" defaultValue={pending.name}/></label>
       <label>만 나이<input name="age" type="number" min={policy?.age_min || 18} max="120" step="1" required/></label>
       <p className="notice">{policy?.service_consent_text || policy?.notice || '가입 동의 문구 확인 중'}</p>

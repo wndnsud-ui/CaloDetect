@@ -169,7 +169,9 @@ def current_session(request: Request, db: Session = Depends(database)):
 
 # 회원 응답에 필요한 공개 필드와 이메일 비밀번호 로그인 가능 여부만 반환한다.
 def public_user(user):
-    return {'id': user.id, 'email': user.email, 'name': user.name, 'role': user.role,
+    email = (None if user.oauth_provider == 'kakao'
+             and user.email.endswith('@kakao.calodetect.invalid') else user.email)
+    return {'id': user.id, 'email': email, 'name': user.name, 'role': user.role,
             'password_login_enabled': not bool(user.oauth_provider)}
 
 

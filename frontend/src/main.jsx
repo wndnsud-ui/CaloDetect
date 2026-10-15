@@ -10,6 +10,7 @@ import Dashboard from './DailyHome';
 import PhotoInput from './PhotoInput';
 import SocialLogin from './SocialLogin';
 import EmailAuthForm from './EmailAuthForm';
+import {saveRememberedEmail} from './rememberedEmail';
 import {PasswordForm, takeResetToken} from './PasswordTools';
 import ScanResult from './ScanResult';
 import NutritionSummary from './NutritionSummary';
@@ -89,8 +90,8 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 상위 화면 선택을 바꾸고 페이지별 메시지/오류 상태를 정리한다.
   function navigate(p){setPage(p);setError('');setMessage('')}
   // 폼 값을 가입/로그인 요청 형태로 변환하고 성공 후 세션과 회원 데이터를 복원한다.
-  async function authenticate(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));if(signup){data.age=Number(data.age);data.service_consent=data.service_consent==='on';data.consent_text=policy.service_consent_text}
-    await run(async()=>{const result=await api(signup ? '/auth/signup':'/auth/login',data);setUser(result.user);setPage(file?'음식 추가':'홈');await loadAccount()})}
+  async function authenticate(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));const rememberEmail=data.remember_email==='on';delete data.remember_email;if(signup){data.age=Number(data.age);data.service_consent=data.service_consent==='on';data.consent_text=policy.service_consent_text}
+    await run(async()=>{const result=await api(signup ? '/auth/signup':'/auth/login',data);if(!signup)saveRememberedEmail(data.email,rememberEmail);setUser(result.user);setPage(file?'음식 추가':'홈');await loadAccount()})}
   // 선택 사진을 FormData로 분석 요청하고 탐지 ID·클래스·신뢰도를 수정 가능한 음식 행으로 만든다.
   async function scan(e){e.preventDefault();if(!file)return;setScanStatus('working');setScanError('');await run(async()=>{try{const form=new FormData();form.append('file',file);const result=await api('/meals/detect',form);setImage(result);setScanStatus('success');setRows(result.detections.map(d=>({key:d.id,class_id:d.class_id,serving_multiplier:1,detection_id:d.id,confidence:d.confidence,bbox:d.bbox})));setMessage(result.detections.length ? `사진 분석을 완료했습니다. 인식된 음식 ${result.detections.length}개의 이름과 섭취량을 확인해 주세요.` : '분석은 완료되었지만 인식된 음식이 없습니다. 다른 사진으로 시도하거나 음식을 직접 추가해 주세요.')}catch(err){setScanStatus('error');setScanError(err.message);throw err;}})}
   // 새 사진을 선택할 때 이전 탐지·수정 행·분석 오류를 초기화해 서로 다른 사진 결과가 섞이지 않게 한다.

@@ -1,12 +1,14 @@
 # 추천 후보와 점수는 승인된 기존 CSV 데이터 및 Python 규칙으로 계산한다.
 # 10월 15일 박근수 수정: 끼니 목표 열량, 영양 한도 위험 패널티, 안전 fallback과 근거를 일관되게 처리한다.
 import logging
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
 from ..models import Meal, RecommendationLog
 from .analytics import get_today_status
 from .nutrition import food_catalog
+from .timezone import korean_date
 
 
 logger = logging.getLogger('calodetect')
@@ -27,6 +29,11 @@ MEAL_TARGET_RATIO = {
     'dinner': 0.30,
     'snack': 0.15,
 }
+CALORIE_BANDS = (
+    ('light', '가벼운 메뉴'),
+    ('medium', '보통 열량'),
+    ('high', '고열량 메뉴'),
+)
 
 
 # 일일 누적량과 후보 메뉴를 합산해 영양 한도 대비 위험 수준을 0~1 점수로 반환한다.
@@ -76,6 +83,52 @@ def calculate_meal_fit(meal_type: str, food_calories: float) -> float:
     )
 
 
+def recently_consumed_food_ids(db, user_id: int, today=None) -> set[int]:
+    """오늘을 포함한 최근 7일의 식단 기록에서 음식 class_id를 모은다."""
+    today = today or korean_date(datetime.now(timezone.utc))
+    start_date = today - timedelta(days=6)
+    meals = db.scalars(
+        select(Meal).where(
+            Meal.user_id == user_id,
+            Meal.meal_date >= start_date,
+            Meal.meal_date <= today,
+        )
+    ).all()
+    return {
+        item.food_id
+        for meal in meals
+        for item in meal.items
+    }
+
+
+def calorie_band(calories: float) -> str:
+    if calories <= 350:
+        return 'light'
+    if calories <= 700:
+        return 'medium'
+    return 'high'
+
+
+def fallback_item(food: dict, band: str) -> dict:
+    return {
+        'class_id': food['class_id'],
+        'calorie_band': band,
+        'food_name': food['food_name'],
+        'category': food['category'],
+        'unit': food['unit'],
+        'nutrition': {
+            key: food[key]
+            for key in ('cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium')
+        },
+        'reasons': [
+            '일반 추천 후보가 부족해 기준 초과 가능성이 있는 대체 메뉴로 표시했습니다.',
+            '당류 또는 나트륨 기준을 초과할 수 있어 섭취량 조절이 필요합니다.',
+        ],
+        'score': -999.0,
+        'is_fallback': True,
+    }
+
+
 # 오늘 상태와 메뉴 조건을 평가해 3개 후보를 만들고 추천 snapshot/log를 생성한다.
 def recommend_meals(db, user, filters, window, theme='balance'):
     snapshot = get_today_status(db, user.id)
@@ -95,6 +148,7 @@ def recommend_meals(db, user, filters, window, theme='balance'):
         for meal in recent_meals
         for item in meal.items
     }
+    week_food_ids = recently_consumed_food_ids(db, user.id)
 
     totals = snapshot.get('totals') or {}
     current_eaten_sodium = float(totals.get('sodium') or 0)
@@ -102,7 +156,7 @@ def recommend_meals(db, user, filters, window, theme='balance'):
     remaining_calories = float(snapshot.get('remaining_calories') or 0)
     daily_sugar_limit = max(target_calories * SUGAR_ENERGY_RATIO / 4.0, 1.0)
     meal_type = getattr(filters, 'meal_type', 'lunch') or 'lunch'
-    exclude_foods = set(filters.exclude_foods)
+    exclude_foods = set(getattr(filters, 'exclude_foods', [])) | week_food_ids
     meal_target = calculate_meal_target(
         target_calories,
         remaining_calories,
@@ -200,6 +254,7 @@ def recommend_meals(db, user, filters, window, theme='balance'):
 
         ranked.append({
             'class_id': food['class_id'],
+            'calorie_band': calorie_band(food['cal']),
             'food_name': food['food_name'],
             'category': food['category'],
             'unit': food['unit'],
@@ -215,52 +270,33 @@ def recommend_meals(db, user, filters, window, theme='balance'):
     # 점수 동점은 class_id 오름차순으로 정렬해 동일한 입력에 재현 가능한 결과를 만든다.
     ranked.sort(key=lambda item: (-item['score'], item['class_id']))
 
-    # 일반 메뉴가 세 개보다 적을 때만 한도 초과 메뉴를 초과율 순으로 경고 후보에 추가한다.
-    if len(ranked) < 3 and excluded_by_limits:
-        excluded_by_limits.sort(
-            key=lambda item: (item['excess_ratio'], item['food']['class_id'])
-        )
-        for candidate in excluded_by_limits:
-            food = candidate['food']
-            ranked.append({
-                'class_id': food['class_id'],
-                'food_name': food['food_name'],
-                'category': food['category'],
-                'unit': food['unit'],
-                'nutrition': {
-                    key: food[key]
-                    for key in ('cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium')
-                },
-                'reasons': [
-                    '일반 추천 후보가 부족해 기준 초과 가능성이 있는 대체 메뉴로 표시했습니다.',
-                    '당류 또는 나트륨 기준을 초과할 수 있어 섭취량 조절이 필요합니다.',
-                ],
-                'score': -999.0,
-                'is_fallback': True,
-            })
-            if len(ranked) == 3:
-                break
-
-    if len(ranked) < 3:
-        raise ValueError(
-            '현재 조건에서 추천 가능한 메뉴가 3개 미만입니다. '
-            '제외 음식을 줄이거나 추천 조건을 바꿔주세요.'
-        )
-
-    # 가능한 범위에서 카테고리를 분산한 뒤 부족한 자리는 나머지 상위 점수로 채운다.
+    # 추천마다 저·중·고 열량 구간을 하나씩 반환하며, 구간 후보가 없을 때만 같은 구간 fallback을 쓴다.
     selected = []
-    selected_categories = set()
-    for item in ranked:
-        if item['category'] not in selected_categories:
-            selected.append(item)
-            selected_categories.add(item['category'])
-        if len(selected) == 3:
-            break
-    for item in ranked:
-        if len(selected) == 3:
-            break
-        if item not in selected:
-            selected.append(item)
+    for band, label in CALORIE_BANDS:
+        candidate = next(
+            (item for item in ranked if item['calorie_band'] == band),
+            None,
+        )
+        if candidate is None:
+            fallback = next(
+                (
+                    entry
+                    for entry in sorted(
+                        excluded_by_limits,
+                        key=lambda value: (value['excess_ratio'], value['food']['class_id']),
+                    )
+                    if calorie_band(entry['food']['cal']) == band
+                ),
+                None,
+            )
+            if fallback is not None:
+                candidate = fallback_item(fallback['food'], band)
+        if candidate is None:
+            raise ValueError(
+                f'현재 제외 조건을 적용한 {label} 추천 메뉴가 없습니다. '
+                '다른 메뉴를 추천할 후보가 부족합니다.'
+            )
+        selected.append(candidate)
 
     # 사용자 경고는 실제 최종 후보에 fallback 메뉴가 포함됐을 때만 표시한다.
     used_fallback = any(item['is_fallback'] for item in selected)
@@ -268,7 +304,7 @@ def recommend_meals(db, user, filters, window, theme='balance'):
         '오늘 나트륨 또는 당류 섭취량이 높아 경고형 대체 메뉴가 포함되었습니다. '
         '가능하면 양념과 국물 섭취량을 줄여 주세요.'
         if used_fallback
-        else '현재 섭취 기록을 반영한 맞춤형 식사 추천입니다.'
+        else '최근 7일간 기록한 음식은 제외하고 현재 섭취 기록을 반영해 추천했습니다.'
     )
 
     # 추천 당시 snapshot과 내부 점수를 로그에 보존하되 내부 점수·flag는 응답에서 숨긴다.

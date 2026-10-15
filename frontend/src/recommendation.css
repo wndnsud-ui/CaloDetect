@@ -41,16 +41,14 @@
   color: #6a8276;
 }
 
-.meal-type-fieldset,
-.excluded-food-fieldset {
+.meal-type-fieldset {
   min-width: 0;
   margin: 20px 0;
   padding: 0;
   border: 0;
 }
 
-.meal-type-fieldset legend,
-.excluded-food-fieldset legend {
+.meal-type-fieldset legend {
   margin-bottom: 10px;
   color: #536557;
   font-size: 12px;
@@ -85,8 +83,7 @@
   font-weight: 700;
 }
 
-.meal-type-option input,
-.excluded-food-option input {
+.meal-type-option input {
   width: auto;
   margin: 0;
   accent-color: #178366;
@@ -128,151 +125,17 @@
   clip-path: inset(50%);
 }
 
-.meal-type-option:focus-within,
-.excluded-food-option:focus-within {
+.meal-type-option:focus-within {
   outline: 3px solid #75bdaa;
   outline-offset: 3px;
 }
 
-.meal-type-fieldset:disabled,
-.excluded-food-fieldset:disabled {
+.meal-type-fieldset:disabled {
   opacity: 0.65;
 }
 
-.meal-type-fieldset:disabled .meal-type-option,
-.excluded-food-fieldset:disabled .excluded-food-option {
+.meal-type-fieldset:disabled .meal-type-option {
   cursor: wait;
-}
-
-.excluded-food-heading {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 10px;
-  color: #74867b;
-  font-size: 11px;
-}
-
-.excluded-food-heading span:last-child {
-  color: #178366;
-  font-weight: 700;
-}
-
-.excluded-food-clear {
-  margin: 0 0 10px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: #285b43;
-  font-size: 11px;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.excluded-food-groups {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.excluded-food-group {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid #e1e9e3;
-  border-radius: 12px;
-  background: #fff;
-}
-
-.excluded-food-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px;
-  background: #f8faf8;
-  color: #193c32;
-  font-size: 12px;
-}
-
-.excluded-food-group-header > div {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.excluded-food-group-header > div strong {
-  font-size: 12px;
-}
-
-.excluded-food-group-header > div small {
-  color: #82968c;
-  font-size: 10px;
-  font-weight: 400;
-}
-
-.excluded-group-select-all {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 5px;
-  margin: 0;
-  color: #536557;
-  font-size: 10px;
-  cursor: pointer;
-}
-
-.excluded-group-select-all input {
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  accent-color: #178366;
-}
-
-.excluded-food-list {
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 4px 10px;
-}
-
-.excluded-food-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  margin: 0;
-  padding: 8px 2px;
-  border-bottom: 1px solid #f0f3f1;
-  color: #536557;
-  font-size: 11px;
-  cursor: pointer;
-  user-select: none;
-  touch-action: pan-y;
-}
-
-.excluded-food-option:last-child {
-  border-bottom: 0;
-}
-
-.excluded-food-option > span {
-  min-width: 0;
-  overflow: hidden;
-  flex: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.excluded-food-option small {
-  flex-shrink: 0;
-  color: #82968c;
-  font-size: 10px;
-}
-
-.excluded-food-empty {
-  margin: 10px 2px;
-  color: #82968c;
-  font-size: 11px;
 }
 
 .recommendation-helper {
@@ -280,6 +143,12 @@
   color: #718277;
   font-size: 12px;
   line-height: 1.6;
+}
+
+.recent-meals-note {
+  margin: -4px 0 18px;
+  color: #718277;
+  font-size: 11px;
 }
 
 /* 2. 추천 카드 3열 그리드 레이아웃 */
@@ -545,10 +414,6 @@
 /* 8. 모바일 반응형 규칙 */
 @media (max-width: 900px) {
   .recommend-theme-tabs {
-    grid-template-columns: 1fr;
-  }
-
-  .excluded-food-groups {
     grid-template-columns: 1fr;
   }
 

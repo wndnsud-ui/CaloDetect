@@ -205,6 +205,13 @@ def test_recommendations_three_and_acted(env):
     data=response.json();assert len(data['items'])==3
     assert len({i['class_id'] for i in data['items']})==3
     assert all('score' not in i and i['class_id']!=0 for i in data['items'])
+    refreshed=client.post('/recommendations/meals',json={
+        'exclude_foods':[item['class_id'] for item in data['items']],
+    })
+    assert refreshed.status_code==200,refreshed.text
+    assert {item['class_id'] for item in data['items']}.isdisjoint(
+        item['class_id'] for item in refreshed.json()['items']
+    )
     with Session(engine) as db:
         assert db.get(RecommendationLog,data['id']).acted is False
     saved=client.post('/meals',json={'meal_type':'dinner','recommendation_id':data['id'],
@@ -223,6 +230,11 @@ def test_recommendations_three_and_acted(env):
 @pytest.mark.parametrize('target_calories',[None,0,-1])
 def test_recommendation_requires_positive_target(env,target_calories):
     from backend.app.services import recommendation as recommendation_service
+    assert recommendation_service.calorie_band(350)=='light'
+    assert recommendation_service.calorie_band(351)=='medium'
+    assert recommendation_service.calorie_band(700)=='medium'
+    assert recommendation_service.calorie_band(701)=='high'
+
     client,_,monkeypatch=env
     account(client)
     monkeypatch.setattr(recommendation_service,'get_today_status',lambda db,user_id:{
@@ -252,14 +264,53 @@ def test_recommendation_theme_is_applied(env):
     client,_,monkeypatch=env
     account(client);profile(client)
     foods=[
-        {'class_id':0,'food_name':'단백질 낮은 메뉴','category':'A','unit':'1회','cal':600,'carbs':50,'protein':5,'fat':10,'sugar':5,'sodium':300},
-        {'class_id':1,'food_name':'단백질 높은 메뉴','category':'B','unit':'1회','cal':600,'carbs':45,'protein':30,'fat':9,'sugar':4,'sodium':400},
-        {'class_id':2,'food_name':'단백질 중간 메뉴','category':'C','unit':'1회','cal':600,'carbs':48,'protein':15,'fat':10,'sugar':5,'sodium':500},
+        {'class_id':0,'food_name':'가벼운 메뉴','category':'A','unit':'1회','cal':300,'carbs':50,'protein':5,'fat':10,'sugar':5,'sodium':300},
+        {'class_id':1,'food_name':'단백질 낮은 메뉴','category':'B','unit':'1회','cal':600,'carbs':45,'protein':5,'fat':9,'sugar':4,'sodium':400},
+        {'class_id':2,'food_name':'단백질 높은 메뉴','category':'C','unit':'1회','cal':600,'carbs':48,'protein':30,'fat':10,'sugar':5,'sodium':500},
+        {'class_id':3,'food_name':'고열량 메뉴','category':'D','unit':'1회','cal':800,'carbs':48,'protein':15,'fat':10,'sugar':5,'sodium':500},
     ]
     monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
-    response=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':'protein'})
+    for theme in ('balance','protein','light'):
+        response=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':theme})
+        assert response.status_code==200,response.text
+        items=response.json()['items']
+        assert [item['calorie_band'] for item in items]==['light','medium','high']
+        if theme=='protein':
+            assert items[1]['class_id']==2
+
+
+# 회귀 검사: 오늘 포함 최근 7일의 음식은 제외하고 7일 경계 밖 기록은 다시 추천할 수 있다.
+def test_recommendation_excludes_foods_consumed_within_last_seven_days(env):
+    from datetime import date,timedelta
+    from backend.app.services import recommendation as recommendation_service
+    client,_,monkeypatch=env
+    account(client);profile(client)
+    today=date(2026,10,15)
+    monkeypatch.setattr(recommendation_service,'korean_date',lambda instant:today)
+    monkeypatch.setattr(recommendation_service,'get_today_status',lambda db,user_id:{
+        'date':str(today),'target_calories':2500,'remaining_calories':2000,
+        'totals':{'cal':500,'sodium':0,'sugar':0},
+    })
+    foods=[
+        {'class_id':0,'food_name':'최근 기록 가벼운 메뉴','category':'A','unit':'1회','cal':300,'carbs':40,'protein':10,'fat':8,'sugar':3,'sodium':250},
+        {'class_id':1,'food_name':'새 가벼운 메뉴','category':'B','unit':'1회','cal':320,'carbs':42,'protein':12,'fat':8,'sugar':3,'sodium':260},
+        {'class_id':2,'food_name':'최근 기록 보통 메뉴','category':'C','unit':'1회','cal':500,'carbs':50,'protein':20,'fat':10,'sugar':4,'sodium':350},
+        {'class_id':3,'food_name':'새 보통 메뉴','category':'D','unit':'1회','cal':600,'carbs':55,'protein':22,'fat':12,'sugar':5,'sodium':400},
+        {'class_id':4,'food_name':'7일 경계 밖 고열량 메뉴','category':'E','unit':'1회','cal':800,'carbs':60,'protein':25,'fat':15,'sugar':6,'sodium':450},
+    ]
+    monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
+    for class_id,meal_date in ((0,today-timedelta(days=6)),(2,today-timedelta(days=1)),(4,today-timedelta(days=7))):
+        saved=client.post('/meals',json={
+            'meal_type':'lunch','meal_date':meal_date.isoformat(),
+            'items':[{'class_id':class_id,'serving_multiplier':1}],
+        })
+        assert saved.status_code==201,saved.text
+
+    response=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':'balance'})
     assert response.status_code==200,response.text
-    assert response.json()['items'][0]['class_id']==1
+    items=response.json()['items']
+    assert [item['calorie_band'] for item in items]==['light','medium','high']
+    assert [item['class_id'] for item in items]==[1,3,4]
 
 
 # 회귀 검사: 일반 후보가 부족한 경우에만 경고 fallback을 사용한다.
@@ -268,15 +319,16 @@ def test_recommendation_fallback_is_limited_and_visible(env):
     client,_,monkeypatch=env
     account(client);profile(client)
     foods=[
-        {'class_id':0,'food_name':'일반 메뉴 1','category':'A','unit':'1회','cal':600,'carbs':50,'protein':20,'fat':10,'sugar':5,'sodium':300},
-        {'class_id':1,'food_name':'일반 메뉴 2','category':'B','unit':'1회','cal':550,'carbs':45,'protein':18,'fat':9,'sugar':4,'sodium':400},
-        {'class_id':2,'food_name':'한도 초과 메뉴','category':'C','unit':'1회','cal':580,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':2400},
+        {'class_id':0,'food_name':'일반 가벼운 메뉴','category':'A','unit':'1회','cal':300,'carbs':50,'protein':20,'fat':10,'sugar':5,'sodium':300},
+        {'class_id':1,'food_name':'일반 보통 메뉴','category':'B','unit':'1회','cal':550,'carbs':45,'protein':18,'fat':9,'sugar':4,'sodium':400},
+        {'class_id':2,'food_name':'한도 초과 고열량 메뉴','category':'C','unit':'1회','cal':800,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':2400},
     ]
     monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
     response=client.post('/recommendations/meals',json={'meal_type':'lunch'})
     assert response.status_code==200,response.text
     data=response.json()
     assert len(data['items'])==3
+    assert [item['calorie_band'] for item in data['items']]==['light','medium','high']
     fallback=next(item for item in data['items'] if item['class_id']==2)
     assert fallback.get('warning')
     assert '경고형 대체 메뉴' in data['notice']
@@ -289,10 +341,10 @@ def test_recommendation_does_not_show_unused_fallback_warning(env):
     client,_,monkeypatch=env
     account(client);profile(client)
     foods=[
-        {'class_id':0,'food_name':'열량 높은 메뉴','category':'A','unit':'1회','cal':1100,'carbs':50,'protein':20,'fat':10,'sugar':5,'sodium':300},
-        {'class_id':1,'food_name':'열량 낮은 메뉴','category':'B','unit':'1회','cal':500,'carbs':45,'protein':18,'fat':9,'sugar':4,'sodium':400},
-        {'class_id':2,'food_name':'끼니 목표 메뉴','category':'C','unit':'1회','cal':600,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':500},
-        {'class_id':3,'food_name':'한도 초과 메뉴','category':'D','unit':'1회','cal':580,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':2400},
+        {'class_id':0,'food_name':'고열량 메뉴','category':'A','unit':'1회','cal':1100,'carbs':50,'protein':20,'fat':10,'sugar':5,'sodium':300},
+        {'class_id':1,'food_name':'가벼운 메뉴','category':'B','unit':'1회','cal':300,'carbs':45,'protein':18,'fat':9,'sugar':4,'sodium':400},
+        {'class_id':2,'food_name':'보통 열량 메뉴','category':'C','unit':'1회','cal':600,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':500},
+        {'class_id':3,'food_name':'한도 초과 보통 메뉴','category':'D','unit':'1회','cal':580,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':2400},
         {'class_id':4,'food_name':'영양 결측 메뉴','category':'E','unit':'1회','cal':600,'carbs':48,'protein':19,'fat':10,'sugar':None,'sodium':500},
     ]
     monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
@@ -304,8 +356,10 @@ def test_recommendation_does_not_show_unused_fallback_warning(env):
     assert response.status_code==200,response.text
     data=response.json()
     assert len(data['items'])==3
-    assert all(item['class_id']!=3 for item in data['items'])
-    assert data['items'][0]['class_id']==2
+    assert [item['calorie_band'] for item in data['items']]==['light','medium','high']
+    assert all(item['class_id'] not in (3,4) for item in data['items'])
+    assert data['items'][0]['class_id']==1
+    assert data['items'][1]['class_id']==2
     assert all(item['class_id']!=4 for item in data['items'])
     assert all(item.get('warning') is None for item in data['items'])
     assert '경고형 대체 메뉴' not in data['notice']

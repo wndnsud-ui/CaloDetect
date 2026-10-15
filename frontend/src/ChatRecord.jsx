@@ -289,7 +289,7 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
         <input ref={camera} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={upload}/>
         <input ref={album} type="file" accept="image/jpeg,image/png" hidden onChange={upload}/>
         <button type="button" className="chat-tool" onClick={takePhoto} disabled={!!busy}>📷 사진 찍기</button>
-        <button type="button" className="chat-tool" onClick={() => album.current?.click()} disabled={!!busy}>🖼 앨범에서 선택</button>
+        <button type="button" className="chat-tool" onClick={() => album.current?.click()} disabled={!!busy}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{verticalAlign:'middle',marginRight:6}}><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>앨범에서 선택</button>
         <label className="sr-only" htmlFor="chat-text">메시지</label>
         <input id="chat-text" ref={input} maxLength={200} value={text} onChange={e => setText(e.target.value)} placeholder='예: 절반만 먹었어 올려줘' disabled={!conversationId}/>
         <button className="primary" disabled={!!busy || !text.trim()}>전송</button>

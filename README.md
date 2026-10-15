@@ -2,6 +2,30 @@
 
 이메일 로그인에서 `이메일 기억하기`를 선택하면 로그인 성공 후 해당 브라우저에 이메일만 저장하고 다음 방문에 자동 입력합니다. 체크를 해제하면 저장된 이메일을 즉시 삭제합니다. 비밀번호는 이 기능으로 저장하지 않으며, 공용 PC에서는 체크를 해제하세요.
 
+## 채팅으로 식사 기록하기 · 챗으로 섭취량 수정 (개인 테스트 브랜치, 기본 꺼짐)
+
+**팀원 업데이트 주의:** Git pull은 개인 `.env`를 바꾸지 않습니다. 아래는 localhost 개발 테스트용 설정이며, 기존 `.env`의 DB 비밀번호·OAuth·SMTP 값을 덮어쓰지 말고 해당 항목만 확인하세요. 변경 후 Backend를 재시작해야 합니다.
+
+```dotenv
+APP_ENV=development
+CHAT_RECORD_ENABLED=true
+LOCAL_TEST_IMAGE_ANALYSIS=true
+IMAGE_STORAGE_DIR=.private-uploads
+# 로컬 테스트 가입이 필요할 때만
+LOCAL_TEST_SIGNUP=true
+# 기존 CSV 기반 개발 추천을 사용할 때
+RECOMMENDATION_ENABLED=true
+RECENT_MEAL_WINDOW=3
+```
+
+`CHAT_RECORD_ENABLED`가 없거나 false이면 채팅 메뉴가 숨겨집니다. 사진 분석은 이미지 저장 경로·YOLO 환경도 필요합니다. `RECENT_MEAL_WINDOW=3`은 개발 예시이며 운영 기준이 아닙니다. 현재 채팅 해석은 규칙 기반이므로 OpenAI 키는 필요하지 않습니다. 로그인용 DB·소셜 제공자·메일 설정은 기존 설치 안내를 따르세요. 회원 DB와 사진은 Git으로 복사되지 않습니다.
+
+**DB 준비는 필수입니다.** 먼저 Core A 담당과 migration `20261015_01`·`20261015_02` 적용을 확인하세요. 테이블·컬럼 없이 코드만 pull하면 기존 식단 API도 실패할 수 있습니다. DB가 저장소에 없는 `20261007_03`이면 일반 `alembic upgrade head`는 실패하므로 stamp/이력 변경으로 우회하지 말고 [migration 인계 문서](docs/planning/CHAT_RECORD_A0_MIGRATION_HANDOFF.md)를 확인하세요. 개인 시연은 아래 별도 DB 스크립트를 사용할 수 있습니다.
+
+`.env`에 `CHAT_RECORD_ENABLED=true`를 두면 사이드 메뉴에 `채팅으로 식사기록`이 나타납니다. 사진을 찍거나 고르면 서버가 분석하고, "절반만 먹었어 올려줘"처럼 말하면 바로 식단에 기록됩니다(저장 버튼 없음). "점심으로 바꿔줘", "어제 저녁으로 올려줘", "갈비구이가 아니라 불고기야", 저장 후 "아니, 4분의 1"도 됩니다. 필요한 테이블은 migration `20261015_01`·`20261015_02`(TEST-ONLY)입니다. 테스트: `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_chat_record.py -q`.
+
+`test/chatbot-record` 브랜치의 시험 기능입니다. Backend 환경변수 `CHAT_RECORD_ENABLED=true`일 때만 히스토리 각 음식 행에 `챗으로 수정`이 보이고, "절반만 먹었어" → "저장해줘"처럼 말로 섭취 비율(0~1)을 바꿉니다. 기본값 false에서는 새 API·응답 키·버튼이 없습니다. 먼저 migration `20261015_01`(TEST-ONLY)이 적용된 DB가 필요합니다. 개발 DB를 건드리지 않고 시연하려면 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup_chat_demo_db.ps1`을 실행합니다. 이 스크립트는 개발 DB와 사진을 백업한 뒤 별도 DB `calodetect_chat_demo`에 migration·음식·테스트 계정·더미 식단을 준비하고 Backend 실행 명령을 출력합니다(`-Reset`으로 다시 만들 수 있음). 섭취 비율 0인 음식은 추천의 최근 먹은 음식에서 빠지고, 음식 수정(correction)도 섭취 비율을 유지해 다시 계산합니다. 테스트: `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_consumption.py -q`.
+
 ## 로컬 테스트 계정 더미 식단 생성
 
 Git 업데이트 후 기존 로컬 DB 준비 절차를 완료한 상태에서 프로젝트 루트에서 실행합니다.

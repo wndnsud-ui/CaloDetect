@@ -158,6 +158,8 @@ class Meal(Base):
     meal_type: Mapped[str] = mapped_column(String(16))
     # 생성 시각. 기본값 함수는 새 레코드를 만들 때 호출된다.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # 채팅으로 기록한 식사의 사진 첨부. 기존 기록과 직접 기록은 null이다.
+    chat_attachment_id: Mapped[str | None] = mapped_column(ForeignKey('chat_attachments.id'), nullable=True)
     items: Mapped[list['MealItem']] = relationship(cascade='all, delete-orphan', lazy='selectin')
 
 
@@ -184,6 +186,13 @@ class MealItem(Base):
     nutrition: Mapped[dict] = mapped_column(JSON)
     # 생성 시각. 기본값 함수는 새 레코드를 만들 때 호출된다.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # 실제 섭취 비율(0~1). 유효 배율 = serving_multiplier × consumption_ratio. 기존 행은 1.0이다.
+    consumption_ratio: Mapped[float] = mapped_column(Float, CheckConstraint(
+        'consumption_ratio >= 0 AND consumption_ratio <= 1', name='ck_meal_items_consumption_ratio'),
+        default=1.0, server_default='1')
+    # 섭취량 수정의 낙관적 동시성 version. 수정 성공마다 수동으로 1 증가한다.
+    version: Mapped[int] = mapped_column(Integer, CheckConstraint('version >= 1', name='ck_meal_items_version'),
+                                         default=1, server_default='1')
     __table_args__ = (CheckConstraint('serving_multiplier > 0'),)
 
 
@@ -228,3 +237,6 @@ class RecommendationLog(Base):
     selected_item: Mapped[int | None] = mapped_column(Integer)
     # 이미 식단으로 기록한 추천인지 표시해 중복 사용을 막는다.
     acted: Mapped[bool] = mapped_column(Boolean, default=False)
+
+# 채팅 식사기록 신규 모델을 같은 메타데이터에 등록한다(테스트 create_all·Alembic 비교용).
+from . import models_chat  # noqa: E402,F401

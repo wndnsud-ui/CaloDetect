@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     kakao_redirect_uri: str = 'http://localhost:8000/api/auth/kakao/callback'
     # state 서명과 가입 임시 정보 보호에 쓰는 서버 비밀키.
     oauth_state_secret: str | None = Field(default=None, min_length=32)
+    # 채팅 식사기록·섭취량 수정 기능 플래그. false면 새 라우트·meal_json 추가 키·프론트 진입점이 없다.
+    chat_record_enabled: bool = False
 
 
 settings = Settings()

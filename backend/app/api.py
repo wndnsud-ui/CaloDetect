@@ -290,7 +290,11 @@ def correction(detection_id: str, body: CorrectionRequest, user: CurrentUser, db
         if linked:
             linked.food_id = food.id; linked.corrected_label = food.canonical_name
             # 보정된 음식으로 이미 저장한 식단 항목의 영양값도 재계산하되 기존 섭취량 배율은 유지한다.
-            linked.nutrition = calculate_nutrition(food.id, linked.serving_multiplier)['nutrition']
+            # 2026-10-15 사용자 승인(챗봇 지시서 R3): 섭취 비율까지 반영한 유효 배율로 계산하고 version을 올린다.
+            # 비율 1.0인 기존 행은 이전과 같은 값이다.
+            linked.nutrition = calculate_nutrition(
+                food.id, linked.serving_multiplier * linked.consumption_ratio)['nutrition']
+            linked.version = linked.version + 1
     # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
     db.commit(); logger.info('detection correction')
     return {'id': detection.id, 'corrected_label': detection.corrected_label}

@@ -98,6 +98,8 @@ def recently_consumed_food_ids(db, user_id: int, today=None) -> set[int]:
         item.food_id
         for meal in meals
         for item in meal.items
+        # 섭취 비율 0(안 먹음)으로 기록한 음식은 먹은 음식으로 보지 않는다. 기존 행은 비율 1.0이라 결과 동일.
+        if item.consumption_ratio > 0
     }
 
 
@@ -147,6 +149,7 @@ def recommend_meals(db, user, filters, window, theme='balance'):
         item.food_id
         for meal in recent_meals
         for item in meal.items
+        if item.consumption_ratio > 0
     }
     week_food_ids = recently_consumed_food_ids(db, user.id)
 

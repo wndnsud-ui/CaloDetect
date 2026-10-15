@@ -25,6 +25,12 @@ app.include_router(meal_router)
 app.include_router(social_router)
 app.include_router(passwords_router)
 app.include_router(kakao_router)
+# 채팅 식사기록(섭취량 수정) 라우트는 기능 플래그가 켜졌을 때만 등록한다. 기본 false.
+if settings.chat_record_enabled:
+    from .consumption_api import router as consumption_router
+    from .chat_api import router as chat_router
+    app.include_router(consumption_router)
+    app.include_router(chat_router)
 # 쿠키 인증을 허용하되 CORS 원본은 설정된 프런트엔드로 제한한다. 실제 변경 권한은 인증/CSRF가 검사한다.
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
                    allow_credentials=True, allow_methods=['GET', 'POST', 'PUT'],

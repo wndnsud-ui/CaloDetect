@@ -7,6 +7,7 @@ export function MenuIcon({page}) {
   const shapes = {
     '홈': <><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></>,
     '음식 추가': <><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h5M12 15v4M10 17h4"/></>,
+    '채팅으로 식사기록': <><path d="M4 5h16v11H9l-5 4Z"/><path d="M8 9h8M8 12h5"/></>,
     '목표 설정': <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></>,
     '식사 추천': <><path d="M7 14a5 5 0 0 1-1-10 6 6 0 0 1 12 0 5 5 0 0 1-1 10v7H7ZM7 17h10"/></>,
     '식단 분석': <><path d="M4 3v18h17M8 16v-5M13 16V7M18 16V4"/></>,

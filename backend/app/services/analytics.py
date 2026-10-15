@@ -6,6 +6,7 @@ from sqlalchemy import select
 from ..models import Meal, Profile, Detection
 from sqlalchemy.orm import object_session
 from .timezone import korean_date
+from ..config import settings
 
 NUTRIENTS = ['cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium']
 
@@ -44,11 +45,24 @@ def meal_json(meal):
         # 연결된 탐지의 소유자가 식단 소유자와 같은 경우만 이미지 URL에 포함하고 중복 사진은 제거한다.
         if detection and detection.user_id == meal.user_id and detection.image_group_id not in image_ids:
             image_ids.append(detection.image_group_id)
-    return {'id': meal.id, 'meal_date': str(meal.meal_date), 'meal_type': meal.meal_type,
+    data = {'id': meal.id, 'meal_date': str(meal.meal_date), 'meal_type': meal.meal_type,
             'image_urls': [f'/api/meals/images/{image_id}' for image_id in image_ids],
             'items': [{'id': i.id, 'class_id': i.food_id, 'food_name': i.corrected_label,
                        'detection_id': i.detection_log_id, 'serving_multiplier': i.serving_multiplier,
                        'nutrition': i.nutrition} for i in meal.items]}
+    # 채팅 식사기록 플래그가 켜졌을 때만 섭취 비율 키를 추가한다. 기존 키·값은 그대로 둔다.
+    if settings.chat_record_enabled:
+        # 채팅으로 기록한 식사는 탐지가 없어도(수동 선택·분석 실패) 첨부 사진을 추가로 보여 준다.
+        if db and meal.chat_attachment_id:
+            from ..models_chat import ChatAttachment
+            attachment = db.get(ChatAttachment, meal.chat_attachment_id)
+            if attachment and attachment.user_id == meal.user_id and attachment.image_upload_id \
+                    and attachment.image_upload_id not in image_ids:
+                data['image_urls'].append(f'/api/meals/images/{attachment.image_upload_id}')
+        for entry, item in zip(data['items'], meal.items):
+            entry.update(consumption_ratio=item.consumption_ratio, version=item.version,
+                         effective_multiplier=item.serving_multiplier * item.consumption_ratio)
+    return data
 
 
 # 한국 날짜로 오늘 식단을 조회·합산하고 저장된 목표와 비교한다. 남은 칼로리는 0 미만으로 표시하지 않는다.

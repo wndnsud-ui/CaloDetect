@@ -1,0 +1,113 @@
+/* 채팅 식사기록(A0 챗으로 수정) 전용 스타일. 기존 색(#00836d·#233b34·#e8eeeb)을 재사용하고 다른 화면에는 영향을 주지 않는다. */
+.history-chat-edit{margin-left:10px;padding:4px 10px;border:1px solid #bfdcd1;border-radius:999px;background:#f1f8f5;color:#00735f;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.history-chat-edit:hover{background:#e3f2ec}.history-chat-edit:focus-visible{outline:2px solid #00836d;outline-offset:2px}
+.history-ratio{margin-left:6px;padding:2px 7px;border-radius:6px;background:#fff4df;color:#8a6420;font-size:11px;font-weight:600}
+.chat-edit-backdrop{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(20,40,34,.42)}
+.chat-edit{display:flex;flex-direction:column;width:min(560px,100%);max-height:min(760px,calc(100vh - 32px));background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(18,48,40,.25);overflow:hidden}
+.chat-edit header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 22px 14px;font-size:14px;color:#233b34;border-bottom:1px solid #e8eeeb}
+.chat-edit header h2{margin:2px 0 4px;font-size:19px}.chat-edit header .muted{margin:0;font-size:13px}.chat-edit header .eyebrow{margin:0}
+.chat-edit-log{flex:1;list-style:none;margin:0;padding:18px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;background:#f7faf8}
+.chat-bubble{max-width:88%;padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.6}
+.chat-bubble p{margin:0}
+.chat-bot{align-self:flex-start;background:#fff;border:1px solid #e1ebe6;border-top-left-radius:4px}
+.chat-user{align-self:flex-end;background:#00836d;color:#fff;border-top-right-radius:4px}
+.chat-warn{background:#fff8e8;border-color:#f0dcae;color:#7a5a17}
+.chat-error{background:#fdeeee;border-color:#f0c9c9;color:#9b3434}
+.chat-done{border-color:#a9d8c6;background:#effaf5}
+.chat-typing{color:#72867e;font-size:13px}
+.chat-compare{margin-top:10px;padding-top:10px;border-top:1px dashed #d5e3dc}
+.chat-compare-head{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px}.chat-compare-head small{color:#72867e}
+.chat-compare table{width:100%;margin-top:6px;border-collapse:collapse;font-size:12.5px;font-variant-numeric:tabular-nums}
+.chat-compare th,.chat-compare td{padding:4px 6px;text-align:right;border-bottom:1px solid #eef3f0}
+.chat-compare th[scope=row],.chat-compare thead th:first-child{text-align:left;font-weight:500}
+.chat-compare th small{margin-left:4px;color:#8a9d95}.chat-compare td:last-child{font-weight:700;color:#007b68}
+.chat-edit-input{display:flex;gap:8px;padding:14px 18px;border-top:1px solid #e8eeeb}
+.chat-edit-input input{flex:1;margin:0;min-height:44px;font-size:15px}
+.chat-edit-input .primary{margin:0;min-width:72px}
+.chat-edit-note{margin:0;padding:0 18px 14px;font-size:12px;color:#72867e;line-height:1.6}
+@media(max-width:700px){.chat-edit-backdrop{align-items:flex-end;padding:0}.chat-edit{width:100%;max-height:92vh;border-radius:16px 16px 0 0}.chat-bubble{max-width:94%}}
+/* ---- A1 채팅으로 식사 기록하기 ---- */
+.chat-record{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start}
+.chat-main{display:flex;flex-direction:column;background:#fff;border:1px solid #e3e8de;border-radius:16px;height:calc(100vh - 150px);min-height:560px;overflow:hidden}
+.chat-title{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;padding:22px 26px 16px;border-bottom:1px solid #eef2ec}
+.chat-title h1{font-size:24px;margin:0}.chat-title .eyebrow{margin:0 0 6px}.chat-title .muted{margin:0}
+.chat-log{flex:1;list-style:none;margin:0;padding:20px 24px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;background:#f8faf7}
+.chat-date{align-self:center;font-size:11px;color:#8a998f}.chat-date span{background:#eef3ee;border-radius:999px;padding:4px 12px}
+.chat-row{display:flex;gap:8px;align-items:flex-start}.chat-row-user{justify-content:flex-end}
+.chat-avatar{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:#e4f1ea;display:grid;place-items:center;font-size:16px}
+.chat-row .chat-bubble{max-width:min(560px,82%)}
+.chat-photo{max-width:min(280px,70%);max-height:280px;border-radius:14px;border-top-right-radius:4px;object-fit:cover;border:1px solid #dfe8e3;background:#eef3ef}
+.food-cards{margin-top:10px;display:grid;gap:8px}
+.food-card{display:grid;grid-template-columns:48px 1fr auto auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e3ece7;border-radius:12px;background:#fbfdfc}
+.food-card b{display:block;font-size:14px}.food-card small{display:block;font-size:11px;color:#7c8f85}
+.food-thumb{width:48px;height:48px;border-radius:10px;object-fit:cover;background:#eef3ef}
+.food-thumb-empty{display:grid;place-items:center;font-weight:700;color:#4d7a66}
+.food-card-kcal{font-weight:700;color:#007b68;font-variant-numeric:tabular-nums}.food-card-kcal small{display:inline;margin-left:2px;font-weight:400}
+.ratio-badge{padding:3px 8px;border-radius:999px;background:#eef3ef;color:#4d6a5d;font-size:11px;font-weight:700}.ratio-badge.changed{background:#fff4df;color:#8a6420}
+.food-cards-total{margin:2px 2px 0;font-size:12px;color:#5f7468}
+.reply-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.reply-chips button{border:1px solid #bfdcd1;background:#fff;color:#00735f;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600}
+.reply-chips button:hover:not(:disabled){background:#eef8f3}
+.reply-chips .chip-meal{border-color:#d9e3dd;color:#5d7368}.reply-chips .chip-meal.selected{background:#1c4b3a;border-color:#1c4b3a;color:#fff;opacity:1}
+.reply-chips .chip-nav{background:#1c4b3a;color:#fff;border-color:#1c4b3a}
+.saved-card{text-align:center;min-width:220px}.saved-check{width:40px;height:40px;margin:2px auto 6px !important;border-radius:50%;background:#00836d;color:#fff;display:grid;place-items:center;font-weight:700}
+.saved-title{font-weight:700;font-size:15px}.saved-card img{width:100%;max-height:160px;object-fit:cover;border-radius:10px;margin:10px 0 4px}
+.saved-meta{font-size:12px;color:#6d8177}.saved-card ul{list-style:none;margin:8px 0 0;padding:0;text-align:left}
+.saved-card li{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid #e4efe9;font-size:13px}.saved-card li small{color:#8a6420}
+.saved-total{margin-top:8px !important;font-size:13px}
+.compare-cards{margin-top:8px;font-size:13px}.compare-cards p{margin:4px 0}
+.chat-alert{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 18px 8px;padding:10px 14px;border-radius:10px;background:#fdeeee;color:#9b3434;font-size:13px}
+.chat-alert button{border:1px solid #e3b7b7;background:#fff;color:#9b3434;border-radius:8px;padding:5px 10px;font-size:12px}
+.chat-input{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid #eef2ec;background:#fff}
+.chat-input input[type=text],.chat-input input:not([type]){flex:1;margin:0;min-height:44px;font-size:15px;display:block;width:auto;min-width:0}
+.chat-input .primary{margin:0;min-height:44px}
+.chat-tool{flex-shrink:0;border:1px solid #d9e5df;background:#f6faf8;color:#2f5a48;border-radius:10px;padding:10px 12px;font-size:13px;white-space:nowrap}
+.chat-side{display:grid;gap:16px;position:sticky;top:20px}
+.chat-side-card{background:#fff;border:1px solid #e3e8de;border-radius:16px;padding:18px 20px}
+.chat-side-card h3{margin:0 0 12px;font-size:15px;letter-spacing:-.3px}
+.recent-meals{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.recent-meals li{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center}
+.recent-meals img,.recent-thumb{width:44px;height:44px;border-radius:10px;object-fit:cover;background:#eef3ef;display:grid;place-items:center}
+.recent-meals b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recent-meals small{display:block;font-size:11px;color:#7c8f85}
+.recent-meals li>span{font-size:13px;font-weight:700;color:#007b68}.recent-meals li>span small{display:inline;margin-left:2px;font-weight:400}
+@media(max-width:1100px){.chat-record{grid-template-columns:1fr}.chat-side{display:none}}
+@media(max-width:760px){.chat-main{height:calc(100vh - 170px);border-radius:12px}.chat-title{padding:14px 16px}.chat-title .muted{display:none}.chat-title h1{font-size:19px}.chat-log{padding:14px 12px}.chat-row .chat-bubble{max-width:88%}.chat-input{flex-wrap:wrap;padding:10px}.chat-tool{flex:1}.chat-input input:not([type]){flex-basis:100%;order:3}.chat-input .primary{order:4;flex:1}}
+/* 전역 input{display:block}이 hidden 속성을 덮어써 파일 입력이 보이던 문제 수정 */
+.chat-input input[type=file],.chat-input input[hidden]{display:none !important}
+.chat-input .primary{white-space:nowrap;flex-shrink:0}
+.chat-input #chat-text{flex:1 1 auto;min-width:120px}
+/* 모바일 하단 고정 탭바(약 85px)에 입력창이 가려지지 않게 채팅 높이를 줄인다 */
+@media(max-width:760px){.chat-main{height:calc(100dvh - 320px);min-height:420px}}
+/* PC 웹캠 촬영 창 */
+.webcam{width:min(720px,100%);background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(18,48,40,.25)}
+.webcam-view{position:relative;background:#0f1d18;aspect-ratio:16/10;display:grid;place-items:center}
+.webcam-view video{width:100%;height:100%;object-fit:contain}
+.webcam-wait{position:absolute;margin:0;padding:0 24px;color:#d9ece4;font-size:14px;text-align:center}
+.webcam-actions{display:flex;align-items:center;gap:10px;padding:14px 18px}
+.webcam-actions select{width:auto;max-width:260px;margin:0 auto 0 0;padding:9px}
+.webcam-actions .text-button{margin-left:auto}
+.webcam-shoot{margin:0;padding:12px 22px;font-size:14px}
+/* 우측 "오늘" 카드 */
+.today-card{padding:20px 22px}
+.today-head{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+.today-head h3{margin:0;font-size:16px}.today-date{font-size:13px;color:#6d8177}
+.icon-button{border:0;background:none;padding:4px;color:#3e5a4e;font-size:18px;line-height:1;border-radius:8px;display:grid;place-items:center}
+.icon-button:hover{background:#eef4f0}.icon-button svg{width:20px;height:20px}
+.today-calendar{margin-left:auto}
+.icon-button.spinning{animation:today-spin .8s linear infinite}@keyframes today-spin{to{transform:rotate(360deg)}}
+.today-overview{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+.today-donut{position:relative;width:118px;height:118px;flex-shrink:0}
+.today-total small{display:block;font-size:12px;color:#6d8177}
+.today-total p{margin:6px 0;font-size:15px;font-weight:700;color:#233b34}.today-total p b{font-size:30px;letter-spacing:-1px;margin-right:4px}
+.today-meals-list{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.today-meals-list>li>button{width:100%;display:grid;grid-template-columns:36px 1fr auto 16px;align-items:center;gap:10px;border:0;background:none;padding:9px 8px;border-radius:12px;text-align:left;color:#233b34;font-size:14px}
+.today-meals-list>li>button:hover{background:#f4f8f5}
+.today-meals-list>li.active>button{background:#edf6f0;font-weight:700}
+.meal-icon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:16px}
+.meal-icon-breakfast{background:#fdf1d8}.meal-icon-lunch{background:#fde6dc}.meal-icon-dinner{background:#e3e8fa}.meal-icon-snack{background:#f3e7df}
+.meal-kcal{font-variant-numeric:tabular-nums;font-size:13px}.today-meals-list>li.active .meal-kcal{font-weight:700}
+.meal-chevron{color:#8a998f;font-size:18px;transition:transform .2s}.expanded .meal-chevron{transform:rotate(90deg)}
+.meal-foods{list-style:none;margin:2px 0 6px 54px;padding:0}.meal-foods li{display:flex;justify-content:space-between;gap:8px;padding:4px 8px 4px 0;font-size:12px;color:#5f7468}.meal-foods small{color:#8a6420}
+.meal-empty{margin:2px 0 6px 54px;font-size:12px;color:#8a998f}
+/* 오늘 카드 도넛은 Streamlit ECharts(ring_percent) iframe */
+.today-donut .streamlit-chart{width:118px;height:118px;background:transparent}

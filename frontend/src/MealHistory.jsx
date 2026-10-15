@@ -2,13 +2,16 @@
 // 음식명 검색·식사 유형 필터·날짜 정렬은 받은 기록 범위 안에서 수행하며 영양값은 저장된 서버 값을 표시한다.
 import React, { useState } from 'react';
 import './meal-history.css';
+import ChatConsumptionEdit from './ChatConsumptionEdit';
 
 const meals = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간식'};
 const columns = [['cal','열량','kcal'], ['carbs','탄수화물','g'], ['protein','단백질','g'], ['fat','지방','g'], ['sugar','당류','g'], ['sodium','나트륨','mg']];
 const format = value => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('ko-KR', {maximumFractionDigits:1});
 
 // 식단 항목을 음식 한 개당 한 행으로 펼치는 기록 표.
-export default function MealHistory({history, onAdd}) {
+export default function MealHistory({history, onAdd, api, onChanged}) {
+  // 챗으로 수정 대상 {meal, item}. 서버가 CHAT_RECORD_ENABLED일 때만 항목에 version 키가 있어 진입 버튼이 보인다.
+  const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [order, setOrder] = useState('desc');
@@ -29,11 +32,12 @@ export default function MealHistory({history, onAdd}) {
       </div>
       <div className="history-table-scroll" tabIndex={0} role="region" aria-label="식단 기록 표 · 가로 스크롤 가능">
         <table><caption>조회된 식단 기록 · 음식별 섭취량과 영양 정보</caption><thead><tr><th scope="col" aria-sort={order === 'desc' ? 'descending' : 'ascending'}>날짜 {order === 'desc' ? '↓' : '↑'}</th><th scope="col">식사</th><th scope="col">음식</th><th scope="col">섭취량</th>{columns.map(([key, label, unit]) => <th scope="col" className="history-number" key={key}>{label}<small>{unit}</small></th>)}</tr></thead>
-          <tbody>{rows.map(({meal, item}) => <tr key={`${meal.id}-${item.id}`}><td className="history-date">{meal.meal_date}</td><td><span className={`history-meal-tag history-meal-${meal.meal_type}`}>{meals[meal.meal_type] || meal.meal_type}</span></td><th scope="row">{item.food_name}</th><td className="history-serving">기준량 × {format(item.serving_multiplier)}</td>{columns.map(([key]) => <td key={key} className={`history-number ${key === 'cal' ? 'history-calories' : ''}`}>{format(item.nutrition?.[key])}</td>)}</tr>)}</tbody>
+          <tbody>{rows.map(({meal, item}) => <tr key={`${meal.id}-${item.id}`}><td className="history-date">{meal.meal_date}</td><td><span className={`history-meal-tag history-meal-${meal.meal_type}`}>{meals[meal.meal_type] || meal.meal_type}</span></td><th scope="row">{item.food_name}</th><td className="history-serving">기준량 × {format(item.effective_multiplier ?? item.serving_multiplier)}{item.consumption_ratio != null && item.consumption_ratio !== 1 && <span className="history-ratio" title={`기록 기준량 × ${format(item.serving_multiplier)} 중 섭취 비율`}>섭취 {Math.round(item.consumption_ratio * 100)}%</span>}{api && item.version !== undefined && <button type="button" className="history-chat-edit" onClick={() => setEditing({meal, item})}>챗으로 수정</button>}</td>{columns.map(([key]) => <td key={key} className={`history-number ${key === 'cal' ? 'history-calories' : ''}`}>{format(item.nutrition?.[key])}</td>)}</tr>)}</tbody>
         </table>
         {!rows.length && <p className="history-empty">{history.length ? '검색 조건에 맞는 기록이 없습니다.' : '아직 기록된 식단이 없습니다. 첫 식단을 추가해 보세요.'}</p>}
       </div>
       <p className="history-table-note">음식 한 개당 한 행으로 표시합니다. 영양 정보는 기록한 섭취량 기준입니다.</p>
     </section>
+    {editing && <ChatConsumptionEdit api={api} meal={editing.meal} item={editing.item} onClose={() => setEditing(null)} onSaved={onChanged}/>}
   </div>;
 }

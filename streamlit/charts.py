@@ -46,6 +46,26 @@ def options(data):
                      'graphic':[{'type':'text','left':'center','top':'34%','style':{'text':f'{value:,.0f}','fontSize':24,'fontWeight':'bold','fill':'#193c32'}},
                                 {'type':'text','left':'center','top':'51%','style':{'text':f'/ {target:g} kcal' if target else '목표 설정 전','fontSize':11,'fill':'#788b83'}},
                                 {'type':'text','left':'center','top':'88%','style':{'text':f'{fraction*100:.0f}%' if target else '—','fontSize':13,'fill':'#268461'}}]})
+    elif kind=='ring_percent':
+        # 채팅 식사기록 우측 "오늘" 카드: 가운데에 목표 대비 %만 크게 표시한다. 초과하면 주황색.
+        value=number(data.get('value')); target=number(data.get('target'))
+        fraction=min(1,value/target) if target else 0
+        color='#d77a4f' if target and value>target else '#1d8a55'
+        # 마우스를 올리면 섭취·남은 목표(또는 초과) kcal과 비율을 툴팁으로 보여 준다. 작은 iframe이라 툴팁을 영역 안에 가둔다.
+        eaten=round(value,1)
+        left=round(max(target-value,0),1)
+        slices=[{'name':'섭취','value':eaten,'itemStyle':{'color':color,'borderRadius':8}}]
+        if target and left>0:
+            slices.append({'name':'남은 목표','value':left,'itemStyle':{'color':'#e9efeb'}})
+        if not target:
+            slices[0]['itemStyle']['color']='#cfdcd5'
+        over=f'<br/>목표 초과 {value-target:,.1f} kcal' if target and value>target else ''
+        base.update({'tooltip':{'trigger':'item','confine':True,'padding':[4,7],'textStyle':{'fontSize':11},
+                                'formatter':'{b}<br/>{c} kcal ({d}%)'+over},
+                     'series':[{'type':'pie','radius':['74%','90%'],'center':['50%','50%'],'percentPrecision':0,'label':{'show':False},
+                                'emphasis':{'scale':True,'scaleSize':4},'data':slices}],
+                     'graphic':[{'type':'text','left':'center','top':'middle','style':{'text':f'{value/target*100:.0f}%' if target else '—',
+                                 'fontSize':22,'fontWeight':'bold','fill':color}}]})
     elif kind=='macros':
         values=[number(data.get(k))*factor for k,factor in [('carbs',4),('protein',4),('fat',9)]]
         total=sum(values)
@@ -63,7 +83,7 @@ try:
     data=json.loads(raw)
     spec=options(data)
     events={'click':'function(params){return params.dataIndex;}'} if data['kind']=='bars' and data.get('monthly') else {}
-    selection=st_echarts(spec,height='250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '46px',events=events,key='chart')
+    selection=st_echarts(spec,height='250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '104px' if data['kind']=='ring_percent' else '46px',events=events,key='chart')
     if events and isinstance(selection,int) and 0<=selection<len(data['items']):
         origin=st.query_params.get('parent_origin','')
         if origin in ('http://localhost:5174','http://127.0.0.1:5174'):

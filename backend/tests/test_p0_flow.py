@@ -1,5 +1,6 @@
 # 회귀 테스트: p0_flow 관련 기능의 성공·오류·권한 조건을 검사한다.
 # fixture/monkeypatch로 테스트 의존성을 준비하며 실제 외부 인증·메일 발송 검증과는 구분한다.
+# 10월 15일 박근수 수정: 추천 점수 경계, 경고 fallback, 목표 검증과 추천 소유권을 회귀 검사한다.
 import io
 import os
 from uuid import uuid4
@@ -209,8 +210,125 @@ def test_recommendations_three_and_acted(env):
     saved=client.post('/meals',json={'meal_type':'dinner','recommendation_id':data['id'],
         'items':[{'class_id':data['items'][0]['class_id'],'serving_multiplier':1}]})
     assert saved.status_code==201,saved.text
+    duplicate=client.post('/meals',json={'meal_type':'dinner','recommendation_id':data['id'],
+        'items':[{'class_id':data['items'][0]['class_id'],'serving_multiplier':1}]})
+    assert duplicate.status_code==409
     with Session(engine) as db:
-        assert db.get(RecommendationLog,data['id']).acted is True
+        log=db.get(RecommendationLog,data['id'])
+        assert log.acted is True
+        assert log.selected_item==data['items'][0]['class_id']
+
+
+# 회귀 검사: 목표 칼로리의 None/0/음수 상태가 추천 계산을 시작하기 전에 422로 거부되는지 확인한다.
+@pytest.mark.parametrize('target_calories',[None,0,-1])
+def test_recommendation_requires_positive_target(env,target_calories):
+    from backend.app.services import recommendation as recommendation_service
+    client,_,monkeypatch=env
+    account(client)
+    monkeypatch.setattr(recommendation_service,'get_today_status',lambda db,user_id:{
+        'target_calories':target_calories,
+        'remaining_calories':0,
+        'totals':{'cal':0,'sodium':0,'sugar':0},
+    })
+    response=client.post('/recommendations/meals',json={})
+    assert response.status_code==422
+    assert response.json()['detail']=='먼저 유효한 목표 칼로리를 저장해 주세요.'
+
+
+# 회귀 검사: 80%/100%/120% 경계와 끼니별 목표 열량 계산식을 검증한다.
+def test_recommendation_limit_and_meal_target_boundaries():
+    from backend.app.services.recommendation import calculate_limit_fit,calculate_meal_target
+    assert calculate_limit_fit(0,1600,2000)==1.0
+    assert calculate_limit_fit(0,2000,2000)==0.5
+    assert calculate_limit_fit(0,2400,2000) is None
+    assert calculate_meal_target(2000,1200,'lunch')==600
+    assert calculate_meal_target(2000,200,'lunch')==200
+    assert calculate_meal_target(2000,0,'lunch')==1
+
+
+# 회귀 검사: protein 테마가 입력 스키마/API를 거쳐 추천 순위에 반영되는지 검증한다.
+def test_recommendation_theme_is_applied(env):
+    from backend.app.services import recommendation as recommendation_service
+    client,_,monkeypatch=env
+    account(client);profile(client)
+    foods=[
+        {'class_id':0,'food_name':'단백질 낮은 메뉴','category':'A','unit':'1회','cal':600,'carbs':50,'protein':5,'fat':10,'sugar':5,'sodium':300},
+        {'class_id':1,'food_name':'단백질 높은 메뉴','category':'B','unit':'1회','cal':600,'carbs':45,'protein':30,'fat':9,'sugar':4,'sodium':400},
+        {'class_id':2,'food_name':'단백질 중간 메뉴','category':'C','unit':'1회','cal':600,'carbs':48,'protein':15,'fat':10,'sugar':5,'sodium':500},
+    ]
+    monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
+    response=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':'protein'})
+    assert response.status_code==200,response.text
+    assert response.json()['items'][0]['class_id']==1
+
+
+# 회귀 검사: 일반 후보가 부족한 경우에만 경고 fallback을 사용한다.
+def test_recommendation_fallback_is_limited_and_visible(env):
+    from backend.app.services import recommendation as recommendation_service
+    client,_,monkeypatch=env
+    account(client);profile(client)
+    foods=[
+        {'class_id':0,'food_name':'일반 메뉴 1','category':'A','unit':'1회','cal':600,'carbs':50,'protein':20,'fat':10,'sugar':5,'sodium':300},
+        {'class_id':1,'food_name':'일반 메뉴 2','category':'B','unit':'1회','cal':550,'carbs':45,'protein':18,'fat':9,'sugar':4,'sodium':400},
+        {'class_id':2,'food_name':'한도 초과 메뉴','category':'C','unit':'1회','cal':580,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':2400},
+    ]
+    monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
+    response=client.post('/recommendations/meals',json={'meal_type':'lunch'})
+    assert response.status_code==200,response.text
+    data=response.json()
+    assert len(data['items'])==3
+    fallback=next(item for item in data['items'] if item['class_id']==2)
+    assert fallback.get('warning')
+    assert '경고형 대체 메뉴' in data['notice']
+    assert all('score' not in item and 'is_fallback' not in item for item in data['items'])
+
+
+# 회귀 검사: 일반 후보 세 개가 있으면 fallback을 사용하지 않고 끼니 목표·결측 방어를 유지한다.
+def test_recommendation_does_not_show_unused_fallback_warning(env):
+    from backend.app.services import recommendation as recommendation_service
+    client,_,monkeypatch=env
+    account(client);profile(client)
+    foods=[
+        {'class_id':0,'food_name':'열량 높은 메뉴','category':'A','unit':'1회','cal':1100,'carbs':50,'protein':20,'fat':10,'sugar':5,'sodium':300},
+        {'class_id':1,'food_name':'열량 낮은 메뉴','category':'B','unit':'1회','cal':500,'carbs':45,'protein':18,'fat':9,'sugar':4,'sodium':400},
+        {'class_id':2,'food_name':'끼니 목표 메뉴','category':'C','unit':'1회','cal':600,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':500},
+        {'class_id':3,'food_name':'한도 초과 메뉴','category':'D','unit':'1회','cal':580,'carbs':48,'protein':19,'fat':10,'sugar':5,'sodium':2400},
+        {'class_id':4,'food_name':'영양 결측 메뉴','category':'E','unit':'1회','cal':600,'carbs':48,'protein':19,'fat':10,'sugar':None,'sodium':500},
+    ]
+    monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
+    monkeypatch.setattr(recommendation_service,'get_today_status',lambda db,user_id:{
+        'date':'2026-10-15','target_calories':2000,'remaining_calories':1200,
+        'totals':{'cal':800,'sodium':0,'sugar':0},
+    })
+    response=client.post('/recommendations/meals',json={'meal_type':'lunch'})
+    assert response.status_code==200,response.text
+    data=response.json()
+    assert len(data['items'])==3
+    assert all(item['class_id']!=3 for item in data['items'])
+    assert data['items'][0]['class_id']==2
+    assert all(item['class_id']!=4 for item in data['items'])
+    assert all(item.get('warning') is None for item in data['items'])
+    assert '경고형 대체 메뉴' not in data['notice']
+
+
+# 회귀 검사: 다른 회원이 recommendation_id를 제출해도 원 소유자의 로그 상태는 바뀌지 않는다.
+def test_recommendation_log_rejects_other_user(env):
+    client,engine,_=env
+    account(client);profile(client)
+    response=client.post('/recommendations/meals',json={})
+    assert response.status_code==200,response.text
+    recommendation=response.json()
+    account(client,'two@example.com')
+    saved=client.post('/meals',json={
+        'meal_type':'dinner',
+        'recommendation_id':recommendation['id'],
+        'items':[{'class_id':recommendation['items'][0]['class_id'],'serving_multiplier':1}],
+    })
+    assert saved.status_code==404
+    with Session(engine) as db:
+        log=db.get(RecommendationLog,recommendation['id'])
+        assert log.acted is False
+        assert log.selected_item is None
 
 
 # 회귀 검사: 이미지 · 연령 · CSRF.

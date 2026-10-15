@@ -163,8 +163,14 @@ def save_meal(body: MealRequest, user: CurrentUser, db: DB):
         raise HTTPException(422, '같은 탐지 결과를 중복 등록할 수 없습니다.')
     recommendation = None
     # 추천에서 저장한 식단은 추천 로그 소유자·미사용 상태·실제 추천 음식 포함 여부를 함께 검사한다.
-    if body.recommendation_id:
-        recommendation = db.get(RecommendationLog, body.recommendation_id)
+    # 10월 15일 박근수 수정: 빈 문자열도 직접 기록으로 우회하지 못하게 추천 ID를 조회·검증한다.
+    if body.recommendation_id is not None:
+        # DB row 잠금으로 동시에 제출된 저장 요청이 같은 추천을 중복 채택하지 못하게 한다.
+        recommendation = db.get(
+            RecommendationLog,
+            body.recommendation_id,
+            with_for_update=True,
+        )
         # 인증된 회원과 리소스 소유자를 대조해 다른 회원의 기록 접근을 차단한다.
         if not recommendation or recommendation.user_id != user.id:
             raise HTTPException(404, '추천 기록을 찾을 수 없습니다.')
@@ -196,6 +202,7 @@ def save_meal(body: MealRequest, user: CurrentUser, db: DB):
             corrected_label=food.canonical_name, confidence=detection.confidence if detection else None,
             serving_multiplier=item.serving_multiplier, nutrition=nutrition))
     if recommendation:
+        # 10월 15일 박근수 수정: 저장한 추천 음식의 실제 class_id를 선택 로그에 남긴다.
         recommendation.acted = True
         recommendation.selected_item = next(i.class_id for i in body.items if i.class_id in recommended_ids)
     try:
@@ -251,7 +258,14 @@ def recommendations(body: RecommendationRequest, user: CurrentUser, db: DB):
     if not settings.recommendation_enabled or not settings.recent_meal_window:
         raise HTTPException(503, '추천 출처와 개발 기준을 설정해 주세요.')
     try:
-        result = recommend_meals(db, user, body, settings.recent_meal_window)
+        # 10월 15일 박근수 수정: 입력 스키마에서 검증한 테마 key를 추천 점수 함수까지 전달한다.
+        result = recommend_meals(
+            db,
+            user,
+            body,
+            settings.recent_meal_window,
+            theme=body.theme,
+        )
         # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.commit(); logger.info('recommendation generated')
         return result

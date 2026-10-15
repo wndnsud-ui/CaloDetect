@@ -1,4 +1,5 @@
 // 회원 홈의 한국 시간 달력, 날짜별 식단 사진과 영양 합계를 표시한다.
+// 10월 15일 박근수 수정: 목표 칼로리가 없으면 당류 기준을 표시하지 않고 실제 근거가 있는 한도만 안내한다.
 // 오늘은 상위 컴포넌트의 최신 상태를 사용하고 과거 날짜는 월별 API에서 조회한다. 빠른 날짜 변경 시 오래된 응답은 무시한다.
 import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
@@ -34,6 +35,14 @@ export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api
  const monday=new Date(current); monday.setUTCDate(current.getUTCDate()-((current.getUTCDay()+6)%7));
  const week=Array.from({length:7},(_,i)=>{const d=new Date(monday);d.setUTCDate(monday.getUTCDate()+i);return d;});
  const value=k=>today?.totals[k]?.toLocaleString()??'—';
+ // 개인 목표가 없을 때 당류 기준을 임의로 만들지 않고 기준 미설정 상태를 표시한다.
+ const targetCalories=today?.target_calories;
+ const sugarLimit=Number.isFinite(targetCalories)&&targetCalories>0?Math.round(targetCalories*0.20/4):null;
+ const sodiumLimit=2000;
+ const sugarTotal=today?.totals?.sugar;
+ const sodiumTotal=today?.totals?.sodium;
+ const sugarPercent=sugarLimit&&Number.isFinite(sugarTotal)?Math.round(sugarTotal/sugarLimit*100):null;
+ const sodiumPercent=Number.isFinite(sodiumTotal)?Math.round(sodiumTotal/sodiumLimit*100):null;
  return <div className="daily-home">
   <header className="daily-header"><div className="daily-header-top"><div><p>나의 하루, 건강한 한 끼</p><h1>{current.getUTCMonth()+1}.{current.getUTCDate()} {['일','월','화','수','목','금','토'][current.getUTCDay()]}<span className="daily-today">{selectedDate===todayDate?'오늘':'선택한 날'}</span><button className="daily-account" aria-label="내 계정" onClick={()=>onNavigate('마이페이지')}><MenuIcon page="마이페이지"/></button></h1></div></div>
    <div className="daily-week" aria-label="이번 주 달력">{week.map((d,i)=>{const date=d.toISOString().slice(0,10);return <button type="button" key={date} className={date===selectedDate?'is-today':''} aria-label={`${date} 식단과 사진 보기`} aria-pressed={date===selectedDate} onClick={()=>setSelectedDate(date)}><span>{['월','화','수','목','금','토','일'][i]}</span><strong>{d.getUTCDate()}</strong></button>})}</div>
@@ -43,7 +52,10 @@ export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api
    {error?<div role="alert"><p className="error">{error}</p><button className="text-button" onClick={()=>setRetry(n=>n+1)}>다시 불러오기</button></div>:!today&&user?<p role="status">{selectedDate} 식단과 사진을 불러오고 있습니다…</p>:today&&today.meals.length===0?<p className="muted">{selectedDate}에 기록된 식단이 없습니다.</p>:null}
    {showTip&&<section className="daily-record-card"><button className="daily-dismiss" aria-label="식단 기록 안내 닫기" onClick={()=>setShowTip(false)}>×</button><div className="daily-record-copy"><p className="daily-kicker">매일 조금씩, 더 건강하게</p><h2>{user?`${user.name}님,`:'오늘도,'}<br/>오늘의 한 끼를 기록해 보세요</h2><span className="daily-soft-pill">사진 한 장으로 간편하게 기록해요</span></div><div className="daily-bowl" aria-hidden="true"><Bowl/></div><button className="primary" onClick={()=>onNavigate('음식 추가')}>지금 기록할게요 <span>＋</span></button></section>}
    <section className="panel daily-food-card"><div className="section-heading"><h2>{selectedDate===todayDate?'오늘의 식단':`${selectedDate} 식단`}</h2><button className="text-button" onClick={()=>onNavigate('히스토리')}>기록 보기 →</button></div><div className="daily-calories"><strong>{value('cal')}</strong><span>kcal</span><small>{today?`${today.meals.length}끼 기록`:user?'불러오는 중':'로그인 후 기록'}</small></div><div className="daily-macros">{[['carbs','탄수화물'],['protein','단백질'],['fat','지방']].map(([k,label])=><span key={k}><i className={`macro-dot ${k}`}/>{label} <b>{value(k)} g</b></span>)}</div><SavedMeals meals={today?.meals||[]} onNavigate={selectedDate===todayDate?onNavigate:undefined} onAddMeal={onAddMeal}/></section>
-   <div className="daily-detail-grid"><section className="panel daily-energy"><div className="section-heading"><h2>하루 칼로리</h2><button className="text-button" onClick={()=>onNavigate('목표 설정')}>목표 설정 →</button></div><Ring value={today?.totals.cal||0} target={today?.target_calories}/><p className="muted">{!user?'로그인하면 실제 식단 기록을 확인할 수 있어요.':today?.message||'식단 기록을 불러오고 있습니다.'}</p></section><section className="panel daily-more"><h2>함께 확인해요</h2><div className="daily-extra">{[['sugar','당류','g'],['sodium','나트륨','mg']].map(([k,label,unit])=><div key={k}><span>{label}</span><strong>{value(k)} <small>{unit}</small></strong></div>)}</div><p className="muted">기록한 섭취량 · 영양소별 목표는 미설정</p><button className="daily-recommend" onClick={()=>onNavigate('식사 추천')}>다음 한 끼, 무엇을 먹을까요? <span>→</span></button><button className="text-button" onClick={()=>onNavigate('식단 분석')}>내 식단 분석 보기 →</button></section></div>
+   <div className="daily-detail-grid"><section className="panel daily-energy"><div className="section-heading"><h2>하루 칼로리</h2><button className="text-button" onClick={()=>onNavigate('목표 설정')}>목표 설정 →</button></div><Ring value={today?.totals.cal||0} target={today?.target_calories}/><p className="muted">{!user?'로그인하면 실제 식단 기록을 확인할 수 있어요.':today?.message||'식단 기록을 불러오고 있습니다.'}</p></section><section className="panel daily-more"><h2>함께 확인해요</h2><div className="daily-extra extra-nutrients-grid">
+    <div className={`extra-card${sodiumPercent!==null&&sodiumPercent>=100?' status-danger':sodiumPercent!==null&&sodiumPercent>=80?' status-warning':''}`}><div className="extra-header"><span>나트륨</span>{sodiumPercent!==null&&<span>{sodiumPercent}%</span>}</div><strong className="extra-value">{sodiumPercent===null?'—':`${sodiumTotal.toLocaleString()} / ${sodiumLimit.toLocaleString()} mg`}</strong><small className="extra-caption">{sodiumPercent===null?'기록을 불러오면 표시됩니다.':`${sodiumPercent>=100?'기준 초과 주의':`여유: ${Math.max(0,sodiumLimit-sodiumTotal).toLocaleString()} mg`}`}</small></div>
+    <div className={`extra-card${sugarPercent!==null&&sugarPercent>=100?' status-danger':sugarPercent!==null&&sugarPercent>=80?' status-warning':''}`}><div className="extra-header"><span>당류</span>{sugarPercent!==null&&<span>{sugarPercent}%</span>}</div><strong className="extra-value">{Number.isFinite(sugarTotal)?`${sugarTotal.toLocaleString()} ${sugarLimit===null?'g':`/ ${sugarLimit} g`}`:'—'}</strong><small className="extra-caption">{!Number.isFinite(sugarTotal)?'기록을 불러오면 표시됩니다.':sugarLimit===null?'목표 칼로리를 설정하면 기준을 계산합니다.':`${sugarPercent>=100?'기준 초과 주의':`여유: ${Math.max(0,sugarLimit-sugarTotal)} g`}`}</small></div>
+   </div><p className="muted">나트륨 2,000 mg · 당류는 저장된 목표 칼로리 기준</p><button className="daily-recommend" onClick={()=>onNavigate('식사 추천')}>다음 한 끼, 무엇을 먹을까요? <span>→</span></button><button className="text-button" onClick={()=>onNavigate('식단 분석')}>내 식단 분석 보기 →</button></section></div>
   </div>
  </div>;
 }

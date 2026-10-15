@@ -1,7 +1,8 @@
 // 회원 웹앱의 상태와 화면 전환을 조정하는 상위 컴포넌트.
 // 세션 복원 → 음식/프로필/식단 조회 → 사진 분석/보정 → 서버 영양 미리보기 → 식단 저장 흐름을 연결한다.
 // API 호출은 HttpOnly 쿠키와 CSRF 헤더를 사용하고 영양 계산·권한 판단은 Backend 결과를 따른다.
-import React, { useEffect, useState } from 'react';
+// 10월 15일 박근수 수정: 추천 테마·영양 위험 표시·목표 미설정 처리·추천 채택 기록을 Backend 계약과 일치시킨다.
+import React, { useEffect, useRef, useState } from 'react';
 import { Brand, Bowl, MenuIcon } from './Visuals';
 import Calculators from './Calculators';
 import AccountInfo from './AccountInfo';
@@ -18,6 +19,7 @@ import MealHistory from './MealHistory';
 import { readApiResponse } from './apiResponse';
 import './style.css';
 import './reference.css';
+import './recommendation.css';
 
 // HttpOnly 쿠키 원문 대신 서버가 준 CSRF 토큰만 모듈 메모리에 보관한다. 로그아웃/비밀번호 변경 시 비운다.
 let csrf = '';
@@ -36,6 +38,21 @@ async function api(path, body, method = 'POST') {
 const meals = {breakfast:'아침',lunch:'점심',dinner:'저녁',snack:'간식'};
 // 공통 영양 요약 컴포넌트에 서버 계산 결과를 전달한다.
 function Nutrition({data}) {return <NutritionSummary data={data}/>}
+// 각 열량 그룹의 체크 상태를 전체 선택·일부 선택·미선택으로 표시한다.
+function ExcludedGroupSelectAll({checked,indeterminate,label,onChange}) {
+  const inputRef=useRef(null);
+  useEffect(()=>{if(inputRef.current)inputRef.current.indeterminate=indeterminate},[indeterminate]);
+  return <label className="excluded-group-select-all">
+    <input ref={inputRef} type="checkbox" checked={checked} aria-label={`${label} 전체 선택`} onChange={event=>onChange(event.target.checked)}/>
+    <span>전체</span>
+  </label>;
+}
+// 누락되거나 비정상인 CSV 열량은 0 kcal로 오인하지 않도록 별도로 분류한다.
+function foodCalories(food) {
+  if(food.cal==null||String(food.cal).trim()==='')return null;
+  const calories=Number(food.cal);
+  return Number.isFinite(calories)?calories:null;
+}
 
 // 회원 세션·식단·프로필·사진 분석 상태를 관리하고 선택된 서비스 화면에 전달한다.
 export default function App({initialPage='홈',onHomepage,onPageChange}) {
@@ -44,11 +61,13 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [page,setPage] = useState(initialPage==='회원가입'?'로그인':initialPage), [user,setUser] = useState(null), [policy,setPolicy] = useState(null);
   const [foods,setFoods] = useState([]), [today,setToday] = useState(null), [history,setHistory] = useState([]);
   const [profile,setProfile] = useState(null), [recommendation,setRecommendation] = useState(null);
+  const [recommendTheme,setRecommendTheme] = useState('balance');
   const [error,setError] = useState(''), [message,setMessage] = useState(''), [busy,setBusy] = useState(false);
   const [signup,setSignup] = useState(initialPage==='회원가입'), [file,setFile] = useState(null), [image,setImage] = useState(null);
   const [scanStatus,setScanStatus] = useState('idle'), [scanError,setScanError] = useState('');
   const [rows,setRows] = useState([]), [mealType,setMealType] = useState('lunch'), [consent,setConsent] = useState(false);
-  const [exclude,setExclude] = useState([]), [goal,setGoal] = useState(null);
+  const [exclude,setExclude] = useState([]), [goal,setGoal] = useState(null), [recommendationLoading,setRecommendationLoading] = useState(false);
+  const excludeDragRef=useRef(null);
   const [totals,setTotals] = useState(null), [previewError,setPreviewError] = useState(''), [mealError,setMealError] = useState('');
   // 빈 식단·100개 초과·잘못된 수량/음식 ID는 UI에서 저장을 막는다. 서버도 요청을 다시 검증한다.
   const validMeal = rows.length > 0 && rows.length <= 100 && rows.every(row => Number.isFinite(Number(row.serving_multiplier)) && Number(row.serving_multiplier) > 0 && Number(row.serving_multiplier) <= 100 && foods.some(food => food.class_id === row.class_id));
@@ -106,14 +125,27 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   async function saveMeal(){if(!validMeal||busy)return;setMealError('');await run(async()=>{try{const saved=await api('/meals',{meal_type:mealType,items:rows.map(r=>({class_id:r.class_id,serving_multiplier:Number(r.serving_multiplier),detection_id:r.detection_id}))});setRows([]);setImage(null);setFile(null);await showSavedMeal(saved,'식단을 저장했습니다.')}catch(err){setMealError(err.message);throw err;}})}
   // 신체 정보 숫자를 변환해 서버 미리보기 후 로그인 회원의 프로필을 저장한다.
   async function saveProfile(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));['age','height','weight','target_calories'].forEach(k=>data[k]=Number(data[k]));await run(async()=>{const preview=await api('/profiles/calorie-preview',data);setGoal(preview);if(user){await api('/users/me/profile',data,'PUT');await loadAccount();setMessage('목표가 저장되었습니다.')}})}
-  // 식사 구분과 제외 음식으로 서버 추천을 요청한다.
-  async function generate(){await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,exclude_foods:exclude})))}
+  // 선택한 테마·끼니·제외 음식 조건으로 서버 추천을 요청한다. 처리 중에는 조건 UI도 비활성화된다.
+  async function generate(theme){if(busy)return;setRecommendation(null);setRecommendationLoading(true);try{await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,theme,exclude_foods:exclude})))}finally{setRecommendationLoading(false)}}
+  // 개별 체크박스의 onChange와 드래그 선택 모두 같은 상태 갱신 경로를 사용한다.
+  function updateExcludedFood(classId,checked){setExclude(current=>checked?(current.includes(classId)?current:[...current,classId]):current.filter(value=>value!==classId));setRecommendation(null)}
+  function startExcludedFoodDrag(event,classId){if(event.pointerType!=='mouse'||event.button!==0)return;const checked=!exclude.includes(classId);excludeDragRef.current={pointerId:event.pointerId,checked}}
+  function continueExcludedFoodDrag(event,classId){const drag=excludeDragRef.current;if(!drag||drag.pointerId!==event.pointerId)return;if(!(event.buttons&1)){excludeDragRef.current=null;return}updateExcludedFood(classId,drag.checked)}
+  // 테마 변경은 새 추천을 즉시 요청하고 진행 중에는 추가 요청을 막아 늦은 응답 경합을 방지한다.
+  async function changeRecommendTheme(theme){if(busy||theme===recommendTheme)return;setRecommendTheme(theme);setRecommendation(null);await generate(theme);}
   // 추천 ID와 선택 음식으로 식단을 저장해 서버가 추천 선택 상태도 함께 기록하도록 한다.
   async function recordRecommended(item){await run(async()=>{const saved=await api('/meals',{meal_type:mealType,recommendation_id:recommendation.id,items:[{class_id:item.class_id,serving_multiplier:1,detection_id:null}]});setRecommendation(null);await showSavedMeal(saved,'추천 메뉴를 식단으로 저장했습니다.')})}
   // 서버 세션을 종료하고 회원·사진·식단·추천 상태와 CSRF를 비운다.
   async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setPage('홈')})}
   // 비밀번호 변경으로 무효화된 회원 상태를 비우고 새 비밀번호 로그인 화면을 표시한다.
   function passwordChanged(text){csrf='';setResetToken(null);setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setConsent(false);setSignup(false);setPage('로그인');setError('');setMessage(text);}
+  // 제외 음식 선택 목록은 추천 점수 화면과 같은 제공량 열량 구간으로 나눈다.
+  const excludedFoodGroups=[
+    {key:'light',label:'가벼운 메뉴',range:'350 kcal 이하',matches:food=>foodCalories(food)!==null&&foodCalories(food)<=350},
+    {key:'medium',label:'보통 열량',range:'351–700 kcal',matches:food=>foodCalories(food)!==null&&foodCalories(food)>350&&foodCalories(food)<=700},
+    {key:'high',label:'고열량 메뉴',range:'700 kcal 초과',matches:food=>foodCalories(food)!==null&&foodCalories(food)>700},
+    {key:'unknown',label:'열량 정보 없음',range:'열량 미등록',matches:food=>foodCalories(food)===null}
+  ].map(group=>({...group,foods:foods.filter(group.matches)}));
   const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} onSubmit={authenticate} api={api}/>;
   if(resetToken&&!authLoading)return <div className="shell integrated-app"><main><PasswordForm api={api} token={resetToken}
     onChanged={passwordChanged} onCancel={()=>{setResetToken(null);setSignup(false);setPage('로그인');}}/></main></div>;
@@ -124,8 +156,95 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='음식 추가'&&!user&&<><p className="notice">가입 전에는 음식 선택과 영양 계산을 사용할 수 있습니다. 사진 분석과 저장은 로그인이 필요합니다.</p><section className="panel"><h2>사진으로 식단 기록하기</h2><PhotoInput file={file} busy={busy} onChange={selectPhoto}/><p className="muted">선택한 사진은 로그인 후 분석할 수 있습니다. 사진을 선택하면 미리보기를 확인할 수 있습니다.</p><button className="primary" onClick={()=>{setSignup(false);navigate('로그인')}}>로그인하고 사진 분석하기</button></section><div className="calculator-content"><Calculators initialTab="음식 추가"/></div></>}
     {page==='음식 추가'&&user&&<><p className="eyebrow">MEAL SCAN</p><h1>사진에서 식단 기록까지.</h1><div className="two-col"><form className="panel" onSubmit={scan}><h2>01 · 사진 분석</h2><PhotoInput file={file} busy={busy} onChange={selectPhoto}/><button className="primary" disabled={busy||!file}>{scanStatus==='working'?'사진 분석 중…':'사진 분석하기'}</button><ScanResult status={scanStatus} error={scanError} result={image}/><p className="muted">탐지는 추정 결과입니다. 음식명과 섭취량을 꼭 확인해 주세요.</p></form><section className="panel"><h2>02 · 음식 확인 / 수정</h2><label>식사 구분<select value={mealType} onChange={e=>setMealType(e.target.value)}>{Object.entries(meals).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>{rows.map((r,i)=><div key={r.key} className="food-row"><label>#{i+1} 음식 {r.confidence!=null&&`· 신뢰도 ${Math.round(r.confidence*100)}%`}<select value={r.class_id} onChange={e=>updateRow(r.key,{class_id:Number(e.target.value)})}>{foods.map(f=><option key={f.class_id} value={f.class_id}>{f.food_name}</option>)}</select></label><label>수량 · {foods.find(f=>f.class_id===r.class_id)?.unit}<input type="number" min="0.01" max="100" step="0.01" value={r.serving_multiplier} onChange={e=>updateRow(r.key,{serving_multiplier:e.target.value})}/></label><button className="text-button" onClick={()=>setRows(rows.filter(item=>item.key!==r.key))}>삭제</button></div>)}<button className="text-button" onClick={addFood} disabled={!foods.length}>+ 음식 직접 추가</button>{rows.length>0&&<><Nutrition data={totals}/>{!totals&&validMeal&&<p className="muted">{previewError ? '영양 미리보기를 불러오지 못했습니다. 저장 시 서버가 영양을 계산합니다.' : '영양 미리보기를 계산 중입니다. 식단 저장은 가능합니다.'}</p>}{!validMeal&&<p className="error" role="alert">음식과 수량을 확인해 주세요. 수량은 0보다 크고 100 이하여야 하며, 한 번에 100개까지 저장할 수 있습니다.</p>}<button className="primary" disabled={!validMeal||busy} onClick={saveMeal}>식단 저장하기</button>{mealError&&<p className="error" role="alert">식단 저장 실패: {mealError}</p>}</>}</section></div></>}
     {page==='목표 설정'&&<GoalSetup key={user?.id||'guest'} profile={profile} user={user} busy={busy} api={api} onSaved={async data=>{await api('/users/me/profile',data,'PUT');try{await loadAccount();}catch{setError('Saved. Please reload account information.');}}}/>}
-    {page==='식사 추천'&&user&&<><p className="eyebrow">YOUR NEXT MEAL</p><h1>지금의 기록에 맞는 다음 식사.</h1><section className="panel"><label>식사 구분<select value={mealType} onChange={e=>setMealType(e.target.value)}>{Object.entries(meals).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label><label>제외할 음식 · 여러 개 선택 가능<select multiple value={exclude.map(String)} onChange={e=>setExclude([...e.target.selectedOptions].map(o=>Number(o.value)))}>{foods.map(f=><option key={f.class_id} value={f.class_id}>{f.food_name}</option>)}</select></label><button className="primary" disabled={busy} onClick={generate}>식사 추천</button></section>{recommendation&&<><p className="notice">{recommendation.notice}</p><div className="cards">{recommendation.items.map(item=><article key={item.class_id}><span className="card-number">{item.category} · {item.unit}</span><h3>{item.food_name}</h3><strong>{item.nutrition.cal} kcal</strong><p>단백질 {item.nutrition.protein}g · 당류 {item.nutrition.sugar}g · 나트륨 {item.nutrition.sodium}mg</p><ul>{item.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul><button className="primary" disabled={busy} onClick={()=>recordRecommended(item)}>이 메뉴로 기록하기</button></article>)}</div></>}</>}
-    {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={2000}/>}
+    {page==='식사 추천'&&user&&<><p className="eyebrow">YOUR NEXT MEAL</p><h1>지금의 기록에 맞는 다음 식사.</h1><section className="panel">
+      <p className="recommendation-label">추천 테마 선택</p>
+      <div className="recommend-theme-tabs" role="group" aria-label="추천 테마 선택">
+        {[
+          {key:'balance',name:'기본 맞춤 추천',description:'오늘 섭취량과 남은 칼로리를 고려한 기본 추천'},
+          {key:'protein',name:'단백질 충전',description:'단백질을 보완하는 메뉴를 우선 추천'},
+          {key:'light',name:'가벼운 식단',description:'상대적으로 가벼운 열량의 메뉴를 우선 추천'}
+        ].map(theme=><button type="button" key={theme.key} className={recommendTheme===theme.key?'theme-button active':'theme-button'} aria-pressed={recommendTheme===theme.key} disabled={busy} onClick={()=>changeRecommendTheme(theme.key)}><strong>{theme.name}</strong><small>{theme.description}</small></button>)}
+      </div>
+      <fieldset className="meal-type-fieldset" disabled={busy}>
+        <legend>식사 구분</legend>
+        <div className="meal-type-options" role="radiogroup" aria-label="식사 구분">
+          {Object.entries(meals).map(([key,label])=><label key={key} className={`meal-type-option${mealType===key?' selected':''}`}>
+            <input type="radio" name="recommend-meal-type" value={key} checked={mealType===key} onChange={()=>{setMealType(key);setRecommendation(null)}}/>
+            <span className="meal-radio-indicator" aria-hidden="true"/>
+            <span>{label}</span>
+          </label>)}
+        </div>
+      </fieldset>
+      <fieldset className="excluded-food-fieldset" disabled={busy}>
+        <legend>제외할 음식</legend>
+        <div className="excluded-food-heading"><span>칼로리 구간을 펼쳐 음식을 선택하세요.</span><span>{exclude.length}개 선택</span></div>
+        {exclude.length>0&&<button type="button" className="excluded-food-clear" onClick={()=>{setExclude([]);setRecommendation(null)}}>선택 해제</button>}
+        <div className="excluded-food-groups">
+          {excludedFoodGroups.map(group=>{
+            const groupIds=group.foods.map(food=>food.class_id);
+            const selectedCount=groupIds.filter(id=>exclude.includes(id)).length;
+            const allSelected=groupIds.length>0&&selectedCount===groupIds.length;
+            return <section key={group.key} className="excluded-food-group" aria-label={`${group.label}, ${group.range}`}>
+              <div className="excluded-food-group-header">
+                <div><strong>{group.label}</strong><small>{group.range} · {group.foods.length}개</small></div>
+                <ExcludedGroupSelectAll checked={allSelected} indeterminate={selectedCount>0&&!allSelected} label={group.label} onChange={checked=>{setExclude(current=>checked?[...new Set([...current,...groupIds])]:current.filter(id=>!groupIds.includes(id)));setRecommendation(null)}}/>
+              </div>
+              <div className="excluded-food-list">
+                {group.foods.length===0?<p className="excluded-food-empty">해당 음식이 없습니다.</p>:group.foods.map(food=><label key={food.class_id} className="excluded-food-option" onPointerDown={event=>startExcludedFoodDrag(event,food.class_id)} onPointerEnter={event=>continueExcludedFoodDrag(event,food.class_id)} onPointerUp={()=>{excludeDragRef.current=null}} onPointerCancel={()=>{excludeDragRef.current=null}}>
+                  <input type="checkbox" checked={exclude.includes(food.class_id)} onChange={event=>updateExcludedFood(food.class_id,event.target.checked)}/>
+                  <span>{food.food_name}</span><small>{foodCalories(food)!==null?`${foodCalories(food).toLocaleString()} kcal`:'열량 미등록'}</small>
+                </label>)}
+              </div>
+            </section>;
+          })}
+        </div>
+      </fieldset>
+      <button className="primary" disabled={busy} onClick={()=>generate(recommendTheme)}>식사 추천</button>
+      {recommendationLoading?<p className="recommendation-helper" role="status">추천 메뉴를 불러오고 있습니다…</p>:recommendation?<p className="recommendation-helper" role="status">추천 메뉴가 아래에 표시됩니다.</p>:<p className="recommendation-helper">식사 추천을 누르면 추천 메뉴가 아래에 표시됩니다.</p>}
+    </section>{recommendation&&<><p className="notice">{recommendation.notice}</p><div className="recommend-card-grid">{recommendation.items.map(item=>{
+      const nutrition=item.nutrition;
+      const eatenValue=recommendation.snapshot?.totals?.cal;
+      const targetValue=recommendation.snapshot?.target_calories;
+      const eatenCalories=Number(eatenValue);
+      const targetCalories=Number(targetValue);
+      const menuCalories=Number(nutrition.cal);
+      const canSimulate=eatenValue!=null&&targetValue!=null&&Number.isFinite(eatenCalories)&&Number.isFinite(targetCalories)&&Number.isFinite(menuCalories)&&targetCalories>0;
+      const currentWidth=canSimulate?Math.min(100,Math.max(0,eatenCalories/targetCalories*100)):0;
+      const expectedWidth=canSimulate?Math.min(Math.max(0,menuCalories/targetCalories*100),100-currentWidth):0;
+      const exceedsTarget=canSimulate&&eatenCalories+menuCalories>targetCalories;
+      return <article key={item.class_id} className="recommend-card">
+        {item.warning&&<span className="recommendation-warning" role="status">주의 · {item.warning}</span>}
+        <div className="card-badge-row">
+          {nutrition.protein>=20&&<span className="tag-badge badge-blue">고단백</span>}
+          {nutrition.cal<=350&&<span className="tag-badge badge-green">가벼운 메뉴</span>}
+          {item.warning&&<span className="tag-badge badge-orange">영양 주의</span>}
+          <span className="tag-badge badge-gray">{item.category}</span>
+        </div>
+        <h3 className="card-food-title">{item.food_name}</h3>
+        <p className="card-food-unit">기준 제공량 · {item.unit}</p>
+        <div className="card-nutrition-box">
+          <div className="main-calorie"><strong>{nutrition.cal}</strong><span>kcal</span></div>
+          <div className="sub-nutrients">
+            <span>탄수화물 <b>{nutrition.carbs}g</b></span>
+            <span>단백질 <b>{nutrition.protein}g</b></span>
+            <span>지방 <b>{nutrition.fat}g</b></span>
+            <span>당류 <b>{nutrition.sugar}g</b></span>
+            <span>나트륨 <b>{nutrition.sodium}mg</b></span>
+          </div>
+        </div>
+        {canSimulate&&<div className={`preview-simulation${exceedsTarget?' simulation-over':''}`}>
+          <div className="simulation-header"><span>오늘 섭취 후 예상</span><strong className={exceedsTarget?'text-warn':''}>{(eatenCalories+menuCalories).toLocaleString()} / {targetCalories.toLocaleString()} kcal</strong></div>
+          <div className="simulation-bar-track" role="img" aria-label={`오늘 섭취량 ${eatenCalories} kcal에 이 메뉴 ${menuCalories} kcal를 더하면 목표 ${targetCalories} kcal ${exceedsTarget?'초과':'이하'}입니다`}>
+            <span className="bar-current" style={{width:`${currentWidth}%`}}/>
+            <span className={`bar-expected${exceedsTarget?' bar-over':''}`} style={{left:`${currentWidth}%`,width:`${expectedWidth}%`}}/>
+          </div>
+          <small className="simulation-caption">현재 {eatenCalories.toLocaleString()} kcal + 이 메뉴 {menuCalories.toLocaleString()} kcal</small>
+        </div>}
+        <ul className="card-reasons">{item.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
+        <button className="primary" disabled={busy} onClick={()=>recordRecommended(item)}>이 메뉴로 기록하기</button>
+      </article>;
+    })}</div></>}</>}
+    {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
     {page==='히스토리'&&user&&<MealHistory history={history} onAdd={()=>navigate('음식 추가')}/>}
     {page==='마이페이지'&&user&&<AccountInfo user={user} profile={profile} busy={busy} onGoals={()=>navigate('목표 설정')} onUpdate={name=>run(async()=>{const d=await api('/users/me',{name},'PUT');setUser(d.user);setMessage('회원정보를 수정했습니다.');})}/>}
     {page==='마이페이지'&&user&&(user.password_login_enabled ? <PasswordForm api={api} onChanged={passwordChanged}/>

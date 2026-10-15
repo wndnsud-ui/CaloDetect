@@ -74,7 +74,7 @@ class MealRequest(RequestModel):
     # 식단을 기록한 날짜. 기본 날짜는 한국 시간 기준이며 생성 UTC 시각과 구분한다.
     meal_date: date | None = None
     items: list[MealItemRequest] = Field(min_length=1, max_length=100)
-    # 선택한 추천 기록 ID. 서버에서 소유권·후보 포함 여부·사용 상태를 확인한다.
+    # 10월 15일 박근수 수정: 추천 선택 기록은 식단 저장과 같은 DB transaction에서 소유권을 검사한다.
     recommendation_id: str | None = None
 
 
@@ -88,7 +88,9 @@ class CorrectionRequest(RequestModel):
 class RecommendationRequest(RequestModel):
     # 아침·점심·저녁·간식 구분을 위한 API enum.
     meal_type: Literal['breakfast', 'lunch', 'dinner', 'snack'] = 'dinner'
+    # 10월 15일 박근수 수정: API key는 유지하고 UI 명칭만 '기본 맞춤 추천'으로 안내한다.
+    theme: Literal['balance', 'protein', 'light'] = 'balance'
     # 추천에서 제외할 기존 음식 class_id 목록.
     exclude_foods: list[int] = Field(default_factory=list, max_length=150)
-    # 추천에서 우선할 기존 음식 분류 목록.
+    # 이전 API 요청과의 호환을 위해 유지하며 현재 UI/점수에서는 사용하지 않는다.
     preferred_categories: list[str] = Field(default_factory=list, max_length=30)

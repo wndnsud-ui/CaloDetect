@@ -1,0 +1,562 @@
+/* 10월 15일 박근수 수정: 전달된 추천 메뉴 화면 CSS를 실제 추천·홈 UI에 연결한다. */
+
+/* 1. 상황별 추천 테마 선택 탭 스타일 */
+.recommend-theme-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 10px 0 20px;
+}
+
+.theme-button {
+  background: #f8faf8;
+  border: 1.5px solid #dce5df;
+  border-radius: 12px;
+  padding: 14px 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-button:hover:not(:disabled) {
+  background: #edf5ef;
+}
+
+.theme-button.active {
+  background: #eaf5ee;
+  border-color: #178366;
+  box-shadow: 0 4px 12px rgba(23, 131, 102, 0.15);
+}
+
+.theme-button strong {
+  font-size: 14px;
+  color: #153c30;
+}
+
+.theme-button small {
+  font-size: 11px;
+  color: #6a8276;
+}
+
+.meal-type-fieldset,
+.excluded-food-fieldset {
+  min-width: 0;
+  margin: 20px 0;
+  padding: 0;
+  border: 0;
+}
+
+.meal-type-fieldset legend,
+.excluded-food-fieldset legend {
+  margin-bottom: 10px;
+  color: #536557;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.meal-type-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.meal-type-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid #dce5df;
+  border-radius: 10px;
+  background: #f8faf8;
+  color: #536557;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.meal-type-option.selected {
+  border-color: #178366;
+  background: #eaf5ee;
+  color: #153c30;
+  font-weight: 700;
+}
+
+.meal-type-option input,
+.excluded-food-option input {
+  width: auto;
+  margin: 0;
+  accent-color: #178366;
+}
+
+.meal-radio-indicator {
+  display: inline-grid;
+  width: 17px;
+  height: 17px;
+  place-items: center;
+  border: 1.5px solid #9aaca1;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.meal-type-option input:checked + .meal-radio-indicator {
+  background: #178366;
+  border-color: #178366;
+}
+
+.meal-type-option input:checked + .meal-radio-indicator::after {
+  width: 8px;
+  height: 5px;
+  border: solid #fff;
+  border-width: 0 0 2px 2px;
+  content: '';
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.meal-type-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.meal-type-option:focus-within,
+.excluded-food-option:focus-within {
+  outline: 3px solid #75bdaa;
+  outline-offset: 3px;
+}
+
+.meal-type-fieldset:disabled,
+.excluded-food-fieldset:disabled {
+  opacity: 0.65;
+}
+
+.meal-type-fieldset:disabled .meal-type-option,
+.excluded-food-fieldset:disabled .excluded-food-option {
+  cursor: wait;
+}
+
+.excluded-food-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 10px;
+  color: #74867b;
+  font-size: 11px;
+}
+
+.excluded-food-heading span:last-child {
+  color: #178366;
+  font-weight: 700;
+}
+
+.excluded-food-clear {
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #285b43;
+  font-size: 11px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.excluded-food-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.excluded-food-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e1e9e3;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.excluded-food-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  background: #f8faf8;
+  color: #193c32;
+  font-size: 12px;
+}
+
+.excluded-food-group-header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.excluded-food-group-header > div strong {
+  font-size: 12px;
+}
+
+.excluded-food-group-header > div small {
+  color: #82968c;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.excluded-group-select-all {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: #536557;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.excluded-group-select-all input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #178366;
+}
+
+.excluded-food-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 10px;
+}
+
+.excluded-food-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 2px;
+  border-bottom: 1px solid #f0f3f1;
+  color: #536557;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  touch-action: pan-y;
+}
+
+.excluded-food-option:last-child {
+  border-bottom: 0;
+}
+
+.excluded-food-option > span {
+  min-width: 0;
+  overflow: hidden;
+  flex: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.excluded-food-option small {
+  flex-shrink: 0;
+  color: #82968c;
+  font-size: 10px;
+}
+
+.excluded-food-empty {
+  margin: 10px 2px;
+  color: #82968c;
+  font-size: 11px;
+}
+
+.recommendation-helper {
+  margin: 10px 0 0;
+  color: #718277;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* 2. 추천 카드 3열 그리드 레이아웃 */
+.recommend-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.recommend-card {
+  background: #ffffff;
+  border: 1px solid #e1e9e3;
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 16px rgba(25, 60, 50, 0.05);
+}
+
+.recommend-card .primary {
+  width: 100%;
+  margin-top: auto;
+}
+
+/* 3. 태그 뱃지 색상 규칙 */
+.card-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tag-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 6px;
+}
+
+.badge-blue {
+  background: #e6f2ff;
+  color: #1473e6;
+}
+
+.badge-green {
+  background: #e7f7ed;
+  color: #167c52;
+}
+
+.badge-orange {
+  background: #fff3e6;
+  color: #d97008;
+}
+
+.badge-gray {
+  background: #f0f3f1;
+  color: #586c62;
+}
+
+/* 4. 음식 제목 및 영양 박스 */
+.card-food-title {
+  font-size: 20px;
+  margin: 0 0 4px;
+  color: #193c32;
+}
+
+.card-food-unit {
+  font-size: 12px;
+  color: #798d83;
+  margin: 0 0 16px;
+}
+
+.card-nutrition-box {
+  background: #f7faf8;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.main-calorie strong {
+  font-size: 26px;
+  color: #157357;
+}
+
+.main-calorie span {
+  font-size: 13px;
+  color: #7a8d83;
+  margin-left: 4px;
+}
+
+.sub-nutrients {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: #6a7c72;
+  text-align: right;
+}
+
+.sub-nutrients b {
+  color: #1c3d32;
+}
+
+/* 5. 비포 & 애프터 시뮬레이션 바 */
+.preview-simulation {
+  background: #fdfefe;
+  border: 1px dashed #cfded4;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.preview-simulation.simulation-over {
+  border-color: #f5c2bc;
+  background: #fff8f7;
+}
+
+.simulation-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #556c60;
+}
+
+.simulation-header strong {
+  color: #157357;
+}
+
+.text-warn {
+  color: #d9483b !important;
+  font-weight: 700;
+}
+
+.simulation-bar-track {
+  height: 10px;
+  background: #e9eee9;
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.bar-current {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: #178366;
+  border-radius: 6px 0 0 6px;
+}
+
+.bar-expected {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: #80caa5;
+  border-radius: 0 6px 6px 0;
+}
+
+.bar-expected.bar-over {
+  background: #e66a5e;
+}
+
+.simulation-caption {
+  display: block;
+  font-size: 11px;
+  color: #7c9085;
+  text-align: right;
+}
+
+/* 6. 추천 사유 목록 */
+.card-reasons {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  font-size: 12px;
+  color: #5d7367;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.card-reasons li::before {
+  content: '•';
+  color: #178366;
+  margin-right: 7px;
+}
+
+.recommendation-label {
+  margin: 0;
+  color: #536557;
+  font-size: 12px;
+}
+
+.recommendation-warning {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: #fff0ea;
+  color: #954b36;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 7. 홈 화면 "함께 확인해요" 카드 스타일 */
+.daily-extra.extra-nutrients-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 24px 0 12px;
+}
+
+.daily-extra .extra-card {
+  background: #f8faf8;
+  border: 1px solid #e1e9e3;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.daily-extra .extra-card.status-warning {
+  border-color: #f7ba53;
+  background: #fffdf8;
+}
+
+.daily-extra .extra-card.status-danger {
+  border-color: #f5c2bc;
+  background: #fff8f7;
+}
+
+.daily-extra .extra-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #5a7065;
+}
+
+.daily-extra .extra-header span {
+  color: inherit;
+}
+
+.daily-extra .extra-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c3d32;
+  margin: 0 0 4px;
+}
+
+.daily-extra .extra-caption {
+  font-size: 11px;
+  color: #82968c;
+}
+
+/* 8. 모바일 반응형 규칙 */
+@media (max-width: 900px) {
+  .recommend-theme-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .excluded-food-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .recommend-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .extra-nutrients-grid {
+    grid-template-columns: 1fr;
+  }
+}

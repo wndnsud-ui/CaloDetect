@@ -1,53 +1,259 @@
-# 기존 음식 CSV와 오늘의 남은 칼로리·선호 분류·최근 음식 중복을 이용한 개발용 추천.
-# 서로 다른 분류를 우선해 세 후보를 고르고 추천 당시 영양 상태와 결과를 기록한다. 미확정 영양 목표와 운영 가중치를 새로 정하지 않는다.
+# 추천 후보와 점수는 승인된 기존 CSV 데이터 및 Python 규칙으로 계산한다.
+# 10월 15일 박근수 수정: 끼니 목표 열량, 영양 한도 위험 패널티, 안전 fallback과 근거를 일관되게 처리한다.
+import logging
+
 from sqlalchemy import select
+
 from ..models import Meal, RecommendationLog
-from .nutrition import food_catalog
 from .analytics import get_today_status
+from .nutrition import food_catalog
 
 
-# 남은 칼로리 적합도 + 선호 분류 - 최근 중복으로 순위를 정하고 분류 다양성을 우선한 세 후보를 기록한다.
-# 동점은 class_id로 정렬해 결과를 재현하며 공개 응답에서는 내부 score를 제거한다.
-def recommend_meals(db, user, filters, window):
+logger = logging.getLogger('calodetect')
+
+# 아래 점수 기준은 이번 추천 고도화에 사용되는 개발 기본값이며 확정된 운영 영양 정책이 아니다.
+HIGH_PROTEIN_G = 20.0
+LIGHT_MEAL_KCAL = 350.0
+HEAVY_MEAL_KCAL = 700.0
+# 나트륨 개발 기준은 WHO 2,000mg/day, 당류는 KDRI 2025 총 에너지의 20% 기준을 사용한다.
+SODIUM_DAILY_LIMIT_MG = 2000.0
+SUGAR_ENERGY_RATIO = 0.20
+SOFT_THRESHOLD = 0.80
+HARD_THRESHOLD = 1.20
+MEAL_FIT_WEIGHT = 1.0
+MEAL_TARGET_RATIO = {
+    'breakfast': 0.25,
+    'lunch': 0.30,
+    'dinner': 0.30,
+    'snack': 0.15,
+}
+
+
+# 일일 누적량과 후보 메뉴를 합산해 영양 한도 대비 위험 수준을 0~1 점수로 반환한다.
+def calculate_limit_fit(
+    today_total: float,
+    menu_value: float,
+    limit: float,
+    soft: float = SOFT_THRESHOLD,
+    hard: float = HARD_THRESHOLD,
+) -> float | None:
+    after = today_total + menu_value
+    safe_limit = max(limit, 1.0)
+
+    if after <= safe_limit * soft:
+        return 1.0
+    if after >= safe_limit * hard:
+        return None
+
+    denominator = max(safe_limit * (hard - soft), 1.0)
+    score = 1.0 - (after - safe_limit * soft) / denominator
+    return round(max(0.0, min(1.0, score)), 4)
+
+
+# 일일 목표와 남은 열량에서 선택한 끼니에 사용할 비교 목표치를 계산한다.
+def calculate_meal_target(
+    target_calories: float,
+    remaining_calories: float,
+    meal_type: str,
+) -> float:
+    ratio = MEAL_TARGET_RATIO.get(meal_type, 0.30)
+    base_target = target_calories * ratio
+    return max(1.0, min(base_target, max(remaining_calories, 1.0)))
+
+
+# 아침·간식에는 가벼운 메뉴를 우선하고 점심·저녁은 추가 감점을 적용하지 않는다.
+def calculate_meal_fit(meal_type: str, food_calories: float) -> float:
+    if meal_type not in ('breakfast', 'snack'):
+        return 1.0
+    if food_calories <= LIGHT_MEAL_KCAL:
+        return 1.0
+    if food_calories >= HEAVY_MEAL_KCAL:
+        return 0.0
+    return round(
+        1.0 - (food_calories - LIGHT_MEAL_KCAL)
+        / (HEAVY_MEAL_KCAL - LIGHT_MEAL_KCAL),
+        4,
+    )
+
+
+# 오늘 상태와 메뉴 조건을 평가해 3개 후보를 만들고 추천 snapshot/log를 생성한다.
+def recommend_meals(db, user, filters, window, theme='balance'):
     snapshot = get_today_status(db, user.id)
-    # 남은 칼로리 추천을 계산할 근거가 없으면 먼저 목표 설정을 요청한다.
-    if snapshot['target_calories'] is None:
-        raise ValueError('먼저 목표 칼로리를 저장해 주세요.')
-    recent = db.scalars(select(Meal).where(Meal.user_id == user.id)
-                        .order_by(Meal.meal_date.desc(), Meal.created_at.desc()).limit(window)).all()
-    # 최근 N개 식단의 모든 항목을 집합으로 만들어 음식별 중복 여부를 확인한다.
-    recent_foods = {item.food_id for meal in recent for item in meal.items}
-    remaining = snapshot['remaining_calories']
+    target_calories = snapshot.get('target_calories')
+    # None과 0 이하 목표를 모두 막아 당류 기준 계산과 추천 점수의 잘못된 분모를 방지한다.
+    if target_calories is None or target_calories <= 0:
+        raise ValueError('먼저 유효한 목표 칼로리를 저장해 주세요.')
+
+    recent_meals = db.scalars(
+        select(Meal)
+        .where(Meal.user_id == user.id)
+        .order_by(Meal.meal_date.desc(), Meal.created_at.desc())
+        .limit(window)
+    ).all()
+    recent_food_ids = {
+        item.food_id
+        for meal in recent_meals
+        for item in meal.items
+    }
+
+    totals = snapshot.get('totals') or {}
+    current_eaten_sodium = float(totals.get('sodium') or 0)
+    current_eaten_sugar = float(totals.get('sugar') or 0)
+    remaining_calories = float(snapshot.get('remaining_calories') or 0)
+    daily_sugar_limit = max(target_calories * SUGAR_ENERGY_RATIO / 4.0, 1.0)
+    meal_type = getattr(filters, 'meal_type', 'lunch') or 'lunch'
+    exclude_foods = set(filters.exclude_foods)
+    meal_target = calculate_meal_target(
+        target_calories,
+        remaining_calories,
+        meal_type,
+    )
+
     ranked = []
+    excluded_by_limits = []
+
+    # 기존 CSV 외의 임의 음식이나 수치를 만들지 않고 각 후보의 현재 데이터만 평가한다.
     for food in food_catalog():
-        if food['class_id'] in filters.exclude_foods:
+        if food['class_id'] in exclude_foods:
             continue
-        # 남은 칼로리와 음식 기준량의 차이를 큰 값으로 정규화한다. 분모는 최소 1로 두어 0 나눗셈을 피한다.
-        fit = 1 - abs(food['cal'] - remaining) / max(remaining, food['cal'], 1)
-        preference = 1 if food['category'] in filters.preferred_categories else 0
-        repeat = 1 if food['class_id'] in recent_foods else 0
-        # 현재 개발 기본식은 적합도 + 선호 - 중복이다. 운영 가중치를 확정한 공식으로 해석하지 않는다.
-        score = fit + preference - repeat
-        reasons = ['기존 영양 데이터의 기준량으로 계산했습니다.']
-        reasons.append('남은 칼로리 범위 안의 음식입니다.' if food['cal'] <= remaining
-                       else '남은 칼로리를 초과하므로 섭취량을 조절해 주세요.')
-        reasons.append('최근 식사와 중복이 적습니다.' if not repeat else '최근에 기록한 음식입니다.')
-        if preference:
-            reasons.append('선호한 음식 분류입니다.')
-        ranked.append({'class_id': food['class_id'], 'food_name': food['food_name'],
-            'category': food['category'], 'unit': food['unit'],
-            'nutrition': {k: food[k] for k in ['cal','carbs','protein','fat','sugar','sodium']},
-            'reasons': reasons, 'score': round(score, 4)})
-    # 높은 점수를 우선하고 동점은 class_id 오름차순으로 결정해 후보 순서를 재현한다.
-    ranked.sort(key=lambda r: (-r['score'], r['class_id']))
-    # 제외 조건으로 세 후보를 만들 수 없으면 빈 추천이나 임의 음식을 생성하지 않고 조건 수정을 요청한다.
+
+        # 결측 당류·나트륨은 0으로 간주하지 않는다. 안전한 메뉴로 오인하지 않도록 건너뛴다.
+        if food.get('sodium') is None or food.get('sugar') is None:
+            logger.warning(
+                'recommendation skipped: nutrition missing',
+                extra={'class_id': food.get('class_id')},
+            )
+            continue
+
+        sodium_fit = calculate_limit_fit(
+            current_eaten_sodium,
+            food['sodium'],
+            SODIUM_DAILY_LIMIT_MG,
+        )
+        sugar_fit = calculate_limit_fit(
+            current_eaten_sugar,
+            food['sugar'],
+            daily_sugar_limit,
+        )
+
+        # 120% 이상인 메뉴는 우선 일반 후보에서 제외하고, 필요하면 경고 fallback으로만 검토한다.
+        if sodium_fit is None or sugar_fit is None:
+            excess_ratio = max(
+                (current_eaten_sodium + food['sodium']) / SODIUM_DAILY_LIMIT_MG,
+                (current_eaten_sugar + food['sugar']) / daily_sugar_limit,
+            )
+            excluded_by_limits.append({'food': food, 'excess_ratio': excess_ratio})
+            continue
+
+        if remaining_calories <= 0:
+            calorie_fit = 1.0 - min(1.0, food['cal'] / 600.0)
+        else:
+            calorie_fit = 1.0 - (
+                abs(food['cal'] - meal_target)
+                / max(meal_target, food['cal'], 1.0)
+            )
+
+        repeat_penalty = 1.0 if food['class_id'] in recent_food_ids else 0.0
+        meal_fit = calculate_meal_fit(meal_type, food['cal']) * MEAL_FIT_WEIGHT
+        theme_bonus = 0.0
+        if theme == 'protein':
+            theme_bonus = min(1.0, food['protein'] / HIGH_PROTEIN_G)
+        elif theme == 'light':
+            theme_bonus = (
+                1.0
+                if food['cal'] <= LIGHT_MEAL_KCAL
+                else max(0.0, 1.0 - (food['cal'] - LIGHT_MEAL_KCAL) / LIGHT_MEAL_KCAL)
+            )
+
+        # 건강 한도 위험은 선호도나 테마 보너스로 쉽게 상쇄되지 않도록 점수에서 직접 차감한다.
+        nutrition_risk_penalty = (1.0 - sodium_fit) + (1.0 - sugar_fit)
+        total_score = (
+            calorie_fit
+            - repeat_penalty
+            + meal_fit
+            + theme_bonus
+            - nutrition_risk_penalty
+        )
+
+        if remaining_calories <= 0:
+            reasons = ['오늘 목표 열량을 채워 추가 열량이 적은 메뉴를 우선 비교했습니다.']
+        else:
+            reasons = ['오늘 섭취량과 끼니 목표 열량을 반영했습니다.']
+            reasons.append(
+                '끼니 목표 열량에 가까운 메뉴입니다.'
+                if abs(food['cal'] - meal_target) <= meal_target * 0.25
+                else '끼니별 목표 열량에 맞춰 비교한 메뉴입니다.'
+            )
+        if sodium_fit < 1.0:
+            reasons.append('오늘 나트륨 섭취량을 고려하면 이 메뉴는 섭취량 조절이 필요합니다.')
+        if sugar_fit < 1.0:
+            reasons.append('오늘 당류 섭취량을 고려하면 추가 당류 섭취에 주의가 필요합니다.')
+        reasons.append(
+            '최근 식사에 기록한 음식입니다.'
+            if repeat_penalty
+            else '최근 식사와 중복이 적습니다.'
+        )
+        if theme == 'protein':
+            reasons.append('단백질 섭취를 보완하는 기준으로 선택했습니다.')
+        elif theme == 'light':
+            reasons.append('상대적으로 가벼운 열량의 메뉴를 우선했습니다.')
+
+        ranked.append({
+            'class_id': food['class_id'],
+            'food_name': food['food_name'],
+            'category': food['category'],
+            'unit': food['unit'],
+            'nutrition': {
+                key: food[key]
+                for key in ('cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium')
+            },
+            'reasons': reasons,
+            'score': round(total_score, 4),
+            'is_fallback': False,
+        })
+
+    # 점수 동점은 class_id 오름차순으로 정렬해 동일한 입력에 재현 가능한 결과를 만든다.
+    ranked.sort(key=lambda item: (-item['score'], item['class_id']))
+
+    # 일반 메뉴가 세 개보다 적을 때만 한도 초과 메뉴를 초과율 순으로 경고 후보에 추가한다.
+    if len(ranked) < 3 and excluded_by_limits:
+        excluded_by_limits.sort(
+            key=lambda item: (item['excess_ratio'], item['food']['class_id'])
+        )
+        for candidate in excluded_by_limits:
+            food = candidate['food']
+            ranked.append({
+                'class_id': food['class_id'],
+                'food_name': food['food_name'],
+                'category': food['category'],
+                'unit': food['unit'],
+                'nutrition': {
+                    key: food[key]
+                    for key in ('cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium')
+                },
+                'reasons': [
+                    '일반 추천 후보가 부족해 기준 초과 가능성이 있는 대체 메뉴로 표시했습니다.',
+                    '당류 또는 나트륨 기준을 초과할 수 있어 섭취량 조절이 필요합니다.',
+                ],
+                'score': -999.0,
+                'is_fallback': True,
+            })
+            if len(ranked) == 3:
+                break
+
     if len(ranked) < 3:
-        raise ValueError('제외 조건 때문에 후보가 3개 미만입니다. 제외 음식을 줄여주세요.')
-    # 첫 순회는 서로 다른 분류를 우선 선택하고 둘째 순회는 부족한 개수를 나머지 상위 후보로 채운다.
-    selected, categories = [], set()
+        raise ValueError(
+            '현재 조건에서 추천 가능한 메뉴가 3개 미만입니다. '
+            '제외 음식을 줄이거나 추천 조건을 바꿔주세요.'
+        )
+
+    # 가능한 범위에서 카테고리를 분산한 뒤 부족한 자리는 나머지 상위 점수로 채운다.
+    selected = []
+    selected_categories = set()
     for item in ranked:
-        if item['category'] not in categories:
-            selected.append(item); categories.add(item['category'])
+        if item['category'] not in selected_categories:
+            selected.append(item)
+            selected_categories.add(item['category'])
         if len(selected) == 3:
             break
     for item in ranked:
@@ -55,11 +261,43 @@ def recommend_meals(db, user, filters, window):
             break
         if item not in selected:
             selected.append(item)
-    # 추천 당시 상태와 후보를 저장해 회원 선택 기록이 어느 추천에서 왔는지 추적한다.
-    log = RecommendationLog(user_id=user.id, nutrition_snapshot=snapshot, recommendation_json=selected)
-                 # commit 전 SQL을 반영해 생성 ID·제약 오류를 확인한다. 아직 변경을 최종 확정한 것은 아니다.
-    db.add(log); db.flush()
-    # Internal ranking scores never appear in the public result.
-    return {'id': log.id, 'items': [{k:v for k,v in item.items() if k != 'score'} for item in selected],
-            'snapshot': snapshot, 'mode': 'development_default',
-            'notice': '기존 CSV 기반 개발 추천입니다. 탄단지 목표·당류/나트륨 기준·끼니 적합성은 정책 미정으로 평가하지 않습니다.'}
+
+    # 사용자 경고는 실제 최종 후보에 fallback 메뉴가 포함됐을 때만 표시한다.
+    used_fallback = any(item['is_fallback'] for item in selected)
+    notice = (
+        '오늘 나트륨 또는 당류 섭취량이 높아 경고형 대체 메뉴가 포함되었습니다. '
+        '가능하면 양념과 국물 섭취량을 줄여 주세요.'
+        if used_fallback
+        else '현재 섭취 기록을 반영한 맞춤형 식사 추천입니다.'
+    )
+
+    # 추천 당시 snapshot과 내부 점수를 로그에 보존하되 내부 점수·flag는 응답에서 숨긴다.
+    log = RecommendationLog(
+        user_id=user.id,
+        nutrition_snapshot=snapshot,
+        recommendation_json=selected,
+    )
+    db.add(log)
+    db.flush()
+    response_items = [
+        {
+            **{
+                key: value
+                for key, value in item.items()
+                if key not in ('score', 'is_fallback')
+            },
+            **(
+                {'warning': '당류 또는 나트륨 기준 초과 가능'}
+                if item['is_fallback']
+                else {}
+            ),
+        }
+        for item in selected
+    ]
+    return {
+        'id': log.id,
+        'items': response_items,
+        'snapshot': snapshot,
+        'mode': 'development_default',
+        'notice': notice,
+    }

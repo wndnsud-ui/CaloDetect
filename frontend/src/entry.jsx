@@ -6,7 +6,7 @@ import App from './main';
 import Landing from './Landing';
 // 현재 탭의 선택 화면만 기억한다. 회원 인증 데이터나 비밀번호를 저장하지 않는다.
 const pageKey='calodetect-page';
-const pages=['홈','음식 추가','채팅으로 식사기록','목표 설정','식사 추천','히스토리','식단 분석','마이페이지','로그인','회원가입'];
+const pages=['홈','음식 추가','채팅으로 식사기록','목표 설정','식사 추천','히스토리','커뮤니티','식단 분석','마이페이지','로그인','회원가입'];
 // 재설정·소셜 반환 URL을 우선 처리하고 허용된 화면 이름만 sessionStorage에서 복원한다.
 function storedPage(){try {if(new URLSearchParams(window.location.hash.slice(1)).has('password_reset'))return '로그인';const params=new URLSearchParams(window.location.search);if(['social_signup','social_error','social_success'].some(key=>params.has(key))){sessionStorage.setItem(pageKey,'로그인');if(params.has('social_success'))window.history.replaceState({},'',window.location.pathname);return '로그인';}const value=sessionStorage.getItem(pageKey);return pages.includes(value)?value:null;} catch {return null;}}
 // 소개/회원 화면을 선택하며 탭 안에서 마지막 선택 화면을 기억한다.

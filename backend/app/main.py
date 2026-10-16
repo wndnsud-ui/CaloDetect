@@ -16,6 +16,7 @@ from .api import router as meal_router
 from .social_auth import router as social_router
 from .passwords import router as passwords_router
 from .kakao_auth import router as kakao_router
+from .community import router as community_router
 from sqlalchemy.exc import SQLAlchemyError
 
 # 앱 객체를 Uvicorn이 backend.app.main:app으로 불러온다. 라우터 등록 순서를 그대로 유지한다.
@@ -25,6 +26,7 @@ app.include_router(meal_router)
 app.include_router(social_router)
 app.include_router(passwords_router)
 app.include_router(kakao_router)
+app.include_router(community_router)
 # 채팅 식사기록(섭취량 수정) 라우트는 기능 플래그가 켜졌을 때만 등록한다. 기본 false.
 if settings.chat_record_enabled:
     from .consumption_api import router as consumption_router
@@ -33,7 +35,7 @@ if settings.chat_record_enabled:
     app.include_router(chat_router)
 # 쿠키 인증을 허용하되 CORS 원본은 설정된 프런트엔드로 제한한다. 실제 변경 권한은 인증/CSRF가 검사한다.
 app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
-                   allow_credentials=True, allow_methods=['GET', 'POST', 'PUT'],
+                   allow_credentials=True, allow_methods=['GET', 'POST', 'PUT', 'DELETE'],
                    allow_headers=['Content-Type', 'X-CSRF-Token', 'Authorization'])
 
 
@@ -73,10 +75,11 @@ def system_status():
     return {'stage': 'p0-integration', 'nutrition_source': 'CaloDetect_nutrition_all_matched.csv',
             'food_count': len(food_catalog()), 'timezone': 'Asia/Seoul',
             'available': ['food_catalog', 'nutrition_calculation', 'calorie_calculation', 'auth', 'profile_persistence',
-                          'meal_persistence', 'detection_api', 'recommendation', 'correction', 'admin_qa'],
+                          'meal_persistence', 'detection_api', 'recommendation', 'correction', 'admin_qa', 'community_feed', 'community_points'],
             'pending': ['signup_policy', 'image_storage_policy', 'recommendation_policy'],
             'policy_tbd': ['service_consent_text', 'model_improvement_consent_text', 'image_storage', 'image_retention',
-                           'recommendation_source', 'macro_targets', 'sugar_sodium_limits']}
+                           'recommendation_source', 'macro_targets', 'sugar_sodium_limits', 'community_photo_consent_text',
+                           'community_point_values', 'community_point_usage', 'community_multi_account_abuse', 'community_photo_copy_retention']}
 
 
 # 실제 DB 연결을 검사하고 실패 시 내부 예외 대신 일반 연결 안내를 반환한다.

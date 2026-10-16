@@ -11,6 +11,12 @@ class RequestModel(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
 
 
+class CommunityPostRequest(RequestModel):
+    meal_id: str = Field(min_length=1, max_length=36)
+    comment: str = Field(default='', max_length=300)
+    show_photo: bool = False
+
+
 # NutritionRequest: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
 class NutritionRequest(RequestModel):
     # 기존 0~149 음식 클래스 번호. 모델·YAML·CSV에서 같은 음식 연결을 유지한다.

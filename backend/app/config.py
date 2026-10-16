@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # Settings: 환경변수/.env 설정 모델. 타입·허용값을 검증하며 settings 인스턴스를 모듈에서 공유한다.
 class Settings(BaseSettings):
+    community_like_received_points: int = Field(default=1, ge=0, le=100)
+    community_recommend_received_points: int = Field(default=3, ge=0, le=100)
+    community_reaction_given_points: int = Field(default=1, ge=0, le=100)
+    community_ranking_size: int = Field(default=10, ge=1, le=100)
     model_config = SettingsConfigDict(env_file=ROOT / '.env', extra='ignore')
     # 서버 전용 PostgreSQL URL. 비공개 .env에서 읽으며 클라이언트 응답에 노출하지 않는다.
     database_url: str | None = None

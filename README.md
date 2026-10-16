@@ -1,8 +1,22 @@
 # CaloDetect · 칼로디텍트
 
+## 커뮤니티 v5 (2026-10-16)
+
+커뮤니티 화면 예시를 채우려면 로컬 개발 환경에서 `.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_community_demo`를 실행합니다. `[더미 예시]` 게시물 10개(기본 테스트 계정이 없으면 8개), 예시 회원 5명, 좋아요·추천과 실제 원장 포인트를 추가합니다. 기본 테스트 계정에는 전용 식단 2개만 새로 추가하며 기존 기록은 보존합니다. 재실행해도 중복 생성하거나 삭제한 게시물·취소한 반응을 복원하지 않습니다. 예시 사진은 없으며, 예시 계정의 비밀번호는 무작위로 생성해 공개하지 않습니다.
+
+현재 작업 PC의 기존 DB는 사용자 별도 승인·전체 백업·스키마 대조 후 **`20261016_01 (head)` 적용 완료**입니다. 구형 테이블은 `community_legacy_20261016` 스키마에 보존했습니다. 기존 회원·식단 데이터는 유지하며 두 회원 실제 DB 기능 검증을 완료했습니다. 이 로컬 전환 결과는 Git pull로 다른 PC의 DB에 복사되지 않습니다.
+
+로그인 후 `히스토리` 다음의 `커뮤니티`에서 아직 공유하지 않은 식단을 공유하고 좋아요·추천, 내 포인트·주간 랭킹을 확인합니다. 사진 공개는 게시물마다 기본 해제입니다. 식단을 수정하면 게시물에도 반영되며, 반응 취소·게시물 삭제는 감점 예정액 확인 후 처리됩니다. 삭제한 게시물의 식단은 다시 공유할 수 없습니다.
+
+신규 migration은 `20261016_01`(`20261015_02` 다음)입니다. 정상 이력 DB에서는 백업 후 기존 Alembic 절차로 적용합니다. **기존 로컬 DB의 `20261007_03`은 미등록 이력이며 구형 커뮤니티 테이블도 존재하므로 바로 upgrade/stamp하지 마세요.** [착수 점검·DB 전환 계획](docs/planning/COMMUNITY_V5_PREFLIGHT.md)을 확인해야 합니다. 적용 전에는 커뮤니티 API가 DB 준비 안내를 반환할 수 있습니다.
+
+포인트 환경변수(개발 기본값, 운영 미확정): `COMMUNITY_LIKE_RECEIVED_POINTS=1`, `COMMUNITY_RECOMMEND_RECEIVED_POINTS=3`, `COMMUNITY_REACTION_GIVEN_POINTS=1`, `COMMUNITY_RANKING_SIZE=10`. 원장은 설정 변경 전 지급액을 기준으로 감점합니다. 테스트: `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_community.py backend/tests/test_community_images.py backend/tests/test_community_rules.py -q`. PostgreSQL 동시성은 `RUN_POSTGRES_TESTS=1`로 임시 schema에서 검사합니다. 기존 로컬 사진 접속 제한을 그대로 따릅니다.
+
 이메일 로그인에서 `이메일 기억하기`를 선택하면 로그인 성공 후 해당 브라우저에 이메일만 저장하고 다음 방문에 자동 입력합니다. 체크를 해제하면 저장된 이메일을 즉시 삭제합니다. 비밀번호는 이 기능으로 저장하지 않으며, 공용 PC에서는 체크를 해제하세요.
 
 ## 채팅으로 식사 기록하기 · 챗으로 섭취량 수정 (개인 테스트 브랜치, 기본 꺼짐)
+
+이미 설치한 팀원은 [챗봇 DB 업데이트 간편 가이드](docs/operations/CHAT_RECORD_MIGRATION.md)의 실행 블록을 사용하세요. 기존 환경으로 DB 백업 → migration → Backend 실행까지 진행하며 추가 패키지 설치는 필요하지 않습니다. 미확인 DB 이력 오류는 자동으로 우회하지 않습니다.
 
 **팀원 업데이트 주의:** Git pull은 개인 `.env`를 바꾸지 않습니다. 아래는 localhost 개발 테스트용 설정이며, 기존 `.env`의 DB 비밀번호·OAuth·SMTP 값을 덮어쓰지 말고 해당 항목만 확인하세요. 변경 후 Backend를 재시작해야 합니다.
 

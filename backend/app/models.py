@@ -2,7 +2,7 @@
 # ForeignKey는 참조 관계, UniqueConstraint/CheckConstraint는 DB 단계의 무결성 규칙이며 실제 스키마 변경은 Alembic이 담당한다.
 from datetime import datetime, timezone
 from uuid import uuid4
-from sqlalchemy import String, Float, Integer, Boolean, Date, DateTime, ForeignKey, JSON, UniqueConstraint, CheckConstraint
+from sqlalchemy import String, Float, Integer, Boolean, Date, DateTime, ForeignKey, JSON, UniqueConstraint, CheckConstraint, Index, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -19,6 +19,59 @@ def utcnow():
 # Base: DeclarativeBase 기반 구조. 아래 메서드는 이 객체의 인터페이스를 정의한다.
 class Base(DeclarativeBase):
     pass
+
+
+class CommunityPost(Base):
+    __tablename__ = 'community_posts'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    meal_id: Mapped[str] = mapped_column(ForeignKey('meals.id'), unique=True)
+    comment: Mapped[str] = mapped_column(String(300), default='')
+    show_photo: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+Index('ix_community_feed_cursor', CommunityPost.created_at.desc(), CommunityPost.id.desc())
+
+
+class CommunityPostImage(Base):
+    __tablename__ = 'community_post_images'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    post_id: Mapped[str] = mapped_column(ForeignKey('community_posts.id'), index=True)
+    source_image_id: Mapped[str] = mapped_column(String(36))
+    storage_key: Mapped[str] = mapped_column(String(255))
+    position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint('post_id', 'position'),)
+
+
+class CommunityReaction(Base):
+    __tablename__ = 'community_reactions'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    post_id: Mapped[str] = mapped_column(ForeignKey('community_posts.id'), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (UniqueConstraint('post_id', 'user_id', 'kind'),
+                      CheckConstraint("kind IN ('like', 'recommend')"),)
+
+
+class PointTransaction(Base):
+    __tablename__ = 'point_transactions'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[str] = mapped_column(String(32))
+    post_id: Mapped[str | None] = mapped_column(ForeignKey('community_posts.id'), index=True)
+    reaction_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    __table_args__ = (
+        Index('uq_point_tx_reaction_reason', 'reaction_id', 'reason', unique=True,
+              postgresql_where=text('reaction_id IS NOT NULL'), sqlite_where=text('reaction_id IS NOT NULL')),
+        Index('uq_point_tx_post_deleted', 'post_id', unique=True,
+              postgresql_where=text("reason = 'post_deleted_revoked'"),
+              sqlite_where=text("reason = 'post_deleted_revoked'")),)
 
 
 # User: users 테이블의 ORM 모델. 아래 필드와 제약은 저장 형식과 참조 관계를 정의한다.

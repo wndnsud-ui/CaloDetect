@@ -182,6 +182,61 @@ def test_zero_amount_and_unique_ledger(users):
         with pytest.raises(IntegrityError):db.commit()
 
 
+@pytest.mark.parametrize('source_kind', ['detection', 'chat'])
+@pytest.mark.parametrize('consent', [{}, {'show_photo': False}], ids=['omitted', 'unchecked'])
+def test_photo_without_consent_is_private(users, tmp_path, source_kind, consent):
+    """사진이 있는 기록도 미동의면 사본·URL이 없고 다른 회원의 직접 접근도 막는다."""
+    from backend.app.models import Detection
+    from backend.app.models_chat import ChatAttachment, Conversation
+    a,b,au,_,engine,patch=users
+    saved=meal(a)
+    root=tmp_path/'uploads';root.mkdir()
+    patch.setattr(settings,'image_storage_dir',str(root))
+    source=root/'private.png'
+    Image.new('RGB',(10,10),'red').save(source)
+    original=source.read_bytes()
+    with Session(engine) as db:
+        image=ImageUpload(user_id=au['id'],image_path=source.name)
+        db.add(image);db.flush();image_id=image.id
+        if source_kind=='detection':
+            detection=Detection(user_id=au['id'],image_group_id=image.id,image_path=source.name,
+                predicted_label='test',confidence=.9,bbox=[],model_version='test')
+            db.add(detection);db.flush()
+            db.get(Meal,saved['id']).items[0].detection_log_id=detection.id
+        else:
+            conversation=Conversation(user_id=au['id'])
+            db.add(conversation);db.flush()
+            attachment=ChatAttachment(user_id=au['id'],image_upload_id=image.id,conversation_id=conversation.id,
+                checksum='test',upload_request_id=str(uuid4()),storage_key=source.name)
+            db.add(attachment);db.flush()
+            db.get(Meal,saved['id']).chat_attachment_id=attachment.id
+        db.commit()
+    assert a.get('/community/eligible-meals').json()['items'][0]['has_photo']
+    shared=post(a,saved,**consent)
+    assert shared['show_photo'] is False and shared['image_urls']==[]
+    assert not (root/'community').exists()
+    assert a.get('/meals/images/'+image_id).status_code==200
+    assert b.get('/meals/images/'+image_id).status_code==404
+    public=b.get('/community/posts').json()['items'][0]
+    assert public['show_photo'] is False and public['image_urls']==[]
+    with Session(engine) as db:
+        assert db.scalar(select(func.count()).select_from(Photo))==0
+        # 사본 행이 잘못 남아 있더라도 동의 없는 게시물의 접근은 차단한다.
+        stale=Photo(post_id=shared['id'],source_image_id=image_id,storage_key='stale.png',position=0)
+        db.add(stale);db.flush();stale_id=stale.id;db.commit()
+    assert b.get('/community/posts').json()['items'][0]['image_urls']==[]
+    assert b.get(f'/community/posts/{shared["id"]}/images/{stale_id}').status_code==404
+    assert source.read_bytes()==original
+
+
+@pytest.mark.parametrize('value', ['false', 'true', 0, 1, None])
+def test_photo_consent_requires_json_boolean(users, value):
+    a,_,_,_,_,_=users
+    saved=meal(a)
+    assert a.post('/community/posts',json={'meal_id':saved['id'],'show_photo':value}).status_code==422
+    assert len(a.get('/community/eligible-meals').json()['items'])==1
+
+
 def test_public_photo_metadata_and_rollback(users,tmp_path,monkeypatch):
     from backend.app.models_chat import ChatAttachment
     a,b,au,bu,engine,patch=users

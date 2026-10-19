@@ -86,7 +86,7 @@ function Post({post,busy,onReact,onDelete}) {
     <div className="community-meal"><strong>{mealSummary(post.meal.items)}</strong><button className="community-text" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{expanded?'구성 접기':'구성 보기'}</button>
       <p className="community-nutrition"><strong>{number(totals.cal)} kcal</strong><span>탄 {number(totals.carbs)}g</span><span>단 {number(totals.protein)}g</span><span>지 {number(totals.fat)}g</span></p>
       {expanded&&<ul className="community-food-list">{post.meal.items.map((item,index)=><li key={`${item.class_id}-${index}`}><span>{displayFoodName(item.food_name)}</span><span>{item.unit} × {number(item.serving_multiplier)}</span></li>)}</ul>}</div>
-    {post.image_urls.map(url=><img className="community-post-photo" key={url} src={url} alt="공개한 식단 사진" loading="lazy"/>)}
+    {post.show_photo===true&&post.image_urls.map(url=><img className="community-post-photo" key={url} src={url} alt="공개한 식단 사진" loading="lazy"/>)}
     <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>
   </div></article>;
 }
@@ -121,8 +121,8 @@ export default function Community({api,onNavigate}) {
     const result=await api(`/community/posts/${post.id}${kind?`/reactions/${kind}`:''}`,{},'DELETE');
     setConfirm(null);setToast(`${kind?'반응을 취소했어요':'게시물을 삭제했어요'} · ${signed(result.deducted.me)} P 감점`);
     if(kind)setItems(old=>old.map(p=>p.id===post.id?result:p));else await loadFeed();await refreshStats();});}
-  async function openShare(){setSheet('share');setEligible(null);setMeal('');setPhoto(false);setComment('');try{const data=await api('/community/eligible-meals');if(alive.current)setEligible(data.items);}catch(e){setError(e.message);setSheet(null);}}
-  async function share(e){e.preventDefault();await action(async()=>{await api('/community/posts',{meal_id:meal,comment,show_photo:photo});setSheet(null);setToast('식단을 공유했어요.');await loadFeed();await refreshStats();});}
+  async function openShare(){setError('');setSheet('share');setEligible(null);setMeal('');setPhoto(false);setComment('');try{const data=await api('/community/eligible-meals');if(alive.current)setEligible(data.items);}catch(e){setError(e.message);setSheet(null);}}
+  async function share(e){e.preventDefault();if(!selected)return;const showPhoto=photo===true&&selected.has_photo===true;await action(async()=>{await api('/community/posts',{meal_id:meal,comment,show_photo:showPhoto});setSheet(null);setToast(showPhoto?'사진과 함께 식단을 공유했어요.':'사진 없이 식단 정보만 공유했어요.');await loadFeed();await refreshStats();});}
   const selected=eligible?.find(m=>m.meal_id===meal);
   return <div className="community-page"><div className="community-heading"><div><p className="community-eyebrow">TOGETHER, A BETTER MEAL</p><h1>커뮤니티</h1><p>오늘의 한 끼를 나누고, 함께 건강해져요.</p></div><div className="community-mobile-chips"><button onClick={()=>setSheet('points')}>{number(points?.balance)} P</button><button onClick={()=>{setSheet('ranking');refreshRank();}}>이번 주 {rank?.me.rank?`${rank.me.rank}위`:'집계 전'}</button></div></div>
     {error&&<p className="community-error" role="alert">{error}</p>}{toast&&<p className="community-toast" role="status">{toast}</p>}
@@ -132,7 +132,11 @@ export default function Community({api,onNavigate}) {
       {!loading&&cursor&&<button className="community-more" onClick={()=>loadFeed(true)}>더 보기</button>}</section>
       <aside className="community-sidebar"><Points data={points}/><Ranking data={rank} onRefresh={refreshRank}/></aside></div>
     <button className="community-fab" aria-label="식단 공유하기" onClick={openShare}>+</button>
-    {sheet==='share'&&<Modal error={error} title="나의 한 끼 공유하기" onClose={()=>{if(!busy)setSheet(null);}}><form onSubmit={share}>{eligible===null?<p>공유할 식단을 불러오는 중이에요.</p>:eligible.length?<><label>공유할 식단<select required value={meal} onChange={e=>{setMeal(e.target.value);setPhoto(false);}}><option value="">식단을 선택해 주세요</option>{eligible.map(m=><option key={m.meal_id} value={m.meal_id}>{m.meal_date} {mealNames[m.meal_type]} · {mealSummary(m.items)}</option>)}</select></label><label>한 끼 이야기<textarea maxLength={300} value={comment} onChange={e=>setComment(e.target.value)} placeholder="오늘의 식사는 어땠나요?"/></label><p className="community-counter">{comment.length} / 300</p><label className="community-photo-check"><input type="checkbox" checked={photo} disabled={!selected?.has_photo} onChange={e=>setPhoto(e.target.checked)}/>식단 사진을 다른 회원에게 공개합니다</label><p className="community-disclosure">이름, 식단 날짜·구분, 음식과 영양 정보가 로그인한 회원에게 보입니다. 사진은 체크한 경우에만 공개되며, 위치 등 사진 정보는 지운 뒤 공개됩니다. 공유한 뒤 식단을 수정하면 게시물에도 바로 반영됩니다.</p><button className="community-primary" disabled={busy||!meal}>{busy?'공유 중…':'공유하기'}</button></>:<div className="community-empty"><p>아직 공유하지 않은 식단이 없어요.</p><button onClick={()=>{setSheet(null);onNavigate('음식 추가');}} type="button">식단 기록하러 가기</button></div>}</form></Modal>}
+    {sheet==='share'&&<Modal error={error} title="나의 한 끼 공유하기" onClose={()=>{if(!busy)setSheet(null);}}>
+      <ShareMealForm eligible={eligible} meal={meal} comment={comment} photo={photo} busy={busy}
+        onMeal={value=>{setMeal(value);setPhoto(false);}} onComment={setComment} onPhoto={setPhoto} onSubmit={share}
+        onRecord={()=>{setSheet(null);onNavigate('음식 추가');}}/>
+    </Modal>}
     {(sheet==='points'||sheet==='ranking')&&<Modal error={error} title={sheet==='points'?'내 포인트':'주간 랭킹'} onClose={()=>setSheet(null)}>{sheet==='points'?<Points data={points}/>:<RankingList data={rank}/>}</Modal>}
     {confirm&&<Modal error={error} alert title={confirm.kind?'반응을 취소하면 포인트가 감점돼요':'게시물을 삭제하면 받은 포인트가 감점돼요'} onClose={()=>{if(!busy)setConfirm(null);}}>
       {confirm.me!==0?<p className="community-confirm-amount">내 포인트 <strong>{signed(confirm.me)} P</strong> <small>감점 예정</small></p>:<p>이 게시물로 받은 포인트가 없어요.</p>}
@@ -141,4 +145,29 @@ export default function Community({api,onNavigate}) {
       <div className="community-confirm-buttons"><button data-initial-focus disabled={busy} onClick={()=>setConfirm(null)}>{confirm.kind?'취소하지 않기':'삭제하지 않기'}</button><button className="community-danger" disabled={busy} onClick={remove}>{busy?'처리 중…':confirm.kind?'감점하고 취소':'감점하고 삭제'}</button></div>
     </Modal>}
   </div>;
+}
+
+// 기록 유무와 관계없이 같은 폼을 보여 주고, 사진 동의와 식단 정보 공유를 구분한다.
+export function ShareMealForm({eligible,meal,comment,photo,busy,onMeal,onComment,onPhoto,onSubmit,onRecord}) {
+  const loading=eligible===null, empty=!loading&&eligible.length===0;
+  const selected=eligible?.find(item=>item.meal_id===meal);
+  const showPhoto=photo===true&&selected?.has_photo===true;
+  const photoHint=!selected?'식단을 선택하면 사진 공개 여부를 설정할 수 있어요.'
+    :!selected.has_photo?'이 식단에는 사진이 없어요. 식단 정보만 공유됩니다.'
+    :showPhoto?'사진 공개: 식단 정보와 사진을 함께 공유합니다.'
+    :'사진 비공개: 사진을 제외한 식단 정보만 공유합니다.';
+  return <form onSubmit={onSubmit} aria-busy={loading||busy}>
+    {loading&&<p role="status">공유할 식단을 불러오는 중이에요.</p>}
+    {empty&&<div className="community-share-empty"><p>공유할 수 있는 식단이 없어요. 식사 기록이 없거나, 기록한 식단을 이미 공유했어요.</p><button className="community-primary" type="button" onClick={onRecord}>식단 기록하러 가기</button></div>}
+    <label>공유할 식단<select required value={meal} disabled={loading||empty||busy} onChange={e=>onMeal(e.target.value)}>
+      <option value="">{empty?'공유할 수 있는 식단이 없어요':'식단을 선택해 주세요'}</option>
+      {eligible?.map(item=><option key={item.meal_id} value={item.meal_id}>{item.meal_date} {mealNames[item.meal_type]} · {mealSummary(item.items)}</option>)}
+    </select></label>
+    <label>한 끼 이야기<textarea disabled={loading||empty||busy} maxLength={300} value={comment} onChange={e=>onComment(e.target.value)} placeholder="오늘의 식사는 어땠나요?"/></label>
+    <p className="community-counter">{comment.length} / 300</p>
+    <label className="community-photo-check"><input type="checkbox" checked={showPhoto} disabled={busy||!selected?.has_photo} onChange={e=>onPhoto(e.target.checked)}/>식단 사진도 함께 공개합니다 (선택)</label>
+    <p className="community-photo-status" role="status">{photoHint}</p>
+    <p className="community-disclosure">공유하기를 누르면 이름, 식단 날짜·구분, 음식과 영양 정보, 작성한 이야기가 로그인한 회원에게 공개됩니다. 사진은 위 항목을 체크한 경우에만 공개되며, 위치 등 사진 정보는 지운 뒤 공개됩니다. 공유한 뒤 식단을 수정하면 게시물에도 바로 반영됩니다.</p>
+    <button className="community-primary" disabled={busy||!selected}>{busy?'공유 중…':showPhoto?'사진과 함께 공유하기':'사진 없이 식단 공유하기'}</button>
+  </form>;
 }

@@ -14,7 +14,7 @@ class RequestModel(BaseModel):
 class CommunityPostRequest(RequestModel):
     meal_id: str = Field(min_length=1, max_length=36)
     comment: str = Field(default='', max_length=300)
-    show_photo: bool = False
+    show_photo: bool = Field(default=False, strict=True)
 
 
 # NutritionRequest: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.

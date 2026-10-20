@@ -1,3 +1,5 @@
+> **문서 상태 (2026-10-20): 기존 설계·업무지시 참고본.** 현재 구현·후속 결정은 [현재 구현 기준](CURRENT_IMPLEMENTATION.md)과 [개발 규칙](DEVELOPMENT_RULES.md)을 우선한다. 본문의 과거 Stage 진행 상태·닉네임 30일 제한·체형 이미지 금지·Streamlit 관리자·모델 개선 계획은 후속 결정과 충돌하면 적용하지 않는다. 미확정 운영 정책은 [결정 대기 사항](PENDING_DECISIONS.md)을 따른다.
+
 # CaloDetect — Codex CaloPoint · Growth · Reward 업무지시서 (v11 보충, v3)
 > 내부 프로젝트 버전: CaloDetect 2.0
 > 기준일: 2026-10-19

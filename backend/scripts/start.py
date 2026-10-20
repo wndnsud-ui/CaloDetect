@@ -8,10 +8,12 @@ from backend.scripts.seed_local_test_account import local_test_account_enabled
 for command in [
     [sys.executable, '-m', 'alembic', '-c', 'backend/alembic.ini', 'upgrade', 'head'],
     [sys.executable, '-m', 'backend.scripts.seed_foods'],
+    [sys.executable, '-m', 'backend.scripts.seed_reward_items'],
 ]:
     subprocess.run(command, check=True)
 if local_test_account_enabled():
     subprocess.run([sys.executable, '-m', 'backend.scripts.seed_local_test_account'], check=True)
+    subprocess.run([sys.executable, '-m', 'backend.scripts.seed_local_admin'], check=True)
 
 # 모든 준비가 성공한 후 컨테이너 외부 연결을 받을 0.0.0.0:8000에서 API를 실행한다.
 subprocess.run([sys.executable, '-m', 'uvicorn', 'backend.app.main:app',

@@ -1,5 +1,7 @@
 # 아키텍처
 
+> 2026-10-20 사용자 결정: 모델 개선(재학습)·관리자 재학습 QA·모델 개선 동의는 폐기했고 관련 API·Streamlit `admin_qa.py`·`retraining_samples` 테이블·동의 컬럼을 삭제했다. 아래 내용 중 해당 부분은 과거 기록이다.
+
 React 사용자 웹 → FastAPI API/서비스 → SQLAlchemy → PostgreSQL.
 FastAPI Vision 서비스는 원본 best.pt와 data.yaml을 사용한다. 영양 서비스는 기존 CSV의 class_id/food_name 연결을 유지한다.
 사용자 승인(2026-10-13)으로 구형 독립 app.py와 전용 실행 스크립트는 제거했다. Streamlit 그래프 서버(streamlit/charts.py)와 관리자 QA(streamlit/admin_qa.py)는 유지한다. 관리자 QA는 인증된 FastAPI /admin/* API를 호출하며 DB 직접 쓰기를 허용하지 않는다.

@@ -3,11 +3,12 @@
 // 오늘은 상위 컴포넌트의 최신 상태를 사용하고 과거 날짜는 월별 API에서 조회한다. 빠른 날짜 변경 시 오래된 응답은 무시한다.
 import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
-import {Ring, Bowl, MenuIcon} from './Visuals';
+import Jibang from './Jibang';
+import {Ring, MenuIcon} from './Visuals';
 import './dashboard.css';
 
 // 회원 홈의 한국 시간 달력, 날짜별 식단 사진과 영양 합계를 표시한다.
-export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api}) {
+export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api,rewardCard,rewards}) {
  const [showTip,setShowTip]=useState(true);
  // 브라우저 현지 시간 대신 Asia/Seoul의 연·월·일을 사용해 Backend 날짜와 일치시킨다.
  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
@@ -50,8 +51,10 @@ export default function DailyHome({user,today:liveToday,onNavigate,onAddMeal,api
   <div className="daily-body">
    <div className="daily-date-controls"><label>식단 날짜 <input type="date" value={selectedDate} onChange={e=>{if(e.target.value)setSelectedDate(e.target.value)}}/></label>{selectedDate!==todayDate&&<button className="text-button" onClick={()=>setSelectedDate(todayDate)}>오늘로 돌아가기 →</button>}</div>
    {error?<div role="alert"><p className="error">{error}</p><button className="text-button" onClick={()=>setRetry(n=>n+1)}>다시 불러오기</button></div>:!today&&user?<p role="status">{selectedDate} 식단과 사진을 불러오고 있습니다…</p>:today&&today.meals.length===0?<p className="muted">{selectedDate}에 기록된 식단이 없습니다.</p>:null}
-   {showTip&&<section className="daily-record-card"><button className="daily-dismiss" aria-label="식단 기록 안내 닫기" onClick={()=>setShowTip(false)}>×</button><div className="daily-record-copy"><p className="daily-kicker">매일 조금씩, 더 건강하게</p><h2>{user?`${user.name}님,`:'오늘도,'}<br/>오늘의 한 끼를 기록해 보세요</h2><span className="daily-soft-pill">사진 한 장으로 간편하게 기록해요</span></div><div className="daily-bowl" aria-hidden="true"><Bowl/></div><button className="primary" onClick={()=>onNavigate('음식 추가')}>지금 기록할게요 <span>＋</span></button></section>}
+   {showTip&&<section className="daily-record-card"><button className="daily-dismiss" aria-label="식단 기록 안내 닫기" onClick={()=>setShowTip(false)}>×</button><div className="daily-record-copy"><p className="daily-kicker">매일 조금씩, 더 건강하게</p><h2>{user?`${user.name}님,`:'오늘도,'}<br/>오늘의 한 끼를 기록해 보세요</h2><span className="daily-soft-pill">사진 한 장으로 간편하게 기록해요</span></div><div className="daily-bowl daily-jibang" aria-hidden="true"><Jibang equipment={rewards?.equipment} level={rewards?.level||1} figureWidth={118} motion="breathe"/></div><button className="primary" onClick={()=>onNavigate('음식 추가')}>지금 기록할게요 <span>＋</span></button></section>}
    <section className="panel daily-food-card"><div className="section-heading"><h2>{selectedDate===todayDate?'오늘의 식단':`${selectedDate} 식단`}</h2><button className="text-button" onClick={()=>onNavigate('히스토리')}>기록 보기 →</button></div><div className="daily-calories"><strong>{value('cal')}</strong><span>kcal</span><small>{today?`${today.meals.length}끼 기록`:user?'불러오는 중':'로그인 후 기록'}</small></div><div className="daily-macros">{[['carbs','탄수화물'],['protein','단백질'],['fat','지방']].map(([k,label])=><span key={k}><i className={`macro-dot ${k}`}/>{label} <b>{value(k)} g</b></span>)}</div><SavedMeals meals={today?.meals||[]} onNavigate={selectedDate===todayDate?onNavigate:undefined} onAddMeal={onAddMeal}/></section>
+   {/* 리워드 지시서 v3 §11-1: 기존 홈은 그대로 두고 리워드 카드 1개만 추가한다. */}
+   {rewardCard}
    <div className="daily-detail-grid"><section className="panel daily-energy"><div className="section-heading"><h2>하루 칼로리</h2><button className="text-button" onClick={()=>onNavigate('목표 설정')}>목표 설정 →</button></div><Ring value={today?.totals.cal||0} target={today?.target_calories}/><p className="muted">{!user?'로그인하면 실제 식단 기록을 확인할 수 있어요.':today?.message||'식단 기록을 불러오고 있습니다.'}</p></section><section className="panel daily-more"><h2>함께 확인해요</h2><div className="daily-extra extra-nutrients-grid">
     <div className={`extra-card${sodiumPercent!==null&&sodiumPercent>=100?' status-danger':sodiumPercent!==null&&sodiumPercent>=80?' status-warning':''}`}><div className="extra-header"><span>나트륨</span>{sodiumPercent!==null&&<span>{sodiumPercent}%</span>}</div><strong className="extra-value">{sodiumPercent===null?'—':`${sodiumTotal.toLocaleString()} / ${sodiumLimit.toLocaleString()} mg`}</strong><small className="extra-caption">{sodiumPercent===null?'기록을 불러오면 표시됩니다.':`${sodiumPercent>=100?'기준 초과 주의':`여유: ${Math.max(0,sodiumLimit-sodiumTotal).toLocaleString()} mg`}`}</small></div>
     <div className={`extra-card${sugarPercent!==null&&sugarPercent>=100?' status-danger':sugarPercent!==null&&sugarPercent>=80?' status-warning':''}`}><div className="extra-header"><span>당류</span>{sugarPercent!==null&&<span>{sugarPercent}%</span>}</div><strong className="extra-value">{Number.isFinite(sugarTotal)?`${sugarTotal.toLocaleString()} ${sugarLimit===null?'g':`/ ${sugarLimit} g`}`:'—'}</strong><small className="extra-caption">{!Number.isFinite(sugarTotal)?'기록을 불러오면 표시됩니다.':sugarLimit===null?'목표 칼로리를 설정하면 기준을 계산합니다.':`${sugarPercent>=100?'기준 초과 주의':`여유: ${Math.max(0,sugarLimit-sugarTotal)} g`}`}</small></div>

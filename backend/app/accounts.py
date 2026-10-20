@@ -17,18 +17,19 @@ from .models import AuthSession, Profile, User, utcnow
 from .schemas import CalorieRequest, RequestModel
 from .services.profile import calculate_calorie_range
 from .security import require_service_age
+from .services import rewards
 
 router = APIRouter()
 # 회원 웹앱의 세션 쿠키 이름. 서버는 이 쿠키의 원문을 해시해 AuthSession에서 조회한다.
 COOKIE = 'calodetect_session'
-# 명시적으로 허용된 로컬 테스트에서만 쓰는 문구다. 운영 서비스 동의나 사진 모델 개선 동의를 대신하지 않는다.
+# 명시적으로 허용된 로컬 테스트에서만 쓰는 문구다. 운영 서비스 동의를 대신하지 않는다.
 LOCAL_TEST_CONSENT = (
     '로컬 개발 테스트용 가입 동의: 이 환경은 CaloDetect 기능 확인용입니다. '
     '만 18세 이상만 테스트 계정을 만들 수 있습니다. 실제 개인정보 대신 테스트용 이름·이메일을 입력해 주세요. '
     '이름, 이메일, 만 나이, 비밀번호 해시와 동의 내용이 개발 DB에 저장됩니다. '
     '로그인과 식단 기능 테스트에 사용하며 운영용 동의 문구가 아닙니다. '
     '테스트 가입에 동의하지 않으면 계정을 만들 수 없고 비회원 계산 기능은 사용할 수 있습니다. '
-    '사진의 모델 개선 활용은 이 동의에 포함하지 않습니다.'
+    '사진은 식단 기록·분석에만 사용합니다.'
 )
 
 
@@ -209,7 +210,6 @@ def policy(request: Request = None):
             'password_reset_enabled': reset_enabled(),
             'service_consent_text': consent if ready else settings.service_consent_text,
             'local_test_mode': bool(testing and ready),
-            'model_improvement_consent_text': settings.model_improvement_consent_text,
             'notice': None if ready else '서비스 이용·개인정보 동의 문구 설정 후 가입할 수 있습니다.'}
 
 
@@ -235,6 +235,7 @@ def signup(body: Signup, request: Request, response: Response, db: Session = Dep
         # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
         db.rollback()
         raise HTTPException(409, '이미 가입된 이메일입니다.')
+    rewards.signup_hook(db, user)  # 리워드 가입 온보딩(SAVEPOINT 격리)
     return open_session(db, user, response, request)
 
 
@@ -316,6 +317,7 @@ def save_profile(body: CalorieRequest, session=Depends(current_session), db: Ses
         row.data = data
     else:
         db.add(Profile(user_id=session.user_id, data=data))
+        rewards.goal_hook(db, session.user_id)  # 리워드 목표 설정 온보딩(첫 저장만)
     # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
     db.commit()
     return {'profile': data}

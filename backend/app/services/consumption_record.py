@@ -1,6 +1,6 @@
 # 확정 식사 항목의 섭취량 해석·미리보기·수정 서비스(A0).
 # 잠금 순서: 식사 항목 행 → MutationRequest 확인 → version 비교. 모든 판정은 행 잠금 이후에 한다.
-# 기존 save_meal·correction·apply_correction은 호출하지 않으며 RetrainingSample을 만들지 않는다.
+# 기존 save_meal·correction·apply_correction은 호출하지 않는다.
 import hashlib
 import json
 import logging

@@ -14,7 +14,7 @@ from backend.app.main import app
 from backend.app.db import get_db, get_engine
 from backend.app.accounts import database
 from backend.app.config import settings
-from backend.app.models import Base, Meal, MealItem, Detection, RetrainingSample, User
+from backend.app.models import Base, Meal, MealItem, Detection, User
 from backend.app.models_chat import MutationRequest
 from backend.app.consumption_api import router as consumption_router
 from backend.app.services.consumption import interpret, consumption_nutrition
@@ -51,7 +51,6 @@ def build_env(monkeypatch, tmp_path, enabled):
     app.dependency_overrides[database] = session
     monkeypatch.setattr(settings, 'age_min', 19)
     monkeypatch.setattr(settings, 'service_consent_text', 'TEST ONLY consent')
-    monkeypatch.setattr(settings, 'model_improvement_consent_text', 'TEST ONLY model consent')
     monkeypatch.setattr(settings, 'image_storage_dir', str(tmp_path))
     monkeypatch.setattr(settings, 'recommendation_enabled', True)
     monkeypatch.setattr(settings, 'recent_meal_window', 3)
@@ -510,20 +509,6 @@ def test_zero_ratio_not_counted_as_recently_eaten(env):
     put(client, skipped['id'], 0, 1)
     with Session(engine) as db:
         assert recently_consumed_food_ids(db, user['id']) == {GALBI}
-
-
-# T19: 섭취량 수정은 RetrainingSample을 만들지 않는다.
-def test_t19_no_retraining_samples(env):
-    client, engine, _ = env
-    user = account(client)
-    assert client.put('/users/me/consent', json={'model_improvement_consent': True}).status_code == 200
-    detection_id = add_detection(engine, user['id'], '갈비구이')
-    item = save(client, [{'class_id': GALBI, 'serving_multiplier': 1, 'detection_id': detection_id}])['items'][0]
-    with Session(engine) as db:
-        before = db.scalar(select(func.count()).select_from(RetrainingSample))
-    put(client, item['id'], 0.25, 1)
-    with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(RetrainingSample)) == before
 
 
 def snapshot_responses(client):

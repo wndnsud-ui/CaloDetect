@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.chat_api import router as chat_router
-from backend.app.models import Meal, MealItem, RetrainingSample, Detection
+from backend.app.models import Meal, MealItem, Detection
 from backend.app.models_chat import ChatMessage, MealDraft, ChatAttachment
 from backend.app.services import chat_record
 from backend.app.services.chat_interpret import interpret_chat, chips_for_meal_types
@@ -263,30 +263,22 @@ def test_t67_chip_sentences():
         assert result['intent'] != 'clarify', (text, result)
 
 
-# T24·T38·T50: 확정 시 탐지 ID 보존, 재학습 후보는 기존 POST /meals와 같은 규칙.
+# T24·T38·T50: 확정 시 탐지 ID 보존, 음식 수정은 기존 POST /meals와 같이 탐지 기록에만 남는다(재학습 폐기).
 def test_t24_t38_t50_confirm_matches_post_meals(env):
     client, engine, _ = env
     account(client)
-    assert client.put('/users/me/consent', json={'model_improvement_consent': True}).status_code == 200
     conversation = start(client)
     photo(client, conversation)
     say(client, conversation, f'{NAMES[GALBI]}가 아니라 {NAMES[0]}야')
-    with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(RetrainingSample)) == 0
     say(client, conversation, '다 먹었어 올려줘')
     with Session(engine) as db:
         item = db.scalars(select(MealItem)).one()
         assert item.detection_log_id and item.predicted_label == NAMES[GALBI] and item.food_id == 0
-        assert db.scalar(select(func.count()).select_from(RetrainingSample)) == 1
+        assert db.get(Detection, item.detection_log_id).corrected_label == NAMES[0]
         chat_nutrition = item.nutrition
     # 같은 입력을 기존 POST /meals로 저장한 결과와 영양 snapshot 비교.
     direct = client.post('/meals', json={'meal_type': 'lunch', 'items': [{'class_id': 0, 'serving_multiplier': 1}]}).json()
     assert direct['items'][0]['nutrition'] == chat_nutrition
-    # 같은 음식(예측과 동일)은 후보를 만들지 않는다.
-    photo(client, conversation)
-    say(client, conversation, '다 먹었어 올려줘')
-    with Session(engine) as db:
-        assert db.scalar(select(func.count()).select_from(RetrainingSample)) == 1
 
 
 # T25: 같은 client_message_id 재전송·다른 내용, upload_request_id 재전송.

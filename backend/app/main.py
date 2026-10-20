@@ -17,6 +17,7 @@ from .social_auth import router as social_router
 from .passwords import router as passwords_router
 from .kakao_auth import router as kakao_router
 from .community import router as community_router
+from .rewards import router as rewards_router
 from sqlalchemy.exc import SQLAlchemyError
 
 # 앱 객체를 Uvicorn이 backend.app.main:app으로 불러온다. 라우터 등록 순서를 그대로 유지한다.
@@ -27,6 +28,16 @@ app.include_router(social_router)
 app.include_router(passwords_router)
 app.include_router(kakao_router)
 app.include_router(community_router)
+app.include_router(rewards_router)
+from .admin_rewards import router as admin_rewards_router
+from .services.reward_exchange import startup_check as reward_exchange_startup_check
+app.include_router(admin_rewards_router)
+reward_exchange_startup_check()
+# 개발용 테스트 페이지(리워드 더미). 로컬 개발·테스트 가입 설정일 때만 경로가 생긴다.
+from backend.scripts.seed_local_test_account import local_test_account_enabled
+if local_test_account_enabled():
+    from .dev_demo import router as dev_demo_router
+    app.include_router(dev_demo_router)
 # 채팅 식사기록(섭취량 수정) 라우트는 기능 플래그가 켜졌을 때만 등록한다. 기본 false.
 if settings.chat_record_enabled:
     from .consumption_api import router as consumption_router
@@ -72,14 +83,25 @@ def health():
 # HTTP GET /system/status: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @app.get('/system/status')
 def system_status():
-    return {'stage': 'p0-integration', 'nutrition_source': 'CaloDetect_nutrition_all_matched.csv',
+    return _with_exchange({'stage': 'p0-integration', 'nutrition_source': 'CaloDetect_nutrition_all_matched.csv',
             'food_count': len(food_catalog()), 'timezone': 'Asia/Seoul',
             'available': ['food_catalog', 'nutrition_calculation', 'calorie_calculation', 'auth', 'profile_persistence',
-                          'meal_persistence', 'detection_api', 'recommendation', 'correction', 'admin_qa', 'community_feed', 'community_points'],
+                          'meal_persistence', 'detection_api', 'recommendation', 'correction', 'community_feed', 'community_points',
+                          'reward_points', 'reward_items', 'reward_nickname', 'reward_growth', 'reward_ranking'],
             'pending': ['signup_policy', 'image_storage_policy', 'recommendation_policy'],
-            'policy_tbd': ['service_consent_text', 'model_improvement_consent_text', 'image_storage', 'image_retention',
+            'policy_tbd': ['service_consent_text', 'image_storage', 'image_retention',
                            'recommendation_source', 'macro_targets', 'sugar_sodium_limits', 'community_photo_consent_text',
-                           'community_point_values', 'community_point_usage', 'community_multi_account_abuse', 'community_photo_copy_retention']}
+                           'community_point_values', 'community_point_usage', 'community_multi_account_abuse', 'community_photo_copy_retention',
+                           'reward_point_values', 'reward_missions', 'reward_goal_calorie_floor', 'reward_nickname_blocklist',
+                           'reward_character_sheet', 'reward_character_name', 'reward_photo_capture_time',
+                           'reward_exchange_partner', 'reward_exchange_global_cap', 'reward_abuse_detection']})
+
+
+# 리워드 Stage C: REWARD_EXCHANGE_ENABLED와 월 전체 상한이 모두 설정됐을 때만 available에 reward_exchange를 넣는다.
+def _with_exchange(status):
+    if settings.reward_exchange_active:
+        status['available'].append('reward_exchange')
+    return status
 
 
 # 실제 DB 연결을 검사하고 실패 시 내부 예외 대신 일반 연결 안내를 반환한다.

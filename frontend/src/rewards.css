@@ -1,0 +1,393 @@
+/* CaloPoint·Growth·Reward 화면(리워드 지시서 v3 §11). 기존 색: 바탕 #F4F7F5, 글자 #193C32, 주 버튼 #1C4B3A.
+   포인트는 골드(#8A6420 글자 / #E9B949 막대), XP는 녹색(#178366). 지방이 대사에만 손글씨(Gaegu). */
+@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@700&display=swap');
+
+.rewards-page,.reward-home-card,.reward-dialog,.reward-grant,.nickname-step{--rw-ink:#193C32;--rw-sub:#60776F;--rw-gold:#8A6420;--rw-gold-bar:#E9B949;--rw-xp:#178366;--rw-line:#E3E8DE;--rw-soft:#EAF5EE;color:var(--rw-ink)}
+.reward-eyebrow{margin:0;font-size:10px;font-weight:700;letter-spacing:2.5px;color:#68865A}
+.reward-small{margin:0;font-size:12px;color:#60776F;line-height:1.6}
+.reward-small.center,.center{text-align:center}
+.reward-section-title{margin:6px 0 0;font-size:15px;font-weight:800;letter-spacing:-.4px}
+.reward-soft-note{margin:0;font-size:12px;color:#4F6559;background:#EFF2E9;border-radius:12px;padding:10px 12px;line-height:1.6}
+.reward-expire{margin:4px 0 0;display:inline-block;font-size:11px;font-weight:700;color:#8A6420;background:#FBF1DC;border-radius:999px;padding:3px 10px}
+.reward-points{margin:0;font-size:34px;font-weight:800;letter-spacing:-1.4px;color:#8A6420;line-height:1.1}
+.reward-points span{font-size:16px;margin-left:2px}
+.reward-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.reward-actions .primary,.reward-actions .outline{margin-top:0}
+.menu-points{margin-left:auto;font-size:11px!important;opacity:1!important;font-weight:700;color:#8A6420;background:#FBF1DC;padding:2px 8px;border-radius:999px}
+
+/* 진행률 막대: XP 녹색 / 포인트 골드. 숫자는 옆 글자로 함께 적는다. */
+.reward-bar{height:9px;background:#EAF5EE;border-radius:999px;overflow:hidden}
+.reward-bar span{display:block;height:100%;background:#178366;border-radius:999px;transition:width .4s}
+.reward-bar.gold{background:#FBF1DC}.reward-bar.gold span{background:#E9B949}
+
+/* 지방이 장면·캐릭터 */
+.jb-scene{position:relative;overflow:hidden;border-radius:22px;aspect-ratio:3/4;background:#F7F1E6;isolation:isolate}
+.jb-bg{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+.jb-scene-figure{position:absolute;left:50%;bottom:9%;transform:translateX(-50%)}
+.jb-scene-badge{position:absolute;left:12px;top:12px;background:rgba(255,255,255,.92);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;max-width:calc(100% - 24px)}
+.jb-bubble{position:absolute;right:12px;top:46px;margin:0;background:#fff;border-radius:16px;padding:5px 13px;font-family:'Gaegu',cursive;font-size:19px;color:#16805C;box-shadow:0 4px 14px rgba(37,74,54,.1);max-width:70%}
+.jb-bubble.static{position:static;display:inline-block;box-shadow:none;background:transparent;padding:0;max-width:none}
+.jb-bubble.center{display:block;text-align:center}
+.jb-figure{position:relative;transform-origin:50% 100%}
+.jb-figure>img:first-child{width:100%;height:100%;display:block;user-select:none}
+.jb-deco{position:absolute;height:auto;pointer-events:none}
+.jb-figure svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+@keyframes jbBreathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.03,.955)}}
+@keyframes jbHop{0%,100%{transform:translateY(0) scale(1,1)}30%{transform:translateY(-12px) scale(.98,1.03)}55%{transform:translateY(0) scale(1.04,.95)}}
+@keyframes jbSlide{0%{opacity:0;transform:translateX(24px)}100%{opacity:1;transform:translateX(0)}}
+@keyframes bg5Twinkle{0%,100%{opacity:.4;transform:scale(.7)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes bg5Spin{to{transform:rotate(360deg)}}
+.jb-breathe{animation:jbBreathe 2.5s ease-in-out infinite}
+/* 레벨별 움직임(시트 MOTION을 CSS로 옮김): LV.1 한숨, LV.2 숨쉬기, LV.3 흔들, LV.4 콩콩, LV.5 들썩 */
+@keyframes jbSigh{0%,20%{transform:scale(1,1)}45%,75%{transform:scale(1.04,.94) rotate(-1.2deg)}100%{transform:scale(1,1)}}
+@keyframes jbSway{0%,100%{transform:scale(1,1) rotate(0)}25%{transform:scale(1.025,.965) rotate(-2.5deg)}75%{transform:scale(.995,1.01) rotate(2deg)}}
+@keyframes jbBounce{0%,100%{transform:translateY(0) scale(1,1)}35%{transform:translateY(-10px) scale(.98,1.03) rotate(2deg)}60%{transform:translateY(0) scale(1.04,.95)}}
+@keyframes jbJoy{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(-6px) rotate(-3deg)}75%{transform:translateY(-6px) rotate(3deg)}}
+.jb-move-lv0,.jb-move-lv2{animation:jbBreathe 2.5s ease-in-out infinite}
+.jb-move-lv1{animation:jbSigh 4.2s ease-in-out infinite}
+.jb-move-lv3{animation:jbSway 2.4s ease-in-out infinite}
+.jb-move-lv4{animation:jbBounce 1.8s ease-in-out infinite}
+.jb-move-lv5{animation:jbJoy 2.6s ease-in-out infinite}
+.jb-move-hop{animation:jbHop 1.6s ease-out infinite}
+@keyframes jbSpark{0%,100%{opacity:.55;transform:scale(.7)}50%{opacity:1;transform:scale(1.2) rotate(18deg)}}
+@keyframes jbHeart{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-7px) scale(1.12)}}
+@keyframes jbLines{0%,100%{opacity:.35;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+@keyframes jbArrow{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
+@keyframes jbCloud{0%,100%{transform:translate(-4px,0)}50%{transform:translate(4px,-2px)}}
+@keyframes jbRain{0%{opacity:0;transform:translateY(-4px)}30%{opacity:1}100%{opacity:0;transform:translateY(12px)}}
+.jb-deco-spark{animation:jbSpark 1.6s ease-in-out infinite}
+.jb-deco-heart{animation:jbHeart 2s ease-in-out infinite}
+.jb-deco-lines{animation:jbLines 1.2s ease-in-out infinite}
+.jb-deco-arrow{animation:jbArrow 1.2s ease-in-out infinite}
+.jb-deco-cloud{animation:jbCloud 4s ease-in-out infinite}
+.jb-deco-rain{animation:jbRain 1.1s ease-in infinite}
+.jb-hop{animation:jbHop 1.6s ease-out infinite;transform-origin:50% 100%}
+.bg5-tw{animation:bg5Twinkle 1.8s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+.bg5-spin{animation:bg5Spin 40s linear infinite;transform-box:fill-box;transform-origin:center}
+@media (prefers-reduced-motion:reduce){.jb-breathe,.jb-hop,.jb-figure,.jb-deco,.bg5-tw,.bg5-spin,.reward-grant{animation:none}.reward-bar span{transition:none}}
+
+/* 홈 리워드 카드(§11-1) */
+.reward-home-card{margin-top:22px}
+.reward-home-card .section-heading{margin:0 0 16px}
+.reward-home-top{display:grid;grid-template-columns:minmax(150px,210px) 1fr;gap:20px;align-items:center}
+.reward-home-room{border:0;padding:0;background:none;border-radius:22px;display:block}
+.reward-home-room .jb-scene{max-height:280px}
+.reward-home-stats{display:flex;flex-direction:column;gap:8px;min-width:0}
+.reward-level-name{margin:0;font-size:15px;font-weight:800}
+.reward-balance{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:6px}
+.reward-today{margin:0;font-size:13px;font-weight:700;color:#178366}
+.reward-flame{display:inline-flex}
+.reward-goal{display:flex;flex-direction:column;gap:7px;width:100%;margin-top:16px;border:1px solid #F1E2BD;background:#FFFBF2;border-radius:14px;padding:14px 16px;text-align:left;color:inherit}
+.reward-goal-head,.reward-goal-foot{display:flex;justify-content:space-between;gap:10px;font-size:13px;flex-wrap:wrap}
+.reward-goal-head b{color:#8A6420}.reward-goal-foot{font-size:12px;color:#60776F}
+.reward-actions-list{margin-top:16px}
+.reward-actions-list>p{margin:0 0 6px;font-size:13px;font-weight:800}
+.reward-actions-list ul,.reward-today-list ul,.reward-grant-items,.growth-xp,.growth-missions,.levelup-unlocks,.reward-ledger ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.reward-actions-list li{display:flex;align-items:center;gap:10px;font-size:13px;padding:8px 10px;border-radius:10px;background:#F4F7F5}
+.reward-actions-list li>span:nth-child(2){flex:1;display:flex;flex-direction:column}
+.reward-actions-list small{font-size:11px;color:#60776F}
+.reward-actions-list li b{font-size:12px;color:#8A6420;white-space:nowrap}
+.reward-actions-list .dot{margin:0;background:#E9B949}
+.reward-today-list{margin-top:12px;font-size:13px}
+.reward-today-list summary{cursor:pointer;color:#285b43;font-weight:600}
+.reward-today-list li,.reward-grant-items li,.growth-xp li,.reward-ledger li{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.reward-protect{margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FFF6E5;border-radius:12px;padding:12px 14px;font-size:13px}
+.reward-protect p{margin:0;flex:1;min-width:200px}
+.reward-protect .outline{margin:0}
+.nickname-prompt{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#EAF5EE;border:1px solid #CDE8D9;border-radius:14px;padding:12px 14px;margin-top:16px}
+.nickname-prompt p{margin:0;flex:1;min-width:180px;display:flex;flex-direction:column;font-size:13px}
+.nickname-prompt p span{font-size:12px;color:#60776F;word-break:keep-all}
+.nickname-prompt .primary{margin:0;padding:9px 16px}
+.nickname-prompt-close{border:0;background:none;font-size:20px;width:36px;height:36px;color:#60776F}
+
+/* 창·오버레이(§11-8) */
+.reward-overlay{position:fixed;inset:0;z-index:60;background:rgba(25,60,50,.38);display:flex;align-items:center;justify-content:center;padding:16px}
+.reward-dialog{position:relative;width:min(440px,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 18px 40px rgba(37,74,54,.2)}
+.reward-dialog h2{margin:0;font-size:21px;letter-spacing:-.8px;line-height:1.4;padding-right:28px}
+.reward-dialog .primary,.reward-dialog .outline{margin-top:0;min-height:48px}
+.reward-dialog-close{position:absolute;right:14px;top:12px;width:36px;height:36px;border:0;background:none;font-size:22px;color:#60776F}
+.reward-dialog .jb-scene{max-height:300px;width:min(240px,100%);align-self:center}
+.first-earned{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;background:#F4F7F5;border-radius:14px;padding:10px}
+.first-earned div{display:flex;flex-direction:column;align-items:center;font-size:11px;color:#60776F}
+.first-earned b{font-size:15px;color:#8A6420}
+.first-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.first-items button,.room-decos button{min-height:58px;border-radius:14px;border:1px solid #E3E8DE;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;color:#193C32}
+.first-items button b{color:#8A6420}
+.first-items button.selected,.room-decos button.selected{background:#EAF5EE;border:2px solid #178366}
+.levelup-unlocks li{background:#F4F7F5;border-radius:10px;padding:9px 12px;font-size:13px}
+.purchase .mall-item-art{align-self:center;width:140px;height:150px}
+.purchase-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0}
+.purchase-sum div{background:#F4F7F5;border-radius:12px;padding:10px;text-align:center}
+.purchase-sum dt{font-size:11px;color:#60776F}.purchase-sum dd{margin:4px 0 0;font-weight:800}
+
+/* 기록 직후 보상(§11-2): PC 오른쪽 패널, 모바일 전체 화면 */
+.reward-grant{position:fixed;right:24px;top:24px;z-index:55;width:360px;max-height:calc(100vh - 48px);overflow:auto;background:#fff;border:2px solid #CDE8D9;border-radius:28px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 40px rgba(37,74,54,.18);animation:jbSlide .5s ease-out both}
+.reward-grant-head{display:flex;justify-content:space-between;align-items:center}
+.reward-grant-head .reward-dialog-close{position:static}
+.reward-grant-badges{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.badge-points,.badge-xp{font-size:22px;font-weight:800;padding:5px 16px;border-radius:999px}
+.badge-points{color:#5C3F00;background:#F5D27A}.badge-xp{color:#fff;background:#178366}
+.reward-grant-mood{width:150px;height:auto;border-radius:24px;align-self:center}
+.reward-grant-items li{background:#F4F7F5;border-radius:10px;padding:8px 12px}
+.reward-meal-cells{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;text-align:center}
+.reward-meal-cells div{border-radius:12px;padding:7px 0;display:flex;flex-direction:column;font-size:12px}
+.reward-meal-cells small{font-size:11px}
+.reward-meal-cells .is-done{background:#EAF5EE;color:#16805C}
+.reward-meal-cells .is-now{background:#1C4B3A;color:#fff}
+.reward-meal-cells .is-open{border:2px dashed #B9D3C5;color:#60776F}
+.reward-grant-level{background:#F3F7F4;border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:7px}
+.reward-grant-level p:first-child{margin:0;display:flex;justify-content:space-between;font-size:13px}
+.reward-grant .outline{margin:0}
+.reward-skip{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:55;display:flex;align-items:center;gap:8px;background:#193C32;color:#fff;border-radius:999px;padding:8px 10px 8px 18px;font-size:13px;max-width:calc(100% - 32px)}
+.reward-skip .text-button{color:#fff;font-size:18px;padding:4px 8px}
+
+/* 닉네임(§11-11) */
+.nickname-step{background:#fff;border-radius:24px;padding:28px 26px;width:min(440px,100%);display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 40px rgba(37,74,54,.2)}
+.nickname-step h2{margin:0;font-size:22px;letter-spacing:-.8px}
+.nickname-step .primary,.nickname-dialog .primary{margin-top:4px;min-height:48px}
+.nickname-progress{margin:0;font-size:11px;font-weight:700;color:#178366;letter-spacing:1px}
+.nickname-hello{display:flex;align-items:center;gap:12px;background:#F4F7F5;border-radius:18px;padding:10px 14px}
+.nickname-field{display:flex;flex-direction:column;gap:4px}
+.nickname-field label{font-size:13px;font-weight:700}
+.nickname-input-row{position:relative}
+.nickname-input-row input{width:100%;padding:12px 56px 12px 12px;border:1px solid #cfd9d2;border-radius:10px}
+.nickname-count{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:12px;color:#60776F}
+.nickname-rule{margin:0;font-size:11px;color:#60776F}
+.nickname-status{margin:0;min-height:18px;font-size:12px}
+.nickname-status.is-ok{color:#16805C}.nickname-status.is-error{color:#B4462F}
+.nickname-suggest{align-self:flex-start}
+.nickname-dialog{display:flex;flex-direction:column;gap:12px}
+.account-nickname{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.account-nickname-label{margin:0;font-size:13px;font-weight:700}
+.account-nickname-value{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nickname-badge{font-size:11px;background:#FBF1DC;color:#8A6420;border-radius:999px;padding:2px 9px}
+.account-help{display:block;font-size:11px;color:#60776F;margin:-4px 0 6px}
+
+/* 리워드 메뉴 탭(§11-5) */
+.rewards-page{display:flex;flex-direction:column;gap:20px}
+.reward-tabs,.reward-chips{display:flex;gap:6px;flex-wrap:wrap}
+.reward-tabs button,.reward-chips button{border:1px solid #E3E8DE;background:#fff;color:#5E7265;padding:10px 16px;border-radius:999px;font-size:13px;min-height:44px}
+.reward-tabs button.active,.reward-chips button.active{background:#1C4B3A;border-color:#1C4B3A;color:#fff;font-weight:700}
+.mall-summary{display:grid;grid-template-columns:minmax(180px,260px) 1fr;gap:24px;align-items:center}
+.mall-goal{display:flex;flex-direction:column;gap:7px}
+.mall-goal p:first-child{margin:0;display:flex;justify-content:space-between;font-size:13px;gap:8px}
+.mall-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+.mall-item{background:#fff;border:1px solid #E3E8DE;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.mall-item.is-equipped{border:2px solid #178366}
+.mall-item h3{margin:4px 0 0;font-size:15px}
+.mall-price{margin:0;font-weight:800;color:#8A6420}
+.mall-item .primary,.mall-item .outline{margin-top:auto;min-height:44px}
+.mall-item-art{display:flex;align-items:flex-end;justify-content:center;height:118px;background:#F4F7F5;border-radius:16px;overflow:hidden;position:relative}
+.mall-item-art.bg{display:block}
+.mall-item-art.bg .jb-bg{position:absolute;z-index:0}
+.mall-item-art:not(.bg){align-items:center}
+.mall-soon h3{margin:0 0 8px}
+.reward-ledger summary{cursor:pointer;font-weight:700}
+.reward-ledger ul{margin:12px 0}
+.reward-ledger li{padding:8px 0;border-bottom:1px solid #EEF1E9}
+.reward-ledger li span{display:flex;flex-direction:column}
+.reward-ledger small{font-size:11px;color:#60776F}
+.reward-ledger b{color:#16805C}.reward-ledger b.minus{color:#8A4B2F}
+
+.room-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px;align-items:start}
+.room-stage{display:flex;flex-direction:column;gap:14px}
+.room-scene{width:min(420px,100%);align-self:center}
+.room-apply{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.room-apply .primary{margin:0;min-height:48px}
+.room-name{margin:0;font-size:17px;font-weight:800}
+.room-side{display:flex;flex-direction:column;gap:14px}
+.room-side h2,.room-side .section-heading{margin:0 0 12px}
+.room-thumbs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.room-thumbs button{border:1px solid #E3E8DE;background:#F7F8F4;border-radius:16px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#193C32;font-size:12px}
+.room-thumbs button.selected{background:#EAF5EE;border:2px solid #178366}
+.room-thumbs small{font-size:11px;color:#60776F;text-align:center}
+.room-thumb{display:block;width:100%;aspect-ratio:3/4;border-radius:12px;overflow:hidden;position:relative}
+.room-thumb .jb-bg{position:absolute;z-index:0}
+.room-thumb.locked{filter:grayscale(.7);opacity:.7}
+.room-decos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.room-decos small{font-size:11px;color:#60776F}
+
+.growth-head{display:flex;flex-direction:column;gap:18px}
+.growth-head h1{margin:6px 0 0;font-size:27px;letter-spacing:-1.2px;line-height:1.3}
+.growth-meter{display:flex;flex-direction:column;gap:6px;max-width:440px}
+.growth-meter p{margin:0;display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
+.growth-meter span{color:#60776F}
+.growth-roadmap{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.growth-roadmap li{background:#F4F7F5;border-radius:20px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.growth-roadmap li.is-now{background:#EAF5EE;outline:2px solid #178366}
+.growth-roadmap b{font-size:13px}.growth-roadmap small{font-size:11px;color:#60776F}
+.growth-roadmap em{font-style:normal;font-size:11px;font-weight:700;color:#8A6420}
+.growth-roadmap li.is-now em{color:#fff;background:#178366;padding:2px 8px;border-radius:999px}
+.growth-roadmap li.is-done em{color:#16805C}
+.growth-thumb{width:96px}
+.growth-thumb .jb-scene{border-radius:14px}
+.growth-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:20px;align-items:start}
+.growth-grid .panel{display:flex;flex-direction:column;gap:12px}
+.growth-grid h2{margin:0;font-size:17px}
+.growth-grid .section-heading{margin:0}
+.growth-streak{margin:0;display:flex;align-items:center;gap:8px;font-size:24px}
+.growth-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;text-align:center}
+.growth-week small{display:block;font-size:11px;color:#60776F;margin-bottom:4px}
+.growth-week .day{display:flex;height:34px;border-radius:10px;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.growth-week .recorded{background:#178366;color:#fff}
+.growth-week .protected{background:#9FD3B0;color:#193C32}
+.growth-week .missed{background:#EEF1E9}
+.growth-week .today,.growth-week .future{border:2px dashed #B9D3C5;color:#8A6420}
+.growth-week .is-today{outline:3px solid #CDE8D9}
+.growth-missions li{display:flex;justify-content:space-between;gap:10px;font-size:12px;background:#F4F7F5;border-radius:10px;padding:9px 12px}
+.growth-missions li span:first-child{display:flex;flex-direction:column}
+.growth-missions li.done{background:#EAF5EE}
+.growth-xp li.muted{color:#60776F}
+.growth-rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.growth-rank li{display:flex;gap:12px;align-items:center;padding:8px 10px;border-radius:12px}
+.growth-rank li.is-me{background:#EAF5EE;font-weight:700}
+.growth-rank .name{flex:1;min-width:0;overflow-wrap:anywhere}
+.growth-rank .medal{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#60776F}
+.growth-rank .m1{background:#F5D27A;color:#5C3F00}.growth-rank .m2{background:#E3E8DE;color:#193C32}.growth-rank .m3{background:#F2DCCB;color:#193C32}
+.growth-me{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;border-top:1px solid #EEF1E9;padding-top:12px}
+.growth-me .outline{margin:0;min-height:44px}
+.growth-grid .streamlit-chart{width:100%;border:0}
+
+@media(max-width:1000px){.room-layout,.mall-summary{grid-template-columns:1fr}}
+@media(max-width:760px){
+  .reward-home-top{grid-template-columns:1fr}
+  .reward-home-room .jb-scene{max-height:240px;width:min(200px,100%);margin:0 auto}
+  .reward-grant{inset:0;width:auto;max-height:none;border-radius:0;border:0;padding:20px 18px 32px}
+  .reward-dialog{border-radius:20px;padding:20px}
+  .first-items{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .room-thumbs{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.growth-roadmap li:not(.is-now):not(.is-done) .growth-thumb{filter:grayscale(1);opacity:.55}
+
+/* 홈 기록 안내 카드: 지방이를 장착한 배경 장면과 함께 보여 준다. */
+.daily-home .daily-bowl.daily-jibang{overflow:visible}
+.daily-jibang .jb-scene{height:100%;width:auto;aspect-ratio:3/4;box-shadow:0 8px 24px rgba(37,74,54,.12)}
+
+/* Keep the compact home speech bubble centered and Korean words together. */
+.reward-home-room .jb-bubble{left:10px;right:10px;top:48px;max-width:none;padding:9px 10px;border-radius:14px;font-size:17px;font-weight:700;line-height:1.35;letter-spacing:0;word-break:keep-all;overflow-wrap:normal;text-wrap:balance;text-align:center}
+.reward-home-room .jb-bubble::after{content:'';position:absolute;left:50%;bottom:-6px;width:12px;height:12px;background:#fff;transform:translateX(-50%) rotate(45deg);border-radius:0 0 3px 0}
+
+/* 개발용 테스트 페이지 */
+.dev-demo{display:flex;flex-direction:column;gap:16px}
+.dev-demo h1{margin:0}
+.dev-demo .panel{display:flex;flex-direction:column;gap:16px}
+.dev-demo-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}
+.dev-demo-fields label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+.dev-demo-fields input{padding:11px 12px;border:1px solid #cfd9d2;border-radius:10px}
+.dev-demo-fields small{font-size:11px;font-weight:400;color:#60776F}
+.dev-demo-result dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin:0}
+.dev-demo-result dl div{background:#F4F7F5;border-radius:12px;padding:12px;text-align:center}
+.dev-demo-result dt{font-size:12px;color:#60776F}.dev-demo-result dd{margin:4px 0 0;font-size:20px;font-weight:800}
+
+/* Coaching concepts: preview only, with no redemption action. */
+.coaching-preview{display:grid;gap:18px}.coaching-intro{background:linear-gradient(120deg,#edf7f0,#fffaf0)!important}.coaching-label{font-size:11px;font-weight:700;letter-spacing:1px;color:#51816c}.coaching-intro h3{font-size:24px;margin:12px 0;color:#193c32}.coaching-intro p{margin:0 0 12px;color:#557065}.coaching-intro small{color:#758278;line-height:1.6}.coaching-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.coaching-card{padding:20px;gap:12px}.coaching-art{height:140px;background:#eaf5ef;border-radius:15px;display:flex;align-items:center;justify-content:center;color:#267b60;position:relative}.coaching-art>span{position:absolute;left:16px;top:12px;font-size:13px;opacity:.6}.coaching-art svg{width:86px;height:86px}.coaching-card:nth-child(2) .coaching-art{background:#fff3dc;color:#a87c28}.coaching-card:nth-child(3) .coaching-art{background:#eaf3fb;color:#527eaa}.coaching-card h3{font-size:18px;line-height:1.5}.coaching-description{font-size:14px;line-height:1.8;color:#60746a;margin:0}.coaching-card .reward-small{margin:0;line-height:1.6}.coaching-card .mall-price{margin:6px 0;font-size:23px}.coaching-card .mall-price small{font-size:11px;color:#88968e;font-weight:400}.coaching-card button:disabled{opacity:1;background:#f4f7f5;border-color:#e4ebe6;color:#7c8e84;cursor:default}@media(max-width:760px){.coaching-grid{grid-template-columns:1fr}.coaching-intro h3{font-size:21px}.coaching-art{height:115px}}
+/* 관리자 화면 */
+.admin-page{display:flex;flex-direction:column;gap:16px}
+.admin-page h1{margin:0}
+.admin-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.admin-stats button{display:flex;flex-direction:column;align-items:flex-start;gap:4px;border:1px solid #E3E8DE;background:#fff;border-radius:14px;padding:14px 16px;color:#193C32;min-height:44px}
+.admin-stats button span{font-size:12px;color:#60776F}.admin-stats button b{font-size:24px}
+.admin-stats button.active{border:2px solid #178366;background:#EAF5EE}
+.admin-list{display:flex;flex-direction:column;gap:10px}
+.admin-row{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 18px}
+.admin-row.status-held{border-left:0;box-shadow:inset 4px 0 0 #E9B949}
+.admin-row-main{flex:1;min-width:240px;display:flex;flex-direction:column;gap:4px}
+.admin-row-main p{margin:0}
+.admin-row-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px}
+.admin-row-title span{color:#8A6420;font-weight:700}
+.admin-signal{font-size:12px;color:#4F6559}
+.admin-badge{font-style:normal;font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;background:#EEF1E9;color:#4F6559}
+.admin-badge.first{background:#FBF1DC;color:#8A6420}
+.admin-badge.s-requested{background:#E8F0FB;color:#2F5E9E}.admin-badge.s-held{background:#FFF1D6;color:#8A6420}
+.admin-badge.s-issued{background:#EAF5EE;color:#16805C}.admin-badge.s-used{background:#E3E8DE;color:#3E5248}
+.admin-badge.s-canceled,.admin-badge.s-failed{background:#F7E4DF;color:#8A4B2F}
+.admin-row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.admin-row-actions .primary,.admin-row-actions .outline{margin:0;min-height:44px}
+.text-button.danger{color:#A2442B}
+.admin-empty h2{margin:0 0 8px}
+.admin-form{display:flex;flex-direction:column;gap:10px}
+.admin-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+.admin-form input{padding:11px 12px;border:1px solid #cfd9d2;border-radius:10px}
+.admin-search{display:flex;gap:8px;flex-wrap:wrap}
+.admin-search input{flex:1;min-width:200px;padding:11px 12px;border:1px solid #cfd9d2;border-radius:10px}
+.admin-search .primary{margin:0}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media(max-width:760px){.admin-row-actions{width:100%}.admin-row-actions .primary,.admin-row-actions .outline{flex:1}}
+
+/* Stage C: 건강상품 교환·쿠폰함 */
+.product-art{display:flex;align-items:center;justify-content:center;height:118px;border-radius:16px;background:#FBF1DC;color:#8A6420;font-size:40px;font-weight:800;overflow:hidden}
+.product-art img{width:100%;height:100%;object-fit:cover}
+.product-art.ai,.product-art.pro{background:#EEF1E9;color:#7E8F86}
+.mall-item.is-soon{opacity:.75}
+.reward-small.ok{color:#16805C;font-weight:700}
+.exchange-conditions{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;align-items:stretch}
+.exchange-conditions div{background:#F4F7F5;border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;font-size:12px;color:#60776F}
+.exchange-conditions div b{font-size:18px;color:#193C32}.exchange-conditions div.ok b{color:#16805C}.exchange-conditions div.wait b{color:#8A6420}
+.exchange-conditions b.gold{color:#8A6420}
+.exchange-conditions .reward-small{grid-column:1/-1}
+.exchange-dialog{width:min(480px,100%)}
+.exchange-product{display:flex;gap:14px;align-items:center}
+.exchange-product .product-art{width:64px;height:64px;font-size:26px;flex-shrink:0}
+.exchange-product small{font-size:12px;font-weight:700;color:#8A6420}
+.exchange-product h2{padding-right:0}
+.exchange-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.exchange-checks li::before{content:"\2713";display:inline-block;width:20px;color:#16805C;font-weight:800}
+.exchange-checks li.no::before{content:"!";color:#A2442B}
+.exchange-sum{margin:0;background:#F3F7F4;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.exchange-sum div{display:flex;justify-content:space-between;gap:10px}
+.exchange-sum dd{margin:0;font-weight:800}.exchange-sum dd.gold{color:#8A6420}
+.exchange-sum .total{border-top:1px solid #E3E8DE;padding-top:8px}
+.exchange-done-head{display:flex;gap:14px;align-items:center}
+.exchange-done-head img{width:104px;border-radius:20px}
+.exchange-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.exchange-steps li{display:flex;gap:12px;align-items:flex-start;font-size:14px}
+.exchange-steps li>span{width:26px;height:26px;border-radius:50%;border:2px dashed #B9D3C5;color:#7E9A8A;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.exchange-steps li.done>span{background:#178366;border:0;color:#fff}.exchange-steps li.now>span{border:2px solid #178366;color:#16805C}
+.exchange-steps li div{display:flex;flex-direction:column}.exchange-steps small{font-size:12px;color:#60776F}
+.coupons{display:flex;flex-direction:column;gap:16px}
+.coupons-title{margin:6px 0 4px;font-size:30px;letter-spacing:-1.5px}
+.coupon-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.coupon-summary div{background:#fff;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:6px;box-shadow:0 8px 30px rgba(37,74,54,.06)}
+.coupon-summary span{font-size:12px;color:#60776F}.coupon-summary b{font-size:26px;letter-spacing:-1px}.coupon-summary small{font-size:13px;font-weight:600;color:#60776F}
+.coupon-summary .warn{background:#FBF1DC}.coupon-summary .warn b{color:#8A6420}
+.coupon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.coupon-card{display:flex;flex-direction:column;gap:6px}
+.coupon-card-open{border:1px solid #E3E8DE;border-radius:22px;overflow:hidden;padding:0;background:#fff;text-align:left;color:#193C32;display:flex;flex-direction:column}
+.coupon-card-head{background:linear-gradient(115deg,#178366,#0C5B46);color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.coupon-card-head>span{display:flex;flex-direction:column}.coupon-card-head small{font-size:12px;color:#C6E8DB}.coupon-card-head b{font-size:19px}
+.coupon-card-head em{font-style:normal;font-size:11px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;white-space:nowrap}
+.coupon-card.s-requested .coupon-card-head,.coupon-card.s-held .coupon-card-head{background:linear-gradient(115deg,#B98A52,#8F6438)}
+.coupon-card.s-used .coupon-card-head,.coupon-card.s-canceled .coupon-card-head,.coupon-card.s-failed .coupon-card-head{background:#5F6F68}
+.coupon-card-foot{padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px}
+.coupon-card-foot>span{display:flex;flex-direction:column}.coupon-card-foot small{font-size:11px;color:#60776F}
+.coupon-card-foot .cta{grid-column:1/-1;font-weight:700;color:#16805C}
+.coupon-card>.text-button{align-self:flex-start}
+.coupon-empty{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.coupon-empty img{width:120px;border-radius:20px}
+.coupon-dialog{width:min(820px,100%);padding:0;overflow:auto}
+.coupon-dialog .reward-dialog-close{z-index:2;background:#fff;border-radius:50%}
+.coupon-dialog-body{display:flex;flex-wrap:wrap}
+.coupon-main{flex:1 1 420px;display:flex;flex-direction:column}
+.coupon-head{background:linear-gradient(115deg,#178366,#0C5B46);color:#fff;padding:20px 64px 20px 24px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.coupon-head small{font-size:12px;color:#C6E8DB}.coupon-head h2{margin:2px 0 0;color:#fff;font-size:24px;padding:0}
+.coupon-head>span{font-size:12px;font-weight:700;background:rgba(255,255,255,.18);padding:5px 12px;border-radius:999px}
+.coupon-code-box{padding:24px;display:flex;flex-direction:column;align-items:center;gap:10px;background:#fff}
+.coupon-barcode{width:100%;max-width:380px;display:block}
+.coupon-number{margin:0;font-size:16px;letter-spacing:3px;font-weight:700;word-break:break-all;text-align:center}
+.coupon-meta{margin:6px 0 0;width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:13px;text-align:center}
+.coupon-meta div{background:#F3F7F4;border-radius:12px;padding:10px}.coupon-meta div.gold{background:#FBF1DC}
+.coupon-meta dt{font-size:11px;color:#60776F}.coupon-meta dd{margin:2px 0 0;font-weight:800}
+.coupon-side{flex:1 1 280px;background:#F4F7F5;padding:24px;display:flex;flex-direction:column;gap:12px;border-left:1px solid #E3E8DE}
+.coupon-howto{margin:0;padding-left:18px;font-size:13px;line-height:1.9;color:#4F6559}
+.coupon-side .primary{margin-top:auto;min-height:48px}
+@media(max-width:760px){
+  .coupon-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .reward-overlay:has(.coupon-dialog){padding:0}
+  .coupon-dialog{width:100%;max-height:100vh;height:100vh;border-radius:0;background:#0C5B46}
+  .coupon-dialog-body{flex-direction:column;padding:56px 16px 16px;gap:12px}
+  .coupon-main{border-radius:26px;overflow:hidden;background:#fff;flex:none}
+  .coupon-side{background:transparent;border:0;color:#fff;padding:4px 4px 16px;flex:none}
+  .coupon-side .reward-section-title,.coupon-side .coupon-howto,.coupon-side .reward-small,.coupon-side .jb-bubble{color:#DDF3E8}
+  .coupon-side .primary{background:#fff;color:#1C4B3A;min-height:52px}
+  .coupon-barcode{max-width:none}
+}

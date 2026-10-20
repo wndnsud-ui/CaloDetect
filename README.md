@@ -25,6 +25,90 @@
 
 이메일 로그인에서 `이메일 기억하기`를 선택하면 로그인 성공 후 해당 브라우저에 이메일만 저장하고 다음 방문에 자동 입력합니다. 체크를 해제하면 저장된 이메일을 즉시 삭제합니다. 비밀번호는 이 기능으로 저장하지 않으며, 공용 PC에서는 체크를 해제하세요.
 
+## 리워드 · CaloPoint·Growth (2026-10-20, Stage A+B)
+
+식단 기록으로 포인트(CaloPoint)와 성장 XP를 받고 지방이를 꾸미는 기능입니다. 메뉴 **리워드**(몰·지방이 방·성장·랭킹), 홈 리워드 카드, 식단 저장 직후 보상 패널, 가입 마지막 단계 "닉네임 정하기"가 추가됩니다. 실물 교환·쿠폰함(Stage C)은 아직 없습니다. 근거와 미결 사항: [리워드 점검](docs/planning/REWARDS_PREFLIGHT.md), [결정 대기](docs/rules/PENDING_DECISIONS.md).
+
+```powershell
+# 새 테이블(20261019_01·02)과 아이템 목록 준비. Docker 실행(start.py)은 자동으로 수행합니다.
+.\.venv-backend\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
+.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_reward_items
+# (선택) 테스트 계정 리워드 더미. 버튼으로 만드는 방법은 아래 "팀원용 더미 테스트 가이드"
+.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_reward_demo --points 200 --xp 1200 --streak 5
+```
+
+**건강상품 교환·쿠폰함(Stage C, 백엔드만)**: `.env`에 `REWARD_EXCHANGE_ENABLED=true`와 `REWARD_EXCHANGE_GLOBAL_MONTHLY_CAP=100`(개발값)을 넣고 Backend를 재시작하면 `/rewards/products`·`/rewards/exchanges`·`/rewards/coupons`가 열립니다. 쿠폰 발급은 관리자 계정으로 로그인해 웹 **관리자** 메뉴에서 합니다(아래 "로컬 개발용 계정"). 로컬에서 가입 14일 조건 없이 시험하려면 `REWARD_EXCHANGE_MIN_ACCOUNT_DAYS=0`. 상품 가격·이미지는 자리표시자입니다.
+
+`.env`의 `REWARD_ONBOARDING_START_AT`(예: `2026-10-20T00:00:00+09:00`) 이후 가입자만 가입 보너스와 닉네임 정하기 단계를 받습니다. 설정이 없으면 모든 회원을 출시 전 회원으로 보고 자동 닉네임과 안내 카드를 씁니다. 성장 탭의 요일별 XP 그래프는 8502 그래프 서버가 필요합니다. 포인트·XP 수치는 개발 기본값입니다.
+
+## 로컬 개발용 계정 (관리자 · 테스트)
+
+로컬 개발 설정(`APP_ENV=development`, `LOCAL_TEST_SIGNUP=true`, `FRONTEND_ORIGIN=http://localhost:5174`)에서만 만들어지는 팀 공용 계정입니다. 운영에서는 생기지 않으며 운영 관리자는 `python -m backend.scripts.create_admin --email … --age …`로 따로 만듭니다.
+
+| 용도 | 아이디(이메일) | 비밀번호 | 만들기 |
+|---|---|---|---|
+| 관리자 (쿠폰 발급·교환 처리·닉네임 관리) | `admin@calodetect.local` | `CaloAdmin!2026` | `.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_local_admin` |
+| 일반 테스트 회원 | `test@calodetect.local` | `CaloTest!2026` | `.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_local_test_account` |
+
+Docker Backend(`backend.scripts.start`)와 `seed_test_demo`는 두 계정을 자동으로 만듭니다(이미 있으면 그대로 둠). 관리자로 http://localhost:5174 에 로그인하면 왼쪽 메뉴에 **관리자**가 생기고, 교환 신청 처리(쿠폰 발급·보류·실패 처리)와 닉네임 관리(검색·초기화)를 할 수 있습니다. 교환 기능은 `.env`의 `REWARD_EXCHANGE_ENABLED=true`, `REWARD_EXCHANGE_GLOBAL_MONTHLY_CAP=100`일 때만 열립니다.
+
+## 팀원용 더미 테스트 가이드 (리워드 · 테스트 페이지)
+
+각자 PC의 Docker DB에서 테스트 계정과 더미 데이터를 만들어 리워드 화면을 바로 확인하는 방법입니다. 로컬 개발 설정(`.env`의 `APP_ENV=development`, `LOCAL_TEST_SIGNUP=true`, `FRONTEND_ORIGIN=http://localhost:5174`)에서만 동작하며 운영에는 경로와 메뉴가 생기지 않습니다. 더미는 테스트 계정(`test@calodetect.local` / `CaloTest!2026`)에만 들어갑니다.
+
+**1. 최신 코드 받고 DB 준비** (처음 한 번, 이후 코드 받을 때마다)
+
+```powershell
+git switch feature/rewards   # 병합 후에는 develop
+git pull
+docker compose up -d db
+.\.venv-backend\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
+```
+
+**2-A. 버튼으로 만들기 (테스트 페이지)**
+
+1. 서버 3개를 켭니다: Backend 8000, 그래프 8502, 웹 5174 (아래 "새 웹 환경 실행" 참고).
+2. http://localhost:5174 에서 테스트 계정으로 로그인합니다. 테스트 계정이 없으면 `.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_local_test_account`를 먼저 실행합니다.
+3. 왼쪽 메뉴 맨 아래 **테스트**를 누릅니다(로컬 개발 설정일 때만 보입니다).
+4. 빠른 설정(처음 시작 / LV.2 직전 / LV.3 / LV.5 만렙)을 고르거나 포인트·XP·연속 기록·보호권을 입력하고 **더미 실행**을 누릅니다.
+5. 결과 카드의 버튼으로 홈 카드·지방이 방·성장·랭킹·리워드 몰을 바로 확인합니다. 레벨이 오르면 다음 화면에서 축하 창이 뜹니다.
+6. 처음 상태로 돌리려면 **리워드 초기화**를 누릅니다(리워드 기록만 지우고 식단·닉네임은 유지).
+
+**2-B. 명령으로 한 번에 만들기**
+
+테스트 계정 → 최근 30일 식단 → 리워드 아이템 → 리워드 더미를 순서대로 만듭니다. 여러 번 실행해도 같은 날 같은 값은 중복되지 않습니다.
+
+```powershell
+# Backend를 PC에서 실행하는 경우
+.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_test_demo
+# Backend도 Docker로 실행하는 경우 (코드를 받은 뒤에는 먼저 docker compose up -d --build backend)
+docker compose exec backend python -m backend.scripts.seed_test_demo
+```
+
+리워드 값만 바꾸려면 옵션을 붙입니다. `--reset`은 테스트 계정의 리워드 기록을 지우고 새로 넣습니다.
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m backend.scripts.seed_reward_demo --points 800 --xp 5200 --streak 13 --protectors 2 --reset
+```
+
+| 옵션 | 기본값 | 의미 |
+|---|---|---|
+| `--points` | 200 | 리워드 몰에서 쓸 포인트 |
+| `--xp` | 1200 | XP 총량(300 LV.2 · 1,000 LV.3 · 2,500 LV.4 · 5,000 LV.5) |
+| `--streak` | 5 | 어제까지 이어진 연속 기록 일수(오늘은 직접 기록해 확인) |
+| `--protectors` | 1 | 연속 기록 보호권 수 |
+| `--reset` | 없음 | 리워드 기록 초기화 후 다시 넣기 |
+
+**문제가 생기면**
+
+| 증상 | 확인 |
+|---|---|
+| 테스트 메뉴가 안 보임 | `.env`의 `APP_ENV=development`, `LOCAL_TEST_SIGNUP=true` 확인 후 Backend 재시작. Docker Backend는 `docker compose up -d --build backend` |
+| "테스트 계정으로 로그인하면…" 안내 | 다른 계정으로 로그인한 상태입니다. 테스트 계정으로 다시 로그인 |
+| `Local development test settings required` | 위 `.env` 설정이 개발용이 아닙니다 |
+| `relation "reward_..." does not exist` | 1단계 `alembic upgrade head`를 실행하지 않았습니다 |
+| 성장 탭 그래프가 비어 있음 | 8502 그래프 서버(`http://localhost:8502/_stcore/health` → `ok`) 확인 |
+
 ## 채팅으로 식사 기록하기 · 챗으로 섭취량 수정 (개인 테스트 브랜치, 기본 꺼짐)
 
 이미 설치한 팀원은 [챗봇 DB 업데이트 간편 가이드](docs/operations/CHAT_RECORD_MIGRATION.md)의 실행 블록을 사용하세요. 기존 환경으로 DB 백업 → migration → Backend 실행까지 진행하며 추가 패키지 설치는 필요하지 않습니다. 미확인 DB 이력 오류는 자동으로 우회하지 않습니다.
@@ -197,10 +281,10 @@ UX 변경과 미확정 정책은 [보류 및 결정 대기 사항](docs/rules/PE
 | 구성 | 현재 상태 |
 |---|---|
 | React + Vite 사용자 웹 | 첨부 이미지 기준 홈페이지, 로그인/가입, 회원정보 수정, 프로필·목표 저장, 사진 분석/수정, 식단 저장, 오늘 상태, History, 추천, 동의 설정 |
-| FastAPI | 회원·프로필·식단·탐지·추천·Correction·관리자 QA API |
-| PostgreSQL/SQLAlchemy | 회원/식단/탐지/추천/QA 영구 저장, 순차 Alembic revision 20261002_01 → 20261002_02 |
+| FastAPI | 회원·프로필·식단·탐지·추천·Correction API |
+| PostgreSQL/SQLAlchemy | 회원/식단/탐지/추천 영구 저장, 순차 Alembic revision 20261002_01 → 20261002_02 |
 | 기존 YOLO26m | best.pt 재사용. 원본 유지. JPG/PNG 분석 API, 이미지별 탐지 ID 반환 |
-| Streamlit | streamlit/charts.py 그래프 서버와 streamlit/admin_qa.py 관리자 QA 유지; 구형 독립 앱 제거 |
+| Streamlit | streamlit/charts.py 그래프 서버 유지; 구형 독립 앱 제거 |
 | 정책 미확정 | 동의 문구, 이미지 저장/보관, 추천 출처/기준·영양 목표 |
 
 가상 회원/식단/추천 결과를 실제 데이터처럼 제공하지 않습니다. 영양값은 사용자 승인된 기존 `CaloDetect_nutrition_all_matched.csv`를 사용합니다. v11의 `(1).csv`는 현재 없으며 원본 데이터를 변경하지 않았습니다. 추천 엔진은 남은 칼로리·최근 음식 반복·제외 음식·선호 분류·다양성을 적용하고 실제 데이터의 영양값과 이유를 반환합니다. 미정 탄단지 목표·당류/나트륨 기준·끼니 적합성을 평가했다고 표시하지 않습니다.
@@ -367,13 +451,13 @@ npm.cmd run dev -- --host localhost --port 5174
 
 Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 수 있습니다(로컬 개발 서버 기준 `http://[::1]:8000`). 다른 웹 포트를 쓰면 Backend `FRONTEND_ORIGIN`도 해당 주소와 일치시켜야 합니다. 컨테이너 migration은 `docker compose exec backend python -m alembic -c backend/alembic.ini upgrade head`로 실행합니다.
 
-가입·로그인 최소 연령은 사용자 승인에 따라 **만 18세**이며 `AGE_MIN` 기본값은 `18`입니다. 가입 시 입력한 만 나이를 기준으로 검사하며 본인인증이나 생년월일에 따른 자동 갱신은 제공하지 않습니다. 기존 계정의 로그인과 인증 API도 연령을 확인합니다. `SERVICE_CONSENT_TEXT`는 아직 미확정이므로 승인된 문구가 설정되어야 회원가입을 활성화합니다. 동의 문구는 가입 요청과 DB에 보존합니다. 선택 모델 개선 동의는 `MODEL_IMPROVEMENT_CONSENT_TEXT` 확정·설정 후 활성화하며, 문구 미설정 상태에서도 기존 동의 철회는 허용합니다. `IMAGE_STORAGE_DIR` 미설정이면 사진 업로드는 정책 안내를 반환하고 음식 직접 선택·식단 저장은 가능합니다. `RECOMMENDATION_ENABLED=true`, `RECENT_MEAL_WINDOW`는 기존 CSV를 추천 출처로 사용하는 개발 기준이 승인된 뒤 설정합니다. 예시 `3`을 운영 정책으로 간주하지 않습니다. 연령 외 미확정 정책은 TBD를 유지합니다.
+가입·로그인 최소 연령은 사용자 승인에 따라 **만 18세**이며 `AGE_MIN` 기본값은 `18`입니다. 가입 시 입력한 만 나이를 기준으로 검사하며 본인인증이나 생년월일에 따른 자동 갱신은 제공하지 않습니다. 기존 계정의 로그인과 인증 API도 연령을 확인합니다. `SERVICE_CONSENT_TEXT`는 아직 미확정이므로 승인된 문구가 설정되어야 회원가입을 활성화합니다. 동의 문구는 가입 요청과 DB에 보존합니다. `IMAGE_STORAGE_DIR` 미설정이면 사진 업로드는 정책 안내를 반환하고 음식 직접 선택·식단 저장은 가능합니다. `RECOMMENDATION_ENABLED=true`, `RECENT_MEAL_WINDOW`는 기존 CSV를 추천 출처로 사용하는 개발 기준이 승인된 뒤 설정합니다. 예시 `3`을 운영 정책으로 간주하지 않습니다. 연령 외 미확정 정책은 TBD를 유지합니다.
 
 음식 추가 화면의 **사진 선택** 또는 **사진 바로 찍기**로 JPG/PNG(최대 10MB)를 선택하고 미리볼 수 있습니다. 모바일 촬영은 기기의 카메라 입력을 사용하고 PC는 웹캠 권한이 필요합니다(HTTPS 또는 localhost). 사진 선택은 로그인 없이 가능하며, 선택 사진은 로그인 중 유지되고 새로고침하면 해제됩니다. 로그인 후 **사진 분석하기 → 음식/섭취량 확인 → 식단 저장하기** 순서로 기록합니다. 촬영 취소·화면 이탈 시 웹캠 사용을 종료합니다. 서버 분석에는 기존 이미지 저장 정책 설정과 YOLO 환경이 필요합니다.
 
 사진 분석은 기존 `.venv`가 있으면 그 Python/YOLO 환경을 재사용하는 worker를 호출합니다. 다른 PC에서 기존 환경이 없으면 새 환경에 설치합니다:
 
-로컬 사진 분석 테스트는 `APP_ENV=development`, `LOCAL_TEST_IMAGE_ANALYSIS=true`, `IMAGE_STORAGE_DIR=.private-uploads`로 활성화합니다. Backend를 재시작한 뒤 로그인 → 사진 선택 → **사진 분석하기**를 누릅니다. 테스트 원본 사진은 Git에서 제외된 `.private-uploads`에 저장되고 분석 결과는 개발 DB에 기록됩니다. 자동 삭제·보관기간은 아직 정하지 않았으므로 테스트 사진만 사용하며, 이 설정을 운영 정책으로 사용하지 않습니다. 루프백 접속에서만 테스트 분석·원본 조회를 허용합니다. 모델 개선 선택 동의와 관리자 QA 조건은 유지합니다. YOLO 첫 실행 안내는 JSON 결과와 분리하고 런타임 설정은 `.runtime-logs/ultralytics`에 저장합니다.
+로컬 사진 분석 테스트는 `APP_ENV=development`, `LOCAL_TEST_IMAGE_ANALYSIS=true`, `IMAGE_STORAGE_DIR=.private-uploads`로 활성화합니다. Backend를 재시작한 뒤 로그인 → 사진 선택 → **사진 분석하기**를 누릅니다. 테스트 원본 사진은 Git에서 제외된 `.private-uploads`에 저장되고 분석 결과는 개발 DB에 기록됩니다. 자동 삭제·보관기간은 아직 정하지 않았으므로 테스트 사진만 사용하며, 이 설정을 운영 정책으로 사용하지 않습니다. 루프백 접속에서만 테스트 분석·원본 조회를 허용합니다. YOLO 첫 실행 안내는 JSON 결과와 분리하고 런타임 설정은 `.runtime-logs/ultralytics`에 저장합니다.
 
 ```powershell
 .\.venv-backend\Scripts\python.exe -m pip install -r backend/requirements-vision.txt
@@ -421,17 +505,6 @@ PASSWORD_RESET_SECRET=32자이상의무작위서버비밀키
 `PASSWORD_RESET_SECRET`은 `.venv-backend\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(48))"`로 생성해 `.env`에만 저장합니다. 앱 비밀번호와 재설정 비밀키를 Git에 올리지 않습니다. `FRONTEND_ORIGIN`은 메일에서 열 실제 프런트엔드 주소여야 하며 운영 환경에서는 HTTPS가 필수입니다. 로컬은 `APP_ENV=development`와 localhost 주소를 사용합니다. 변경 후 Backend를 재시작하고, Docker Backend는 `docker compose up -d --force-recreate backend`로 환경변수를 다시 반영합니다. 설정이 완성되지 않으면 화면에 발송 준비 안내를 표시합니다.
 
 등록되지 않은 이메일·Google 계정에도 동일한 응답을 표시합니다. 실제 발송 실패는 계정 여부를 노출하지 않도록 서버에 일반 오류로 기록합니다. 요청 제한은 프로세스별로 발송 요청 IP당 10회·이메일당 3회/15분, 재설정 IP당 20회/15분, 변경 사용자당 5회/15분입니다. 여러 worker/서버를 운영하면 게이트웨이에서 공통 제한을 추가해야 합니다. 토큰은 URL fragment로 전달해 HTTP 요청·접근 로그에 담기지 않으며 화면 로드 시 주소에서 제거합니다. DB migration은 필요하지 않습니다.
-
-### 관리자 QA 실행
-
-최초 관리자는 A 담당이 내부 CLI로만 생성합니다. 공개 승격 API는 없습니다.
-
-```powershell
-.\.venv-backend\Scripts\python.exe -m backend.scripts.create_admin --email admin@example.com --age 승인된연령
-.\.venv\Scripts\python.exe -m streamlit run streamlit/admin_qa.py --server.port 8502
-```
-
-비밀번호는 CLI에서 숨김 입력합니다. 관리자 QA는 FastAPI에 로그인하고 서버의 /admin/* API만 호출합니다. 일반 사용자는 403입니다. 동의한 사용자 수정만 PENDING 후보로 등록하고, 철회 시 대기 샘플을 제외합니다. APPROVED 이력은 유지하며 재수정은 새 검수 후보로 남깁니다. 실제 재학습은 구현하지 않았습니다.
 
 ## PostgreSQL / Docker 개발 실행
 
@@ -528,7 +601,7 @@ git push
 | 담당 | 범위 |
 |---|---|
 | A · Backend Core | Auth, Profile, DB, API schema, Meal/Today, 관리자 권한, Alembic |
-| B · Vision/Data/Recommendation | YOLO, 기존 데이터, 추천, Detection/Correction, Streamlit QA |
+| B · Vision/Data/Recommendation | YOLO, 기존 데이터, 추천, Detection/Correction |
 | C · Frontend/Integration/Deploy | React, API 통합, Docker/배포 |
 
 **Alembic revision 생성은 A만 수행합니다.** B/C는 필요한 스키마 변경을 A에게 전달합니다. 모델·CSV·YAML 원본은 보존합니다. 공동 파일 변경은 PR에서 명시하고, 요청·응답·오류 schema는 API 담당자와 맞춥니다. P1은 P0 완료 뒤에만 시작합니다.
@@ -540,13 +613,17 @@ git push
 - 원본 업무지시서·모델·데이터 보존 및 secret 제외 확인.
 - PR/머지 후 main 최신 상태 확인.
 
+## 사진 이용 범위
+
+사진은 음식 인식과 식단 기록에 사용합니다. 사용자 결정(2026-10-20)으로 사진을 이용한 모델 개선 기능을 폐기했습니다.
+
 ## 프로젝트 문서
 
 [개발 규칙](AGENTS.md) · [구현 계획/TBD](docs/planning/IMPLEMENTATION_PLAN.md) · [구조](docs/design/ARCHITECTURE.md) · [데이터 스키마](docs/design/DATA_SCHEMA.md) · [모델 현황](docs/model/MODEL_EXPERIMENTS.md) · [로드맵](docs/planning/ROADMAP.md) · [변경 이력](CHANGELOG.md)
 
 ## 로컬 실행
 
-최초 설치는 위 새 웹 환경 실행 절차를 따르세요. 설치 후 재실행은 [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)를 사용합니다. 사용자 웹은 React/FastAPI로 실행하며 Streamlit은 그래프 서버와 관리자 QA에 사용합니다.
+최초 설치는 위 새 웹 환경 실행 절차를 따르세요. 설치 후 재실행은 [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)를 사용합니다. 사용자 웹은 React/FastAPI로 실행하며 Streamlit은 그래프 서버에 사용합니다.
 
 ## 모델 및 데이터
 

@@ -1,5 +1,7 @@
 # 데이터 스키마
 
+> 2026-10-20 사용자 결정: 모델 개선(재학습)·관리자 재학습 QA·모델 개선 동의는 폐기했고 관련 API·Streamlit `admin_qa.py`·`retraining_samples` 테이블·동의 컬럼을 삭제했다. 아래 내용 중 해당 부분은 과거 기록이다.
+
 기존 데이터: class_id 0~149, food_name, category, unit, cal(kcal), carbs/protein/fat/sugar(g), sodium(mg). 새로운 nutrition key를 만들지 않는다. serving multiplier는 unit 기준 배율이다. grams가 없는 행에 grams를 생성하지 않는다.
 
 계획 DB: users(이메일, password_hash, role=user, 동의/시각), user_profiles(신체정보·활동·목표), foods(기존 class_id), nutrition(원본 수치), meals(user_id, KST meal_date, meal_type), meal_items(food_id, nullable detection_log_id, 배율, 계산 snapshot), detection_logs(사용자·image_group_id·bbox·예측/수정·모델 버전), retraining_samples(PENDING/APPROVED/REJECTED, 관리자), recommendation_logs(snapshot, 결과, acted, selected_item class_id).

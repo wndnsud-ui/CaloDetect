@@ -13,6 +13,9 @@ export function MenuIcon({page}) {
     '식단 분석': <><path d="M4 3v18h17M8 16v-5M13 16V7M18 16V4"/></>,
     '히스토리': <><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2"/></>,
     '커뮤니티': <><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2 21v-3a6 6 0 0 1 12 0v3M15 15a5 5 0 0 1 7 4v2"/></>,
+    '리워드': <><path d="M4 9h16v12H4zM2 6h20v3H2zM12 6v15"/><path d="M12 6C10 2 6 2 6 4.5S10 6 12 6Zm0 0c2-4 6-4 6-1.5S14 6 12 6Z"/></>,
+    '관리자': <><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></>,
+    '테스트': <><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></>,
     '마이페이지': <><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3ZM9 15l3 3 3-3"/></>,
   };
   return <svg className="sidebar-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{shapes[page]}</svg>;

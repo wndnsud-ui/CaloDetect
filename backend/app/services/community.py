@@ -9,6 +9,7 @@ from ..models import (CommunityPost as Post, CommunityPostImage as Photo,
     CommunityReaction as Reaction, PointTransaction as Tx, Meal, Food, User, Detection, ImageUpload, utcnow)
 from ..config import settings, ROOT
 from .community_images import save_sanitized_copy
+from . import rewards
 from .community_rules import week_start, encode_cursor, decode_cursor, RECEIVED_REASONS, KST
 
 log = logging.getLogger(__name__)
@@ -126,6 +127,7 @@ def create_post(db, user, body):
             copied = save_sanitized_copy(path, folder / 'community')
             files.append(copied)
             db.add(Photo(post_id=post.id, source_image_id=source.id, storage_key=copied.name, position=position))
+        rewards.community_share(db, user.id, post.id)  # 리워드 식단 공유(XP 모드에서만)
         db.commit()
     except Exception as error:
         db.rollback()
@@ -194,6 +196,7 @@ def react(db, user, post_id, kind, revoke=False):
                 db.add(Tx(user_id=tx.user_id, amount=-tx.amount, reason=tx.reason + '_revoked',
                           post_id=post.id, reaction_id=reaction.id))
                 deducted['me' if tx.user_id == user.id else 'author'] -= tx.amount
+        rewards.community_reaction_revoked(db, reaction.id)  # 리워드 원장 회수
         commit_or_404(db)
     else:
         if reaction:
@@ -208,6 +211,7 @@ def react(db, user, post_id, kind, revoke=False):
             for user_id, amount, suffix in ((post.user_id, received, 'received'), (user.id, settings.community_reaction_given_points, 'given')):
                 if amount:
                     db.add(Tx(user_id=user_id, amount=amount, reason=f'{kind}_{suffix}', post_id=post.id, reaction_id=reaction.id))
+            rewards.community_reaction(db, reaction.id, post.user_id, user.id, kind)  # 리워드 lot 미러링·XP 모드
             db.commit()
         except IntegrityError:
             db.rollback()
@@ -245,6 +249,7 @@ def delete_post(db, user, post_id):
     if db.execute(update(Post).where(Post.id == post.id, Post.deleted_at.is_(None)).values(deleted_at=utcnow())).rowcount != 1:
         db.rollback()
         raise HTTPException(404, '이미 삭제된 게시물입니다.')
+    rewards.community_post_deleted(db, user.id, post.id, -deducted)  # 리워드 원장 회수
     commit_or_404(db)
     log.info('community post deleted deducted=%d', deducted)
     return {'deleted': True, 'deducted': {'me': deducted}}

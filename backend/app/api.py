@@ -1,4 +1,4 @@
-# 회원 식단·사진 탐지·영양 분석·추천과 관리자 QA 라우트.
+# 회원 식단·사진 탐지·영양 분석·추천 라우트. 2026-10-20 모델 개선(재학습)·관리자 QA 폐기.
 # CurrentUser/Admin 의존성이 인증·역할을 검사하며, 개별 조회와 저장에서도 소유자와 중복 기록을 확인한다.
 import io
 import logging
@@ -15,8 +15,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from .config import settings, ROOT
 from .db import get_db
-from .models import User, AuthSession, Profile, Food, Meal, MealItem, Detection, ImageUpload, RetrainingSample, RecommendationLog, utcnow
-from .schemas import SignupRequest, LoginRequest, ConsentRequest, CalorieRequest, MealRequest, CorrectionRequest, RecommendationRequest
+from .models import User, AuthSession, Profile, Food, Meal, MealItem, Detection, ImageUpload, RecommendationLog, utcnow
+from .schemas import SignupRequest, LoginRequest, CalorieRequest, MealRequest, CorrectionRequest, RecommendationRequest
 from .security import password_hash, password_matches, new_session, get_user, get_admin, hash_token
 from .services.profile import calculate_calorie_range
 from .services.nutrition import food_catalog, calculate_nutrition
@@ -26,6 +26,7 @@ from .services.correction import apply_correction
 from .services.recommendation import recommend_meals
 from .services.vision import detect_image
 from .accounts import local_development_environment, local_test_request
+from .services import rewards
 
 # 라우터를 main.py에 등록하면 아래 경로가 앱에 연결된다. DB/회원/관리자 타입 별칭은 FastAPI Depends를 포함한다.
 router = APIRouter()
@@ -39,41 +40,6 @@ logger = logging.getLogger('calodetect')
 def require_image_environment(request):
     if settings.local_test_image_analysis and (not local_development_environment() or not local_test_request(request)):
         raise HTTPException(503, '사진 분석 테스트는 로컬 개발 환경에서만 사용할 수 있습니다.')
-
-
-# 회원의 ID·이메일·역할·연령·모델 개선 동의 상태를 공개 응답 형태로 만든다.
-def user_json(user):
-    return {'id': user.id, 'email': user.email, 'role': user.role, 'age': user.age,
-            'model_improvement_consent': user.model_improvement_consent}
-
-
-# 현재 회원의 모델 개선 동의 여부와 최근 변경 시점을 반환한다.
-# HTTP GET /users/me/consent: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.get('/users/me/consent')
-def get_consent(user: CurrentUser):
-    return {'model_improvement_consent': user.model_improvement_consent,
-            'changed_at': user.model_improvement_consent_at}
-
-
-# 승인된 문구가 있을 때 선택 동의를 저장하며 철회 시 해당 회원의 PENDING 후보를 제외한다.
-# HTTP PUT /users/me/consent: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.put('/users/me/consent')
-def put_consent(body: ConsentRequest, user: CurrentUser, db: DB):
-    # 현재 선택 동의 상태를 확인해 모델 개선 후보의 등록/검수 가능 여부를 제한한다.
-    if body.model_improvement_consent and not settings.model_improvement_consent_text:
-        raise HTTPException(503, '모델 개선 활용 동의 문구 확정이 필요합니다.')
-    user.model_improvement_consent = body.model_improvement_consent
-    user.model_improvement_consent_at = utcnow()
-    # 현재 선택 동의 상태를 확인해 모델 개선 후보의 등록/검수 가능 여부를 제한한다.
-    if not body.model_improvement_consent:
-        samples = db.scalars(select(RetrainingSample).join(Detection,
-            RetrainingSample.detection_log_id == Detection.id).where(
-            Detection.user_id == user.id, RetrainingSample.qa_status == 'PENDING')).all()
-        for sample in samples:
-            sample.excluded = True
-    # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
-    db.commit(); logger.info('consent change')
-    return get_consent(user)
 
 
 # 업로드 크기·이미지 형식·화소 수를 확인하고 회전을 보정해 UUID JPEG로 저장한 뒤 YOLO를 호출한다.
@@ -206,6 +172,7 @@ def save_meal(body: MealRequest, user: CurrentUser, db: DB):
         recommendation.acted = True
         recommendation.selected_item = next(i.class_id for i in body.items if i.class_id in recommended_ids)
     try:
+        rewards.meal_hook(db, user, meal)  # 리워드 보상 훅(SAVEPOINT 격리, 응답 불변)
         # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
         db.commit()
     except IntegrityError:
@@ -298,60 +265,3 @@ def correction(detection_id: str, body: CorrectionRequest, user: CurrentUser, db
     # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
     db.commit(); logger.info('detection correction')
     return {'id': detection.id, 'corrected_label': detection.corrected_label}
-
-
-# 관리자에게 제외되지 않은 최근 QA 후보 최대 200개를 반환한다.
-# HTTP GET /admin/retraining/samples: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.get('/admin/retraining/samples')
-def qa_samples(admin: Admin, db: DB):
-    rows = db.scalars(select(RetrainingSample).where(RetrainingSample.excluded == False)
-                      .order_by(RetrainingSample.created_at.desc()).limit(200)).all()
-    return {'items': [{'id': s.id, 'predicted_label': s.predicted_label,
-                      'corrected_label': s.corrected_label, 'qa_status': s.qa_status,
-                      'detection_log_id': s.detection_log_id} for s in rows]}
-
-
-# 관리자 권한으로 유효한 QA 후보의 실제 이미지 파일을 조회한다.
-# HTTP GET /admin/retraining/samples/{sample_id}/image: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.get('/admin/retraining/samples/{sample_id}/image')
-def qa_image(sample_id: str, admin: Admin, db: DB):
-    sample = db.get(RetrainingSample, sample_id)
-    if not sample or sample.excluded:
-        raise HTTPException(404, '샘플을 찾을 수 없습니다.')
-    folder = Path(settings.image_storage_dir or '')
-    path = (folder if folder.is_absolute() else ROOT / folder) / sample.image_path
-    if not path.is_file():
-        raise HTTPException(404, '이미지를 찾을 수 없습니다.')
-    return FileResponse(path, media_type='image/jpeg', headers={'Cache-Control': 'private, no-store'})
-
-
-# QA 후보를 잠그고 대기 상태·현재 회원 동의를 다시 확인한 뒤 결정과 검수자 ID를 저장한다.
-def review(sample_id, decision, admin, db):
-    # 검수 행을 잠가 동시 승인/거절을 조정하고 이미 완료된 결정을 다시 덮어쓰지 않는다.
-    sample = db.get(RetrainingSample, sample_id, with_for_update=True)
-    if not sample or sample.excluded:
-        raise HTTPException(404, '샘플을 찾을 수 없습니다.')
-    if sample.qa_status != 'PENDING':
-        raise HTTPException(409, '이미 검수된 샘플입니다.')
-    owner = db.get(User, db.get(Detection, sample.detection_log_id).user_id)
-    # 현재 선택 동의 상태를 확인해 모델 개선 후보의 등록/검수 가능 여부를 제한한다.
-    if not owner.model_improvement_consent:
-        raise HTTPException(409, '모델 개선 동의가 철회되었습니다.')
-    sample.qa_status = decision; sample.approved_by = admin.id
-    # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
-    db.commit(); logger.info('admin QA %s', decision)
-    return {'id': sample.id, 'qa_status': decision}
-
-
-# 공통 검수 처리에 APPROVED 결정을 전달한다. 모델 재학습이나 교체를 실행하지 않는다.
-# HTTP POST /admin/retraining/samples/{sample_id}/approve: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.post('/admin/retraining/samples/{sample_id}/approve')
-def approve(sample_id: str, admin: Admin, db: DB):
-    return review(sample_id, 'APPROVED', admin, db)
-
-
-# 공통 검수 처리에 REJECTED 결정을 전달해 같은 권한·상태·동의 검사를 적용한다.
-# HTTP POST /admin/retraining/samples/{sample_id}/reject: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.post('/admin/retraining/samples/{sample_id}/reject')
-def reject(sample_id: str, admin: Admin, db: DB):
-    return review(sample_id, 'REJECTED', admin, db)

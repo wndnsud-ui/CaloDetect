@@ -241,7 +241,6 @@ def test_local_signup_requires_development_loopback_and_explicit_consent(account
         with Session(engine) as db:
             user = db.scalar(select(User))
             assert user.service_consent_text == policy['service_consent_text']
-            assert user.model_improvement_consent is False
         monkeypatch.setattr(settings, 'app_env', 'production')
         assert client.get('/auth/policy').json()['signup_enabled'] is False
         assert client.post('/auth/signup', json={**body, 'email': 'production@example.com'}).status_code == 503

@@ -15,7 +15,7 @@ from backend.app.db import get_db
 from backend.app.db import get_engine
 from backend.app.accounts import database
 from backend.app.config import settings
-from backend.app.models import Base, User, Meal, Detection, RetrainingSample, RecommendationLog
+from backend.app.models import Base, User, Meal, Detection, RecommendationLog
 from backend.scripts.seed_foods import seed
 
 
@@ -43,7 +43,6 @@ def env(monkeypatch, tmp_path):
     app.dependency_overrides[database] = session
     monkeypatch.setattr(settings, 'age_min', 19)
     monkeypatch.setattr(settings, 'service_consent_text', 'TEST ONLY consent')
-    monkeypatch.setattr(settings, 'model_improvement_consent_text', 'TEST ONLY model consent')
     monkeypatch.setattr(settings, 'image_storage_dir', str(tmp_path))
     monkeypatch.setattr(settings, 'recommendation_enabled', True)
     monkeypatch.setattr(settings, 'recent_meal_window', 3)
@@ -144,15 +143,12 @@ def test_user_isolation_and_atomic_save(env):
     assert client.get('/meals/history').json()['items']==[]
     with Session(engine) as db:
         assert db.scalars(select(Meal)).all()==[]
-    assert client.get('/admin/retraining/samples').status_code==403
 
 
-# 회귀 검사: 탐지 · 보정 · QA · 동의.
-# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
-def test_detection_correction_qa_consent(env):
+# 회귀 검사: 탐지 · 보정. 2026-10-20 모델 개선(재학습) 폐기 후 수정은 탐지 기록에만 남는다.
+def test_detection_correction(env):
     client,engine,monkeypatch=env
     user=account(client)
-    assert client.put('/users/me/consent',json={'model_improvement_consent':True}).status_code==200
     catalog=client.get('/foods').json()['items']
     monkeypatch.setattr('backend.app.api.detect_image',lambda path:{'model_version':'test', 'detections':[
         {'class_id':0,'predicted_label':catalog[0]['food_name'],'confidence':.9,'bbox':[0,0,10,10]},
@@ -165,34 +161,25 @@ def test_detection_correction_qa_consent(env):
     assert response.json()['image_urls'] == [scan.json()['image_url']]
     saved = next(meal for meal in client.get('/analytics/today').json()['meals'] if meal['id'] == response.json()['id'])
     assert saved['image_urls'] == [scan.json()['image_url']]
-    image_path = saved['image_urls'][0].replace('/api', '')
-    assert client.get(image_path).status_code == 200
+    assert client.get(saved['image_urls'][0].replace('/api', '')).status_code == 200
     with Session(engine) as db:
-        assert len(db.scalars(select(RetrainingSample)).all())==1
-                                             # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
-        db.get(User,user['id']).role='admin';db.commit()
-    samples=client.get('/admin/retraining/samples').json()['items'];sample_id=samples[0]['id']
-    assert client.post(f'/admin/retraining/samples/{sample_id}/approve',json={}).status_code==200
+        assert db.get(Detection, ids[0]).corrected_label == catalog[2]['food_name']
     assert client.post(f'/detections/{ids[0]}/correction',json={'class_id':3}).status_code==200
     with Session(engine) as db:
-        samples=db.scalars(select(RetrainingSample)).all()
-        assert {s.qa_status for s in samples}=={'APPROVED','PENDING'}
-    assert client.put('/users/me/consent',json={'model_improvement_consent':False}).status_code==200
+        assert db.get(Detection, ids[0]).corrected_label == catalog[3]['food_name']
+
+
+# 회귀 검사: 모델 개선 동의·관리자 재학습 QA 경로는 폐기되어 없다(관리자도 404).
+def test_model_improvement_retired(env):
+    client, engine, _ = env
+    user = account(client)
     with Session(engine) as db:
-        samples=db.scalars(select(RetrainingSample)).all()
-        assert next(s for s in samples if s.qa_status=='APPROVED').excluded is False
-        assert next(s for s in samples if s.qa_status=='PENDING').excluded is True
-
-
-# 회귀 검사: 모델 · 동의 · 승인 · 문구.
-# 아래 요청·준비 데이터와 assert로 성공 결과 및 실패 시 제한이 유지되는지 확인한다.
-def test_model_consent_requires_approved_wording(env):
-    client, _, monkeypatch = env
-    account(client)
-    monkeypatch.setattr(settings, 'model_improvement_consent_text', None)
-    assert client.put('/users/me/consent', json={'model_improvement_consent': True}).status_code == 503
-    assert client.get('/users/me/consent').json()['model_improvement_consent'] is False
-    assert client.put('/users/me/consent', json={'model_improvement_consent': False}).status_code == 200
+        db.get(User, user['id']).role = 'admin'; db.commit()
+    assert client.get('/users/me/consent').status_code == 404
+    assert client.put('/users/me/consent', json={'model_improvement_consent': True}).status_code in (404, 405)
+    assert client.get('/admin/retraining/samples').status_code == 404
+    assert 'model_improvement_consent_text' not in client.get('/auth/policy').json()
+    assert not hasattr(User, 'model_improvement_consent')
 
 
 # 회귀 검사: 추천 · 세 후보 · 선택 기록.

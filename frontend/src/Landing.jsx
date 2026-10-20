@@ -25,9 +25,9 @@ export default function Landing({onOpen}) {return <div className="landing"><head
   <ol className="service-flow-steps">{steps.map(([n,title,description,page,icon])=><li key={n}>
     <button onClick={()=>onOpen(page)}><span className={`service-step-icon service-step-${icon}`}><StepIcon type={icon}/></span><strong>{title}</strong><small>{description}</small></button>
   </li>)}</ol>
-</div></section><button className="landing-cta landing-cta-link" onClick={()=>onOpen('목표 설정')}>
+</div></section><button className="landing-cta landing-cta-link" onClick={()=>onOpen('회원가입')}>
   <span className="cta-copy"><span className="cta-caption">맛있는 식사가<br/>건강한 하루를 만듭니다.</span>
     <span className="cta-title">지금, CaloDetect와 함께<br/>시작해 보세요.</span>
-    <span className="cta-action">무료로 시작하기 <span aria-hidden="true">→</span></span>
+    <span className="cta-action">회원가입 후 시작해 보기 <span aria-hidden="true">→</span></span>
   </span><img className="cta-poke" src="/images/cta-poke.webp.png" alt="" loading="lazy" decoding="async"/>
-</button><section className="landing-section faq" id="faq"><h2>자주 묻는 질문</h2><details><summary>가입 전에 사용할 수 있는 기능이 있나요?</summary><p>음식 영양 조회와 목표 칼로리 계산을 경험할 수 있습니다. 개인 식단 저장과 회원정보 관리는 로그인이 필요합니다.</p></details><details><summary>사진은 모델 학습에 자동 사용되나요?</summary><p>모델 개선 활용은 별도 동의와 관리자 QA가 필요합니다. 동의 문구 및 이미지 정책은 팀에서 확정 후 적용합니다.</p></details></section></main><footer><Brand onClick={()=>onOpen('홈')}/><span>나를 위한 건강한 한 끼 · © 2026 CaloDetect</span></footer></div>;}
+</button><section className="landing-section faq" id="faq"><h2>자주 묻는 질문</h2><details><summary>가입 전에 사용할 수 있는 기능이 있나요?</summary><p>음식 영양 조회와 목표 칼로리 계산을 경험할 수 있습니다. 개인 식단 저장과 회원정보 관리는 로그인이 필요합니다.</p></details></section></main><footer><Brand onClick={()=>onOpen('홈')}/><span>나를 위한 건강한 한 끼 · © 2026 CaloDetect</span></footer></div>;}

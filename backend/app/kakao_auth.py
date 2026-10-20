@@ -20,6 +20,7 @@ from .accounts import Signup, database, hash_password, open_session, policy, req
 from .config import settings
 from .models import User, utcnow
 from .security import require_service_age
+from .services import rewards
 from .social_auth import GoogleRegistration, google_signup_cipher, oauth_cookie_options
 
 router = APIRouter()
@@ -195,6 +196,7 @@ def register(body: GoogleRegistration, request: Request, response: Response,
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, '이미 가입된 계정 또는 이메일입니다. 기존 방식으로 로그인하세요.')
+    rewards.signup_hook(db, user)  # 리워드 가입 온보딩(SAVEPOINT 격리)
     result = open_session(db, user, response, request)
     clear_cookie(response, SIGNUP_COOKIE)
     return result

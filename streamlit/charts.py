@@ -74,6 +74,17 @@ def options(data):
                      'series':[{'name':name,'type':'bar','stack':'macro','data':[value],'barWidth':30,'itemStyle':{'color':color},
                                 'label':{'show':value>0,'position':'inside','formatter':f'{value/total*100:.0f}%' if total else ''}}
                                for name,value,color in zip(['탄수화물','단백질','지방'],values,['#79af81','#e5b76f','#63b6ae'])]})
+    elif kind=='xp_week':
+        # 리워드 성장 탭 "이번 주 받은 XP": 요일별 XP 막대, 오늘 막대만 진한 녹색.
+        items=data['items']
+        if len(items)!=7: raise ValueError('Week needs 7 days')
+        values=[{'value':number(item.get('value')),'itemStyle':{'color':'#178366' if item.get('today') else '#9FD3B0','borderRadius':[8,8,2,2]}}
+                for item in items]
+        base.update({'tooltip':{'trigger':'axis','confine':True,'formatter':'{b}요일 {c} XP'},'grid':{'left':8,'right':8,'top':22,'bottom':24},
+                     'xAxis':{'type':'category','data':[item['label'] for item in items],'axisTick':{'show':False},
+                              'axisLine':{'lineStyle':{'color':'#E3E8DE'}},'axisLabel':{'fontSize':11,'color':'#60776F'}},
+                     'yAxis':{'type':'value','show':False,'max':max(1,*[v['value'] for v in values])},
+                     'series':[{'type':'bar','data':values,'barMaxWidth':34,'label':{'show':True,'position':'top','fontSize':10,'color':'#60776F'}}]})
     else: raise ValueError('Unknown chart')
     return base
 
@@ -83,7 +94,7 @@ try:
     data=json.loads(raw)
     spec=options(data)
     events={'click':'function(params){return params.dataIndex;}'} if data['kind']=='bars' and data.get('monthly') else {}
-    selection=st_echarts(spec,height='250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '104px' if data['kind']=='ring_percent' else '46px',events=events,key='chart')
+    selection=st_echarts(spec,height='250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '104px' if data['kind']=='ring_percent' else '170px' if data['kind']=='xp_week' else '46px',events=events,key='chart')
     if events and isinstance(selection,int) and 0<=selection<len(data['items']):
         origin=st.query_params.get('parent_origin','')
         if origin in ('http://localhost:5174','http://127.0.0.1:5174'):

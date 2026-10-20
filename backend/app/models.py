@@ -97,10 +97,6 @@ class User(Base):
     oauth_provider: Mapped[str | None] = mapped_column(String(32))
     # 제공자가 발급한 subject 식별자. 이메일 변경과 무관하게 같은 계정을 찾는다.
     oauth_subject: Mapped[str | None] = mapped_column(String(255))
-    # 선택 모델 개선 동의. 서비스 필수 동의와 별도로 QA 후보 등록을 제어한다.
-    model_improvement_consent: Mapped[bool] = mapped_column(Boolean, default=False)
-    # 모델 개선 동의의 최근 변경 시각.
-    model_improvement_consent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # 생성 시각. 기본값 함수는 새 레코드를 만들 때 호출된다.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # 최근 갱신 시각. ORM 갱신 시 onupdate 설정을 따른다.
@@ -249,30 +245,6 @@ class MealItem(Base):
     __table_args__ = (CheckConstraint('serving_multiplier > 0'),)
 
 
-# RetrainingSample: retraining_samples 테이블의 ORM 모델. 아래 필드와 제약은 저장 형식과 참조 관계를 정의한다.
-class RetrainingSample(Base):
-    __tablename__ = 'retraining_samples'
-    # 레코드 기본 식별자. 테이블에 따라 정수 또는 UUID를 사용한다.
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
-    # 연결된 탐지 기록. 직접 선택한 음식은 없을 수 있으며 식단 항목의 unique 제약으로 중복 연결을 막는다.
-    detection_log_id: Mapped[str] = mapped_column(ForeignKey('detection_logs.id'), index=True)
-    # 저장 폴더 아래 서버가 정한 이미지 파일명. 사용자 원본 파일명을 저장 경로로 쓰지 않는다.
-    image_path: Mapped[str] = mapped_column(String(255))
-    # 모델의 원래 탐지 음식명. 사용자 수정 후에도 비교용으로 보존한다.
-    predicted_label: Mapped[str] = mapped_column(String(120))
-    # 사용자가 확인·수정한 최종 음식명.
-    corrected_label: Mapped[str] = mapped_column(String(120))
-    # PENDING/APPROVED/REJECTED 검수 상태. 모델 재학습 완료 상태가 아니다.
-    qa_status: Mapped[str] = mapped_column(String(16), default='PENDING')
-    # 철회·재수정 등으로 후보 목록에서 제외됐는지 표시한다.
-    excluded: Mapped[bool] = mapped_column(Boolean, default=False)
-    # 검수 결정을 기록한 관리자 ID. 승인과 거절 모두 공통 검수 함수에서 설정한다.
-    approved_by: Mapped[int | None] = mapped_column(ForeignKey('users.id'))
-    # 생성 시각. 기본값 함수는 새 레코드를 만들 때 호출된다.
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    __table_args__ = (CheckConstraint("qa_status IN ('PENDING','APPROVED','REJECTED')"),)
-
-
 # RecommendationLog: recommendation_logs 테이블의 ORM 모델. 아래 필드와 제약은 저장 형식과 참조 관계를 정의한다.
 class RecommendationLog(Base):
     __tablename__ = 'recommendation_logs'
@@ -293,3 +265,5 @@ class RecommendationLog(Base):
 
 # 채팅 식사기록 신규 모델을 같은 메타데이터에 등록한다(테스트 create_all·Alembic 비교용).
 from . import models_chat  # noqa: E402,F401
+# 리워드(CaloPoint·Growth) 신규 모델도 같은 메타데이터에 등록한다.
+from . import models_rewards  # noqa: E402,F401

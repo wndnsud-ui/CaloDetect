@@ -28,6 +28,7 @@ from .config import settings
 from .models import User, utcnow
 from .schemas import RequestModel
 from .security import require_service_age
+from .services import rewards
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -375,6 +376,7 @@ def google_register(body: GoogleRegistration, request: Request, response: Respon
         # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
         db.rollback()
         raise HTTPException(409, '이미 등록된 Google 계정 또는 이메일입니다. 다시 로그인하세요.')
+    rewards.signup_hook(db, user)  # 리워드 가입 온보딩(SAVEPOINT 격리)
     result = open_session(db, user, response, request)
     clear_google_signup_cookie(response)
     return result
@@ -470,6 +472,7 @@ def complete(provider: Provider, body: SocialCompletion, request: Request, respo
             # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
             db.rollback()
             raise HTTPException(409, '이미 등록된 소셜 계정 또는 이메일입니다. 다시 로그인하세요.')
+        rewards.signup_hook(db, user)  # 리워드 가입 온보딩(SAVEPOINT 격리)
     require_service_age(user)
     result = open_session(db, user, response, request)
     response.delete_cookie(cookie_name(provider), path='/', secure=settings.cookie_secure,

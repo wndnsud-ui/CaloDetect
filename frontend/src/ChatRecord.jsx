@@ -201,7 +201,7 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
     try {
       const result = await api('/chat/messages', {conversation_id: conversationId, client_message_id: clientId, text: value});
       merge(result.messages); setDraft(result.draft);
-      if (result.messages.some(m => m.kind === 'saved' || m.kind === 'corrected')) onSaved?.();
+      if (result.messages.some(m => m.kind === 'saved' || m.kind === 'corrected')) onSaved?.(result.messages.find(m => m.kind === 'saved')?.payload?.meal?.meal_id);
     } catch (e) {
       // 서버에 도착하지 않았거나 처리 실패: 저장 완료로 표시하지 않고 같은 ID로 다시 보낼 수 있게 한다.
       setFailed({text: value, id: clientId});

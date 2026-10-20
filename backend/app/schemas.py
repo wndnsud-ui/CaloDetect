@@ -57,14 +57,6 @@ class SignupRequest(LoginRequest):
     age: int = Field(gt=0, le=120)
     # 현재 서비스 필수 동의의 수락 여부. 실제 허용은 정책 검사에서 판단한다.
     service_consent: Literal[True]
-    # 선택 모델 개선 동의. 서비스 필수 동의와 별도로 QA 후보 등록을 제어한다.
-    model_improvement_consent: bool = False
-
-
-# ConsentRequest: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
-class ConsentRequest(RequestModel):
-    # 선택 모델 개선 동의. 서비스 필수 동의와 별도로 QA 후보 등록을 제어한다.
-    model_improvement_consent: bool
 
 
 # MealItemRequest: NutritionRequest를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.

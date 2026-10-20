@@ -19,6 +19,7 @@ from .correction import apply_correction
 from .nutrition import calculate_nutrition
 from .timezone import KST, korean_date
 from .vision import detect_image
+from . import rewards
 
 logger = logging.getLogger('calodetect')
 NUTRIENTS = ['cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium']
@@ -358,7 +359,7 @@ def ask_save(db, conversation, draft, reply_to, prefix=''):
                draft=draft_json(db, draft), chips=YES_NO, meal_chips=True)
 
 
-# 초안을 식사로 확정한다. 커밋하지 않는다(호출 측 트랜잭션). 재학습 후보는 기존 POST /meals와 같은 규칙(R12).
+# 초안을 식사로 확정한다. 커밋하지 않는다(호출 측 트랜잭션). 음식 수정은 기존 POST /meals와 같이 탐지 기록에만 남긴다.
 def confirm_draft(db, user, conversation, draft, request_id, reply_to):
     if not draft.items:
         draft.pending_question = 'food_name'
@@ -387,6 +388,7 @@ def confirm_draft(db, user, conversation, draft, request_id, reply_to):
                                    corrected_label=food.canonical_name, confidence=detection.confidence if detection else None,
                                    serving_multiplier=1.0, consumption_ratio=item.consumption_ratio, nutrition=nutrition))
     db.flush()
+    rewards.meal_hook(db, user, meal)  # 리워드 보상 훅(SAVEPOINT 격리)
     draft.status = 'confirmed'; draft.confirmed_meal_id = meal.id; draft.pending_question = 'none'
     draft.version = draft.version + 1
     conversation.pending_question = 'none'; conversation.pending_payload = None

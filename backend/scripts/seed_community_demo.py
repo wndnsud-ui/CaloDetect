@@ -45,7 +45,7 @@ def seed(db):
             raise RuntimeError('Demo account identity collision; no existing account is overwritten')
         if user is None:
             user = User(email=email, name=display, password_hash=hash_password(secrets.token_urlsafe(40)),
-                        role='user', age=30, model_improvement_consent=False, service_consent_text=LOCAL_TEST_CONSENT)
+                        role='user', age=30, service_consent_text=LOCAL_TEST_CONSENT)
             db.add(user)
         users.append(user)
     db.flush()

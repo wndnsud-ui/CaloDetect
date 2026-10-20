@@ -1,5 +1,6 @@
 # 프로젝트 루트의 비공개 .env와 환경변수를 Pydantic 설정으로 읽는다.
 # 서비스 동의·이미지 저장·추천 등 정책 설정은 기능 사용 가능 여부를 제어하며 미설정 값을 임의 정책으로 채우지 않는다.
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 from pydantic import Field
@@ -49,7 +50,6 @@ class Settings(BaseSettings):
     smtp_security: Literal['starttls', 'ssl'] = 'starttls'
     # 가입 때 확인한 서비스 필수 동의 문구를 기록한다.
     service_consent_text: str | None = None
-    model_improvement_consent_text: str | None = None
     # Google 앱의 공개 Client ID. ID 토큰 audience 검증 기준이다.
     google_client_id: str | None = None
     # Authorization Code 교환용 서버 비밀. 기본 GIS 인증에는 필요하지 않는다.
@@ -65,6 +65,79 @@ class Settings(BaseSettings):
     oauth_state_secret: str | None = Field(default=None, min_length=32)
     # 채팅 식사기록·섭취량 수정 기능 플래그. false면 새 라우트·meal_json 추가 키·프론트 진입점이 없다.
     chat_record_enabled: bool = False
+    # ---- CaloPoint·Growth·Reward(리워드 지시서 v3 §5-6). 모든 수치는 개발 기본값이며 운영값은 TBD ----
+    reward_enabled: bool = True
+    reward_point_valid_days: int = Field(default=365, ge=1)
+    reward_meal_photo_points: int = Field(default=2, ge=0)
+    reward_meal_text_points: int = Field(default=1, ge=0)
+    reward_meal_xp: int = Field(default=10, ge=0)
+    reward_snack_points: int = Field(default=1, ge=0)
+    reward_snack_xp: int = Field(default=5, ge=0)
+    reward_three_meals_points: int = Field(default=3, ge=0)
+    reward_three_meals_xp: int = Field(default=10, ge=0)
+    reward_three_meal_min_gap_minutes: int = Field(default=120, ge=0)
+    reward_onboarding_signup: int = Field(default=10, ge=0)
+    reward_onboarding_goal: int = Field(default=10, ge=0)
+    reward_onboarding_first_meal: int = Field(default=10, ge=0)
+    reward_daily_mission_points: int = Field(default=2, ge=0)
+    reward_daily_mission_xp: int = Field(default=10, ge=0)
+    reward_weekly_mission_points: int = Field(default=15, ge=0)
+    reward_monthly_goal_points: int = Field(default=30, ge=0)
+    reward_streak3_points: int = Field(default=5, ge=0)
+    reward_streak3_xp: int = Field(default=20, ge=0)
+    reward_streak7_points: int = Field(default=10, ge=0)
+    reward_streak7_xp: int = Field(default=50, ge=0)
+    reward_balance_xp: int = Field(default=15, ge=0)
+    reward_balance_cal_tolerance: float = Field(default=0.15, ge=0, le=1)
+    reward_share_points: int = Field(default=1, ge=0)
+    reward_share_xp: int = Field(default=10, ge=0)
+    reward_reaction_received_like_xp: int = Field(default=5, ge=0)
+    reward_reaction_received_recommend_xp: int = Field(default=10, ge=0)
+    reward_reaction_received_daily_cap: int = Field(default=50, ge=0)
+    reward_reaction_given_xp: int = Field(default=2, ge=0)
+    reward_reaction_given_daily_cap: int = Field(default=20, ge=0)
+    reward_level_thresholds: str = '0,300,1000,2500,5000'
+    reward_levelup_points: str = '0,0,50,100,200'
+    reward_protector_monthly_limit: int = Field(default=2, ge=0)
+    # 배포 시각(필수). 없으면 가입 온보딩 포인트를 지급하지 않고 모든 회원을 출시 이전 회원으로 본다.
+    reward_onboarding_start_at: datetime | None = None
+    reward_weekly_mission_days: int = Field(default=5, ge=1, le=7)
+    reward_monthly_goal_days: int = Field(default=20, ge=1, le=31)
+    reward_eta_window_days: int = Field(default=7, ge=1)
+    reward_ranking_size: int = Field(default=10, ge=1, le=100)
+    reward_nickname_min_len: int = Field(default=2, ge=1)
+    reward_nickname_max_len: int = Field(default=12, ge=2, le=40)
+    reward_nickname_change_days: int = Field(default=30, ge=0)
+    reward_nickname_check_per_min: int = Field(default=30, ge=1)
+    reward_nickname_suggest_per_min: int = Field(default=10, ge=1)
+    # Stage B 전환 스위치: 커뮤니티 반응 보상을 포인트 대신 XP로, 식단 공유 +1P·+10XP.
+    reward_community_xp_mode: bool = False
+    reward_exchange_excluded_sources: str = 'onboarding,community,community_legacy'
+    # Stage C 실물 교환·쿠폰함(지시서 v3 §2-5). 기본 꺼짐. 월 전체 상한이 없거나 0 이하이면 켜도 꺼진 것으로 본다.
+    reward_exchange_enabled: bool = False
+    reward_exchange_min_account_days: int = Field(default=14, ge=0)
+    reward_exchange_monthly_limit: int = Field(default=1, ge=1)
+    reward_exchange_first_hold: bool = True
+    reward_exchange_global_monthly_cap: int | None = None
+
+    # 교환 기능이 실제로 켜졌는지: 플래그 + 월 전체 상한 + 쿠폰 번호 암호화 키(OAUTH_STATE_SECRET).
+    @property
+    def reward_exchange_active(self):
+        return bool(self.reward_exchange_enabled and (self.reward_exchange_global_monthly_cap or 0) > 0
+                    and self.oauth_state_secret)
+
+    # 쉼표 목록 설정을 정수 목록·집합으로 읽는다.
+    @property
+    def reward_levels(self):
+        return [int(v) for v in self.reward_level_thresholds.split(',')]
+
+    @property
+    def reward_levelup_point_list(self):
+        return [int(v) for v in self.reward_levelup_points.split(',')]
+
+    @property
+    def reward_excluded_sources(self):
+        return {v.strip() for v in self.reward_exchange_excluded_sources.split(',') if v.strip()}
 
 
 settings = Settings()

@@ -2,6 +2,7 @@
 import base64
 import hmac
 import json
+import logging
 import secrets
 import time
 from datetime import timedelta
@@ -24,6 +25,7 @@ from .services import rewards
 from .social_auth import GoogleRegistration, google_signup_cipher, oauth_cookie_options
 
 router = APIRouter()
+log = logging.getLogger('calodetect')
 STATE_COOKIE = 'calodetect_oauth_kakao'
 SIGNUP_COOKIE = 'calodetect_kakao_signup'
 AAD = b'calodetect-kakao-signup-v1'
@@ -103,6 +105,7 @@ async def callback(request: Request, code: str | None = None, state: str | None 
                 or not hmac.compare_digest(state.encode(), pending['state'].encode())):
             raise ValueError
     except (jwt.PyJWTError, ValueError, TypeError, AttributeError):
+        log.warning('kakao callback rejected: state verification failed')
         return outcome('social_error', 'kakao_auth_failed')
     if not kakao_config()['enabled']:
         return outcome('social_error', 'kakao_unavailable')
@@ -128,7 +131,9 @@ async def callback(request: Request, code: str | None = None, state: str | None 
         account = identity.get('kakao_account') or {}
         if not isinstance(account, dict) or not isinstance(account.get('profile') or {}, dict):
             raise ValueError
-    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+    except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+        # URL·인가 코드·토큰·제공자 응답 본문은 기록하지 않는다.
+        log.warning('kakao callback failed: provider request/identity validation (%s)', type(exc).__name__)
         return outcome('social_error', 'kakao_auth_failed')
     user = db.scalar(select(User).where(User.oauth_provider == 'kakao', User.oauth_subject == subject))
     if user is not None:

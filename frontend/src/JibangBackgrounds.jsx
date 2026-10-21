@@ -107,7 +107,7 @@ function Starter() {
 }
 
 const SCENES = {bg_lv1: Lv1, bg_lv2: Lv2, bg_lv3: Lv3, bg_lv4: Lv4, bg_lv5: Lv5, starter_bg: Starter};
-export const BACKGROUND_LABELS = {bg_lv1: '포근한 아침 방', bg_lv2: '새싹 정원', bg_lv3: '산책 공원', bg_lv4: '텃밭 피크닉', bg_lv5: '햇살 언덕', starter_bg: '기본 배경'};
+export const BACKGROUND_LABELS = {bg_lv1: '기본 배경 · 포근한 아침 방', bg_lv2: '새싹 정원', bg_lv3: '산책 공원', bg_lv4: '텃밭 피크닉', bg_lv5: '햇살 언덕', starter_bg: '깔끔한 민트 방'};
 
 // 배경 장면 1개. 컨테이너를 꽉 채우며 비율은 3:4(slice로 자른다).
 export default function JibangBackground({id = 'bg_lv1'}) {

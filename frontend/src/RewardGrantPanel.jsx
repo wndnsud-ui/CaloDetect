@@ -39,6 +39,8 @@ export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLo
     <img className="reward-grant-mood jb-hop" src={MOOD_IMAGES.cheer} alt={`신난 ${CHARACTER_NAME}`}/>
     <p className="jb-bubble static center">맛있게 먹었구나! 기록 고마워</p>
     <ul className="reward-grant-items">{data.items.map(row => <li key={row.key}><span>{row.label}</span><b>{row.points ? `+${row.points}P` : ''}{row.points && row.xp ? ' · ' : ''}{row.xp ? `+${row.xp} XP` : ''}</b></li>)}</ul>
+    {data.skip_message && <p className="reward-soft-note" role="status">{data.skip_message} 이 식단의 끼니 포인트·XP는 지급되지 않았어요.</p>}
+    <p className="reward-small">포인트와 성장 XP는 별개예요. 이번 기록으로 받은 XP는 {fmt(data.total_xp)} XP예요.</p>
     <div className="reward-meal-cells">{MEALS.map(type => {
       const cell = status[type], now = type === data.meal_type;
       return <div key={type} className={now ? 'is-now' : cell.done ? 'is-done' : 'is-open'}><b>{cell.label}</b>

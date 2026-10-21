@@ -43,6 +43,8 @@
 
 ## 로컬 개발용 계정 (관리자 · 테스트)
 
+팀원별 Docker DB에 계정을 준비하는 방법은 [팀원 로컬 테스트 가이드](docs/operations/TEAM_LOCAL_TEST_GUIDE.md)를 참고하세요. Backend 실행 방식별 계정 생성·로그인·더미·교환 테스트와 오류 확인 방법을 안내합니다.
+
 로컬 개발 설정(`APP_ENV=development`, `LOCAL_TEST_SIGNUP=true`, `FRONTEND_ORIGIN=http://localhost:5174`)에서만 만들어지는 팀 공용 계정입니다. 운영에서는 생기지 않으며 운영 관리자는 `python -m backend.scripts.create_admin --email … --age …`로 따로 만듭니다.
 
 | 용도 | 아이디(이메일) | 비밀번호 | 만들기 |

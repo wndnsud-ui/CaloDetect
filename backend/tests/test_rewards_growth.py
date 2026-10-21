@@ -136,6 +136,12 @@ def test_community_xp_mode(member):
     day = on(mp, 0)
     posts = [client.post('/community/posts', json={'meal_id': save(client, t, day)['id']}).json() for t in ('lunch', 'dinner')]
     assert lots(engine, user['id'])[f'share:{day}'][1] == 1
+    summary = client.get('/community/points/me').json()
+    assert summary['reward_view']['balance'] == client.get('/rewards/me').json()['balance']
+    assert summary['reward_view']['share_points'] == 1
+    assert summary['reward_view']['share_xp'] == 10
+    assert summary['reward_view']['recommend_xp'] == 10
+    assert any(row['source'] == 'community' and row['amount'] == 1 for row in summary['reward_view']['recent'])
     with TestClient(app) as other:
         fan = account(other, 'xpfan@example.com')
         for post in posts:

@@ -68,7 +68,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [goal,setGoal] = useState(null), [recommendationLoading,setRecommendationLoading] = useState(false);
   const [totals,setTotals] = useState(null), [previewError,setPreviewError] = useState(''), [mealError,setMealError] = useState('');
   // 리워드(지시서 v3): /rewards/me 요약, 리워드 탭, 기록 직후 보상 패널, 첫날 꾸미기, 레벨업 창, 가입 마지막 단계 닉네임.
-  const [rewards,setRewards] = useState(null), [rewardTab,setRewardTab] = useState('mall'), [grantMeal,setGrantMeal] = useState(null);
+  const [rewards,setRewards] = useState(null), [accountTab,setAccountTab] = useState('profile'), [grantMeal,setGrantMeal] = useState(null);
   const [firstPending,setFirstPending] = useState(false), [firstDecorate,setFirstDecorate] = useState(false), [levelSkip,setLevelSkip] = useState([]);
   const [nicknameStep,setNicknameStep] = useState(null), [nicknameEdit,setNicknameEdit] = useState(false);
   const signupFlow = React.useRef(false);
@@ -114,7 +114,13 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 비동기 작업의 진행/오류 상태를 공통 처리해 중복 제출과 사용자 안내를 관리한다.
   async function run(work) {setBusy(true);setError('');setMessage('');try {await work()} catch(e){setError(e.message)} finally {setBusy(false)}}
   // 상위 화면 선택을 바꾸고 페이지별 메시지/오류 상태를 정리한다.
-  function navigate(p,tab){setPage(p);setError('');setMessage('');if(tab)setRewardTab(tab);if(p==='리워드'||p==='홈')loadRewards();}
+  function navigate(p,tab){
+    const personalReward=p==='리워드'&&['room','growth','coupons'].includes(tab);
+    setPage(personalReward?'마이페이지':p);setError('');setMessage('');
+    if(personalReward)setAccountTab(tab);
+    else if(p==='마이페이지')setAccountTab('profile');
+    if(['리워드','홈','마이페이지'].includes(p))loadRewards();
+  }
   // 폼 값을 가입/로그인 요청 형태로 변환하고 성공 후 세션과 회원 데이터를 복원한다.
   async function authenticate(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));const rememberEmail=data.remember_email==='on';delete data.remember_email;if(signup){data.age=Number(data.age);data.service_consent=data.service_consent==='on';data.consent_text=policy.service_consent_text}
     await run(async()=>{signupFlow.current=signup;const result=await api(signup ? '/auth/signup':'/auth/login',data);if(!signup)saveRememberedEmail(data.email,rememberEmail);setUser(result.user);setPage(file?'음식 추가':'홈');await loadAccount()})}
@@ -225,10 +231,14 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}
     {page==='테스트'&&canUseDevDemo&&<DevDemo api={api} status={devDemo} onChanged={loadRewards} onNavigate={navigate}/>}
-    {page==='리워드'&&user&&<Rewards api={api} me={rewards} tab={rewardTab} onTab={setRewardTab} onChanged={loadRewards}/>}
+    {page==='리워드'&&user&&<><h1>리워드 몰</h1><Rewards api={api} me={rewards} tab="mall" showTabs={false} onTab={tab=>navigate('리워드',tab)} onChanged={loadRewards}/></>}
     {page==='히스토리'&&user&&<MealHistory history={history} onAdd={()=>navigate('음식 추가')} api={api} onChanged={()=>loadAccount().catch(e=>setError(e.message))}/>}
-    {page==='마이페이지'&&user&&<AccountInfo key={nicknameEdit?'edit':'view'} api={api} rewards={rewards} onRewardsChanged={()=>{setNicknameEdit(false);loadRewards();}} startNicknameOpen={nicknameEdit} user={user} profile={profile} busy={busy} onGoals={()=>navigate('목표 설정')} onUpdate={name=>run(async()=>{const d=await api('/users/me',{name},'PUT');setUser(d.user);setMessage('회원정보를 수정했습니다.');})}/>}
-    {page==='마이페이지'&&user&&(user.password_login_enabled ? <PasswordForm api={api} onChanged={passwordChanged}/>
+    {page==='마이페이지'&&user&&<>
+      <div className="reward-tabs" role="tablist" aria-label="마이페이지 메뉴">{[['profile','회원정보'],['room','지방이 방'],['growth','성장 · 랭킹'],...(rewards?.exchange?[['coupons','쿠폰함']]:[])].map(([key,label])=><button key={key} role="tab" aria-selected={accountTab===key} className={accountTab===key?'active':''} onClick={()=>setAccountTab(key)}>{label}</button>)}</div>
+      {accountTab!=='profile'&&<Rewards api={api} me={rewards} tab={accountTab} showTabs={false} onTab={tab=>tab==='mall'?navigate('리워드','mall'):setAccountTab(tab)} onChanged={loadRewards}/>}
+    </>}
+    {page==='마이페이지'&&user&&accountTab==='profile'&&<AccountInfo key={nicknameEdit?'edit':'view'} api={api} rewards={rewards} onRewardsChanged={()=>{setNicknameEdit(false);loadRewards();}} startNicknameOpen={nicknameEdit} user={user} profile={profile} busy={busy} onGoals={()=>navigate('목표 설정')} onUpdate={name=>run(async()=>{const d=await api('/users/me',{name},'PUT');setUser(d.user);setMessage('회원정보를 수정했습니다.');})}/>}
+    {page==='마이페이지'&&user&&accountTab==='profile'&&(user.password_login_enabled ? <PasswordForm api={api} onChanged={passwordChanged}/>
       : <section className="panel"><h2>비밀번호 관리</h2><p className="muted">Google 계정의 비밀번호는 Google 계정 설정에서 변경해 주세요.</p></section>)}
     {user&&grantMeal&&!nicknameStep&&<RewardGrantPanel key={grantMeal} api={api} mealId={grantMeal} onLoaded={data=>setFirstPending(!!data.first_meal)} onNavigate={navigate} onClose={()=>{setGrantMeal(null);loadRewards();if(firstPending){setFirstPending(false);setFirstDecorate(true);}}}/>}
     {user&&firstDecorate&&!grantMeal&&<FirstDecorate api={api} onClose={()=>setFirstDecorate(false)} onDone={()=>{setFirstDecorate(false);loadRewards();navigate('리워드','room');}}/>}

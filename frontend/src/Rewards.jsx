@@ -60,7 +60,15 @@ function PurchaseDialog({api, item, me, onClose, onDone, onGoal, onNavigate}) {
 
 function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
   const [category, setCategory] = useState(initialCategory), [buying, setBuying] = useState(null), [ledger, setLedger] = useState(null);
-  const items = catalog.items.filter(item => item.sellable);
+  const items = catalog.items.filter(item => item.sellable || item.default_provided);
+  const [equipping, setEquipping] = useState(false), [equipError, setEquipError] = useState('');
+  async function toggleItem(item) {
+    setEquipping(true); setEquipError('');
+    try {
+      await api('/rewards/equipment', {slot: item.slot, item_id: item.equipped ? null : item.id}, 'PUT');
+      onChanged();
+    } catch (error) { setEquipError(error.message); } finally { setEquipping(false); }
+  }
   async function setGoal(item) {
     await api('/rewards/goal', {ref: `item:${item.id}`}, 'PUT');
     setBuying(null); onChanged();
@@ -81,12 +89,13 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
     <div className="reward-chips" role="tablist" aria-label="리워드 종류">{CATEGORIES.map(([key, label]) => <button key={key} role="tab" aria-selected={category === key} className={category === key ? 'active' : ''} onClick={() => setCategory(key)}>{label}</button>)}</div>
     {category === 'deco' ? <div className="mall-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
       <ItemPreview item={item} equipment={me.equipment} level={me.level}/>
-      <h3>{item.name}</h3><p className="mall-price">{fmt(item.price)}P</p>
+      <h3>{item.name}</h3><p className="mall-price">{item.default_provided ? '기본 제공' : `${fmt(item.price)}P`}</p>
       {item.owned && item.kind !== 'protector' ? <p className="reward-small">{item.equipped ? '착용 중' : '보유'}</p>
         : item.lock_reason ? <p className="reward-small">{item.lock_reason}</p>
         : item.shortfall > 0 ? <><Progress value={me.balance / item.price} tone="gold" label={`${item.name}까지 진행률`}/><p className="reward-small">{fmt(item.shortfall)}P 남음 · {etaText(item.eta_days).replace('지금 속도면 ', '')}</p></>
         : item.kind === 'protector' && item.quantity ? <p className="reward-small">보유 {item.quantity}장</p> : null}
       {!(item.owned && item.kind !== 'protector') && !item.lock_reason && <button type="button" className={item.shortfall ? 'outline' : 'primary'} onClick={() => setBuying(item)}>{item.shortfall ? '살펴보기' : '구매하기'}</button>}
+      {item.owned && item.kind !== 'protector' && <button type="button" className="outline" disabled={equipping} onClick={() => toggleItem(item)}>{item.equipped ? '빼기' : '바로 적용하기'}</button>}
     </article>)}</div>
       : category === 'pro' ? <section className="coaching-preview" aria-labelledby="coaching-title">
         <div className="panel coaching-intro"><span className="coaching-label">COACHING · 서비스 시안</span><h3 id="coaching-title">작은 습관부터, 나에게 맞는 코칭</h3><p>꾸준히 모은 포인트로 만나 보는 건강한 일상.</p><small>아래 서비스와 포인트는 예시예요. 실제 신청·포인트 차감은 제공하지 않아요.</small></div>
@@ -102,6 +111,7 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
         onGoal={async product => { await api('/rewards/goal', {ref: `product:${product.id}`}, 'PUT'); onChanged(); }}/>
       : <section className="panel mall-soon"><h3>{CATEGORIES.find(([key]) => key === category)[1]}</h3><p>준비 중이에요. 제휴와 운영 기준이 확정되면 열려요.</p>
         {category === 'goods' && <p className="reward-small">실물 교환은 가입 14일 이후, 한 달에 한 번 신청할 수 있게 준비하고 있어요. 가입 보너스·커뮤니티 포인트는 꾸미기에만 쓸 수 있어요.</p>}</section>}
+    {equipError && <p className="error" role="alert">{equipError}</p>}
     <details className="panel reward-ledger" onToggle={event => { if (event.currentTarget.open && !ledger) more(); }}>
       <summary>적립·사용 내역</summary>
       {ledger && <ul>{ledger.items.map(row => <li key={row.type + row.id}><span>{row.label}<small>{new Date(row.at).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'})}{row.expires_at ? ` · ${new Date(row.expires_at).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul'})}까지` : ''}</small></span><b className={row.amount < 0 ? 'minus' : ''}>{row.amount > 0 ? '+' : ''}{fmt(row.amount)}P</b></li>)}</ul>}
@@ -130,7 +140,7 @@ function Room({api, me, catalog, onChanged}) {
       <Jibang equipment={{...me.equipment, background: selected}} level={me.level} figureWidth={170} className="room-scene"
         bubble={locked ? null : ROOM_LINES[selected]} badge={locked ? `미리보기 · ${item.lock_reason || '아직 잠겨 있어요'}` : null}/>
       <div className="room-apply"><div><p className="room-name">{item?.level_required ? `LV.${item.level_required} · ` : ''}{BACKGROUND_LABELS[selected] || item?.name}</p>
-        <p className="reward-small">{item?.sellable ? '리워드 몰 판매 배경' : '레벨 보상 · 판매하지 않아요'}</p></div>
+        <p className="reward-small">{item?.default_provided ? '기본 제공 · 포인트 없이 사용할 수 있어요' : item?.sellable ? '리워드 몰 판매 배경' : '레벨 보상 · 판매하지 않아요'}</p></div>
         <button type="button" className="primary" disabled={locked || selected === applied || busy} onClick={() => equip('background', selected)}>{locked ? (item.lock_reason || '잠겨 있어요') : selected === applied ? '적용 중' : '이 배경 적용하기'}</button></div>
       {error && <p className="error" role="alert">{error}</p>}
     </section>
@@ -203,7 +213,7 @@ function Growth({api, me, onChanged}) {
   </>;
 }
 
-export default function Rewards({api, me, tab = 'mall', onTab, onChanged}) {
+export default function Rewards({api, me, tab = 'mall', onTab, onChanged, showTabs = true}) {
   const [catalog, setCatalog] = useState(null), [error, setError] = useState(''), [mallCategory, setMallCategory] = useState('deco');
   // 쿠폰함 탭은 교환 기능(Stage C 플래그)이 켜져 /rewards/me에 exchange가 있을 때만 보인다.
   const tabs = me?.exchange ? [...TABS, ['coupons', '쿠폰함']] : TABS;
@@ -212,7 +222,7 @@ export default function Rewards({api, me, tab = 'mall', onTab, onChanged}) {
   useEffect(() => { loadCatalog(); }, [loadCatalog, me]);
   const changed = () => { onChanged(); };
   return <div className="rewards-page">
-    <div role="tablist" aria-label="리워드 메뉴" className="reward-tabs">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => goTab(key)}>{label}</button>)}</div>
+    {showTabs && <div role="tablist" aria-label="리워드 메뉴" className="reward-tabs">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => goTab(key)}>{label}</button>)}</div>}
     {error && <p className="error" role="alert">{error}</p>}
     {!me || !catalog ? <p className="muted" role="status">리워드를 불러오고 있어요…</p>
       : tab === 'room' ? <Room key={me.equipment.background} api={api} me={me} catalog={catalog} onChanged={changed}/>

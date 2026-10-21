@@ -260,11 +260,23 @@ def points(db, user):
         return db.scalar(select(func.coalesce(func.sum(Tx.amount), 0)).where(Tx.user_id == user.id, *filters))
     start = week_start()
     rows = list(db.scalars(select(Tx).where(Tx.user_id == user.id).order_by(Tx.created_at.desc(), Tx.id.desc()).limit(30)))
-    return {'balance': total(), 'earned_this_week': total(Tx.created_at >= start, Tx.amount > 0),
+    result = {'balance': total(), 'earned_this_week': total(Tx.created_at >= start, Tx.amount > 0),
         'deducted_this_week': total(Tx.created_at >= start, Tx.amount < 0), 'points_usage': None,
         'rules': {'like_received': settings.community_like_received_points, 'recommend_received': settings.community_recommend_received_points,
                   'like_given': settings.community_reaction_given_points, 'recommend_given': settings.community_reaction_given_points},
         'recent': [{'id': t.id, 'amount': t.amount, 'reason': t.reason, 'created_at': t.created_at} for t in rows[:30]]}
+    if settings.reward_enabled and settings.reward_community_xp_mode:
+        result['reward_view'] = {
+            'balance': rewards.balance_info(db, user.id)['balance'],
+            'recent': rewards.ledger(db, user)['items'],
+            'share_points': settings.reward_share_points, 'share_xp': settings.reward_share_xp,
+            'like_xp': settings.reward_reaction_received_like_xp,
+            'recommend_xp': settings.reward_reaction_received_recommend_xp,
+            'given_xp': settings.reward_reaction_given_xp,
+            'received_daily_cap': settings.reward_reaction_received_daily_cap,
+            'given_daily_cap': settings.reward_reaction_given_daily_cap,
+        }
+    return result
 
 
 def ranking(db, user):

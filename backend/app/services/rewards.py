@@ -53,6 +53,7 @@ ITEMS = (
     ('title_lv5', '건강 습관 칭호', 'deco', 'title', None, 5, False, 'B', True),
 )
 SLOTS = frozenset({'hat', 'glasses', 'ribbon', 'shoes', 'sticker', 'background', 'prop', 'outfit', 'title'})
+DEFAULT_ITEMS = frozenset({'starter_sticker', 'starter_glasses', 'starter_ribbon', 'starter_hat', 'starter_shoes', 'starter_bg', 'bg_lv1'})
 # 예상 일수 계산에서 빼는 일회성 출처(§6-12).
 ETA_EXCLUDED = frozenset({'onboarding', 'levelup', 'refund', 'adjust', 'community_legacy'})
 SKIP_MESSAGES = {'date_window': '어제 이전 날짜의 기록은 포인트 지급 대상이 아니에요.',
@@ -112,12 +113,25 @@ def ensure_items(db):
             savepoint(db, lambda: (db.add(Item(id=item_id, name=name, kind=kind, slot=slot, price=price,
                 level_required=level, sellable=sellable, stage=stage, asset_key=item_id, active=active,
                 sort_order=order)), db.flush()))
+    # 기존 DB에도 기본 제공 정책을 적용하며 구매·포인트 원장은 보존한다.
+    for item_id in DEFAULT_ITEMS:
+        item = db.get(Item, item_id)
+        item.price = None
+        item.sellable = False
+        if item_id == 'bg_lv1':
+            item.name = '기본 배경 · 포근한 아침 방'
+        elif item_id == 'starter_bg':
+            item.name = '깔끔한 민트 방'
 
 
 def account(db, user_id, lock=False):
     """회원 리워드 계정. 없으면 만들고 LV.1 배경을 기본 지급·장착한다."""
     row = db.get(Account, user_id, with_for_update=lock or None)
     if row:
+        ensure_items(db)
+        for item_id in DEFAULT_ITEMS:
+            if db.get(UserItem, (user_id, item_id)) is None:
+                give_item(db, user_id, item_id, 'default')
         return row
     ensure_items(db)
 
@@ -126,6 +140,8 @@ def account(db, user_id, lock=False):
         db.add(UserItem(user_id=user_id, item_id='bg_lv1', quantity=1, acquired_via='default'))
         db.add(Equipment(user_id=user_id, slot='background', item_id='bg_lv1')); db.flush()
     savepoint(db, create)
+    for item_id in DEFAULT_ITEMS - {'bg_lv1'}:
+        give_item(db, user_id, item_id, 'default')
     return db.get(Account, user_id, with_for_update=lock or None, populate_existing=True)
 
 
@@ -716,6 +732,8 @@ def goal_info(db, user, row, balance):
     item, chosen = None, False
     if row.goal_ref and row.goal_ref.startswith('item:'):
         item = db.get(Item, row.goal_ref[5:])
+        if item and not item.sellable:
+            item = None
         chosen = item is not None
     if item is None:
         candidates = [i for i in db.scalars(select(Item).where(Item.active.is_(True), Item.sellable.is_(True),
@@ -913,6 +931,7 @@ def items_view(db, user):
         shortfall = max(0, (item.price or 0) - balance) if item.sellable else None
         result.append({'id': item.id, 'name': item.name, 'kind': item.kind, 'slot': item.slot, 'price': item.price,
             'level_required': item.level_required, 'sellable': item.sellable, 'stage': item.stage,
+            'default_provided': item.id in DEFAULT_ITEMS,
             'asset_key': item.asset_key, 'owned': bool(mine), 'quantity': mine.quantity if mine else 0,
             'equipped': equipped.get(item.slot) == item.id,
             'purchasable': item.sellable and lock is None and (not mine or item.kind == 'protector') and shortfall == 0,
@@ -956,6 +975,7 @@ def purchase(db, user, item_id):
 
 
 def equip(db, user, slot, item_id):
+    account(db, user.id)
     if slot not in SLOTS:
         raise HTTPException(422, '입력값을 확인하세요.')
     row = db.get(Equipment, (user.id, slot))

@@ -54,6 +54,8 @@ def test_once_per_meal_and_first_meal_onboarding(member):
     grant = client.get(f'/rewards/grants?meal_id={first["id"]}').json()
     assert {i['key'] for i in grant['items']} == {f'meal:{day}:lunch', 'onboarding:first_meal'}
     assert grant['total_points'] == 11 and grant['first_meal']
+    assert grant['total_xp'] == 10 and grant['xp_total'] == 10
+    assert grant['next_level_xp'] == 300 and grant['xp_to_next'] == 290
     second = save(client, 'lunch', day)
     again = client.get(f'/rewards/grants?meal_id={second["id"]}').json()
     assert again['items'] == [] and again['skip_reason'] == 'duplicate_meal' and again['skip_message']
@@ -126,6 +128,19 @@ def test_photo_reuse(member, monkeypatch):
         assert lots(engine, stranger['id'])[f'meal:{day}:dinner'][1] == 2
 
 
+def test_first_meal_reused_photo_has_points_but_no_xp(member):
+    client, engine, user, day = member
+    save(client, 'breakfast', day, photo(engine, user['id'], b'already-rewarded'))
+    with TestClient(app) as other:
+        stranger = account(other, 'first-photo-reuse@example.com')
+        meal = save(other, 'lunch', day, photo(engine, stranger['id'], b'already-rewarded'))
+        grant = other.get(f'/rewards/grants?meal_id={meal["id"]}').json()
+        assert grant['total_points'] == 10 and grant['first_meal']
+        assert grant['total_xp'] == 0 and grant['xp_total'] == 0
+        assert grant['skip_reason'] == 'photo_reused' and grant['skip_message']
+        assert grant['next_level_xp'] == 300
+
+
 # 8. 보상 훅 예외 → 식단은 저장되고 보상만 없음, POST /meals 응답 본문 형태 동일.
 def test_hook_failure_isolated(member, monkeypatch):
     client, engine, user, day = member
@@ -154,29 +169,29 @@ def test_purchase_rules(member):
     client, engine, user, day = member
     with Session(engine) as db:
         service.account(db, user['id'])
-        for idem, source, amount, days in (('a', 'meal', 5, 10), ('b', 'community', 4, 300), ('c', 'onboarding', 3, 365)):
+        for idem, source, amount, days in (('a', 'meal', 35, 10), ('b', 'community', 4, 300), ('c', 'onboarding', 3, 365)):
             lot = service.grant_points(db, user['id'], source, amount, idem)
             lot.expires_at = NOON + timedelta(days=days)
         db.commit()
-    bought = client.post('/rewards/items/starter_sticker/purchase')
+    bought = client.post('/rewards/items/prop_water/purchase')
     assert bought.status_code == 200, bought.text
     assert bought.json()['restricted_used'] == 7 and bought.json()['balance'] == 2
     assert lots(engine, user['id'])['a'][2] == 2
-    assert client.post('/rewards/items/starter_sticker/purchase').status_code == 409
-    short = client.post('/rewards/items/starter_hat/purchase')
-    assert short.status_code == 422 and short.json()['error']['message'] == '포인트가 부족해요. 18P 더 모으면 돼요.'
+    assert client.post('/rewards/items/prop_water/purchase').status_code == 409
+    short = client.post('/rewards/items/prop_salad/purchase')
+    assert short.status_code == 422 and short.json()['error']['message'] == '포인트가 부족해요. 48P 더 모으면 돼요.'
     assert client.post('/rewards/items/bg_lv3/purchase').status_code == 403
 
 
 # 11. 장착: 미보유 403, slot당 1개, 해제(null).
 def test_equipment(member):
     client, engine, user, day = member
-    assert client.put('/rewards/equipment', json={'slot': 'hat', 'item_id': 'starter_hat'}).status_code == 403
+    assert client.put('/rewards/equipment', json={'slot': 'prop', 'item_id': 'prop_water'}).status_code == 403
     assert client.get('/rewards/me').json()['equipment'] == {'background': 'bg_lv1'}
     with Session(engine) as db:
         service.grant_points(db, user['id'], 'meal', 100, 'x'); db.commit()
     for item in ('starter_hat', 'starter_bg'):
-        assert client.post(f'/rewards/items/{item}/purchase').status_code == 200
+        assert client.post(f'/rewards/items/{item}/purchase').status_code == 403
     assert client.put('/rewards/equipment', json={'slot': 'hat', 'item_id': 'starter_hat'}).status_code == 200
     assert client.put('/rewards/equipment', json={'slot': 'background', 'item_id': 'starter_bg'}).json()['equipment'] == \
         {'background': 'starter_bg', 'hat': 'starter_hat'}
@@ -274,13 +289,13 @@ def test_revoke_debt(member):
 def test_goal_and_eta(member):
     client, engine, user, day = member
     goal = client.get('/rewards/me').json()['goal']
-    assert goal['item_id'] == 'starter_sticker' and goal['remaining'] == 10 and goal['eta_days'] is None
+    assert goal['item_id'] == 'prop_water' and goal['remaining'] == 40 and goal['eta_days'] is None
     save(client, 'lunch', day)  # +1 끼니, +10 온보딩(예상 일수에서 제외)
     goal = client.get('/rewards/me').json()['goal']
-    assert goal['base_points'] == 11 and goal['remaining'] == 0
-    assert client.put('/rewards/goal', json={'ref': 'item:starter_bg'}).status_code == 200
+    assert goal['base_points'] == 11 and goal['remaining'] == 29
+    assert client.put('/rewards/goal', json={'ref': 'item:prop_salad'}).status_code == 200
     goal = client.get('/rewards/me').json()['goal']
-    assert goal['chosen'] and goal['remaining'] == 19 and goal['eta_days'] == 19
+    assert goal['chosen'] and goal['remaining'] == 39 and goal['eta_days'] == 39
     assert client.put('/rewards/goal', json={'ref': 'product:protein'}).status_code == 404
 
 
@@ -299,7 +314,7 @@ def test_concurrency_postgres(member):
     client, engine, user, day = member
     with Session(engine) as db:
         service.account(db, user['id'])
-        service.grant_points(db, user['id'], 'meal', 10, 'only'); db.commit()
+        service.grant_points(db, user['id'], 'meal', 50, 'only'); db.commit()
     results = []
 
     def buy(item):
@@ -309,11 +324,11 @@ def test_concurrency_postgres(member):
                 results.append(200)
             except Exception as error:
                 results.append(getattr(error, 'status_code', 500))
-    threads = [threading.Thread(target=buy, args=(i,)) for i in ('starter_sticker', 'starter_glasses')]
+    threads = [threading.Thread(target=buy, args=(i,)) for i in ('prop_water', 'prop_salad')]
     [t.start() for t in threads]; [t.join() for t in threads]
     assert sorted(results) == [200, 422]
     with Session(engine) as db:
-        assert service.balance_info(db, user['id'])['balance'] == 0
+        assert service.balance_info(db, user['id'])['balance'] in (0, 10)
         assert db.scalar(select(func.min(Lot.remaining)).where(Lot.user_id == user['id'])) >= 0
 
     def meal():
@@ -325,3 +340,24 @@ def test_concurrency_postgres(member):
     with Session(engine) as db:
         assert db.scalar(select(func.count()).select_from(Lot).where(Lot.user_id == user['id'],
                                                                       Lot.idem_key == f'meal:{day}:dinner')) == 1
+
+
+def test_default_items_no_points_and_existing_account(member):
+    client, engine, user, day = member
+    client.get('/rewards/me')
+    with Session(engine) as db:
+        from backend.app.models_rewards import RewardUserItem, RewardItem
+        db.query(RewardUserItem).filter(RewardUserItem.user_id == user['id'], RewardUserItem.item_id == 'starter_hat').delete()
+        db.get(RewardItem, 'starter_hat').price = 20
+        db.get(RewardItem, 'starter_hat').sellable = True
+        db.commit()
+    items = {item['id']: item for item in client.get('/rewards/items').json()['items']}
+    for item_id in service.DEFAULT_ITEMS:
+        assert items[item_id]['owned'] and items[item_id]['default_provided']
+        assert items[item_id]['price'] is None and not items[item_id]['sellable']
+        assert not items[item_id]['purchasable']
+    assert client.put('/rewards/equipment', json={'slot': 'hat', 'item_id': 'starter_hat'}).status_code == 200
+    assert client.put('/rewards/equipment', json={'slot': 'hat', 'item_id': None}).status_code == 200
+    assert client.get('/rewards/me').json()['balance'] == 0
+    with Session(engine) as db:
+        assert db.scalar(select(func.count()).select_from(Spend)) == 0

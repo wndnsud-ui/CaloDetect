@@ -263,7 +263,7 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
 
   return <div className="chat-record">
     <section className="chat-main" aria-label="채팅으로 식사 기록하기">
-      <div className="chat-title"><div><p className="eyebrow">CHAT MEAL LOG</p><h1>채팅으로 식사 기록하기</h1></div><p className="muted">사진을 보내고 드신 양을 말하면 바로 기록돼요.</p></div>
+      <div className="chat-title"><div><p className="eyebrow">CHAT MEAL LOG</p><h1>칼로T코치에게 뭐 먹었는지 남겨볼래?</h1></div><p className="muted">사진을 보내고 드신 양을 말하면 칼로T코치가 바로 기록해요.</p></div>
       <ol className="chat-log" ref={log} aria-live="polite">
         <li className="chat-date"><span>{dateText}</span></li>
         {messages.map(message => {

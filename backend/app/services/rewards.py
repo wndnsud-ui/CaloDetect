@@ -1192,6 +1192,14 @@ def unused_nickname(db, exclude_user=None):
     return rules.generate_nickname(digits=6)
 
 
+def display_names(db, user_ids):
+    """공개 표시 이름: 닉네임 우선, 아직 닉네임이 없는 회원만 계정 이름."""
+    ids = list(set(user_ids))
+    names = {u.id: u.name for u in db.scalars(select(User).where(User.id.in_(ids)))}
+    names.update({n.user_id: n.nickname for n in db.scalars(select(Nickname).where(Nickname.user_id.in_(ids)))})
+    return names
+
+
 def create_generated(db, user):
     existing = db.get(Nickname, user.id)
     if existing:

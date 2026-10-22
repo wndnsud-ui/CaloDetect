@@ -63,6 +63,32 @@
 
 /* 홈 헤더는 공통 header의 가로 flex 배치와 분리한다. */
 .daily-home>.daily-header{display:block;min-width:0}
+.app-utilities{display:grid;gap:8px;margin-top:auto;padding-top:28px}
+.shell.integrated-app>aside>.app-utilities+.aside-bottom{margin-top:16px;padding-top:0}
+.app-utilities>button{display:flex;align-items:center;gap:10px;text-align:left;border:0;border-radius:12px;background:transparent;color:#425e52;padding:12px;font:inherit;font-size:13px}
+.app-utilities>button.active{background:#e4f2ea;color:#175e47;font-weight:700}
+.app-utilities svg{width:21px;height:21px;flex-shrink:0}
+.section-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px}
+.section-tabs>button{min-height:44px;padding:10px 16px;border:1px solid #d6e5dc;border-radius:12px;background:#fff;color:#425e52;font:inherit;font-size:14px;cursor:pointer}
+.section-tabs>button.active{background:#146f55;border-color:#146f55;color:#fff;font-weight:700}
+.section-tabs>button:focus-visible,.app-utilities>button:focus-visible{outline:3px solid #79bc95;outline-offset:3px}
+.sub-tabs>button{font-size:13px;padding:8px 14px}
+.menu-page-title{font-size:28px;margin-bottom:18px}
+@media(max-width:760px){
+ .shell.integrated-app>aside{position:relative;padding-right:155px;min-height:68px}
+ .shell.integrated-app:has(.daily-home)>aside{padding-right:155px}
+ .shell.integrated-app>aside>.brand{font-size:19px}
+ .shell.integrated-app>aside>.app-utilities{margin:0;padding-top:0;position:absolute;right:12px;top:12px;gap:3px;z-index:2}
+ .shell.integrated-app>aside>.app-utilities>button{padding:8px;font-size:12px;min-height:40px;background:#edf6ef;color:#175e47}
+ .shell.integrated-app>aside>.app-utilities>button:not(.utility-account){display:inline-flex;min-height:28px;padding:4px 8px;justify-content:center}
+ .shell.integrated-app>aside:has(.app-utilities>button:not(.utility-account)){min-height:130px}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"]{overflow:visible}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"] button{min-width:0;flex:1 1 0;padding:9px 2px;font-size:10px;white-space:nowrap}
+ .shell.integrated-app>aside nav[aria-label="웹앱 메뉴"] button:nth-child(2){min-width:0;max-width:none;height:auto;border-radius:15px;margin:0;flex:1 1 0}
+ .section-tabs{gap:6px;margin-bottom:20px}
+ .section-tabs>button{padding:10px;font-size:13px;flex:1 1 auto}
+ .menu-page-title{font-size:24px}
+}
 .daily-home .daily-header-top{gap:12px;flex-wrap:wrap}
 .daily-home .daily-header-top>div{min-width:0}
 .daily-home .daily-date-title,.daily-home .daily-today{white-space:nowrap}

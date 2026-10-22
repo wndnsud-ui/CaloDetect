@@ -61,7 +61,7 @@ def serialize(db, posts, user):
         Meal.id.in_([p.meal_id for p in posts])))}
     foods = {f.id: f for f in db.scalars(select(Food).where(Food.id.in_(
         [i.food_id for m in meals.values() for i in m.items])))}
-    names = {u.id: u.name for u in db.scalars(select(User).where(User.id.in_([p.user_id for p in posts])))}
+    names = rewards.display_names(db, [p.user_id for p in posts])
     reactions = list(db.scalars(select(Reaction).where(Reaction.post_id.in_([p.id for p in posts]))))
     photos = list(db.scalars(select(Photo).where(Photo.post_id.in_([p.id for p in posts])).order_by(Photo.position)))
     return [{'id': p.id, 'created_at': p.created_at, 'author': {'name': names[p.user_id], 'is_me': p.user_id == user.id},
@@ -287,6 +287,7 @@ def ranking(db, user):
         .order_by(score.desc(), User.id)).all()
     items, my_rank, previous, rank = [], None, None, 0
     my_points = db.scalar(select(func.coalesce(score, 0)).where(Tx.user_id == user.id, Tx.created_at >= start))
+    names = rewards.display_names(db, [row.id for row in rows[:settings.community_ranking_size]])
     for index, row in enumerate(rows):
         if row.points != previous:
             rank = index + 1
@@ -294,7 +295,7 @@ def ranking(db, user):
         if row.id == user.id:
             my_rank = rank
         if index < settings.community_ranking_size:
-            items.append({'rank': rank, 'name': row.name, 'points': row.points, 'is_me': row.id == user.id})
+            items.append({'rank': rank, 'name': names[row.id], 'points': row.points, 'is_me': row.id == user.id})
     deducted = db.scalar(select(func.coalesce(score, 0)).where(Tx.user_id == user.id, Tx.created_at >= start, Tx.amount < 0))
     return {'timezone': 'Asia/Seoul', 'week_start': start.astimezone(KST).isoformat(), 'items': items,
             'me': {'rank': my_rank, 'points': my_points, 'deducted_this_week': deducted}}

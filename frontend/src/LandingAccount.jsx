@@ -17,7 +17,9 @@ export default function LandingAccount({onOpen}) {
         if(response.status===401){if(active&&request===latest)setSession({loading:false,user:null,error:false});return;}
         if(!response.ok)throw new Error('session');
         const data=await readApiResponse(response);
-        if(active&&request===latest)setSession({loading:false,user:data.user,error:false});
+        // 환영 문구도 닉네임으로 표시한다. 닉네임 조회가 실패하면 계정 이름을 쓴다.
+        const nickname=await fetch('/api/rewards/nickname',{credentials:'include',cache:'no-store'}).then(r=>r.ok?readApiResponse(r):null).then(d=>d?.nickname).catch(()=>null);
+        if(active&&request===latest)setSession({loading:false,user:{...data.user,name:nickname||data.user.name},error:false});
       } catch {if(active&&request===latest)setSession(current=>({...current,loading:false,error:true}));}
     }
     // 다른 화면/탭에서 로그인한 뒤 소개 화면으로 돌아오는 경우 창 focus에서 세션을 다시 확인한다.

@@ -104,7 +104,7 @@ function Post({post,busy,onReact,onDelete}) {
   </div></article>;
 }
 
-export default function Community({api,onNavigate,initialMealId,onShareOpened}) {
+export default function Community({api,onNavigate,initialMealId,onShareOpened,onRewardsChanged}) {
   const [items,setItems]=useState([]),[cursor,setCursor]=useState(null),[mine,setMine]=useState(false),[loading,setLoading]=useState(true);
   const [points,setPoints]=useState(null),[rank,setRank]=useState(null),[error,setError]=useState(''),[toast,setToast]=useState('');
   const [sheet,setSheet]=useState(null),[eligible,setEligible]=useState(null),[meal,setMeal]=useState(''),[comment,setComment]=useState(''),[photo,setPhoto]=useState(false);
@@ -123,7 +123,7 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened}) 
   useEffect(()=>{setError('');setItems([]);setCursor(null);loadFeed();},[mine]);
   useEffect(()=>{refreshStats().catch(e=>setError(e.message));},[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),5000);return()=>clearTimeout(timer);},[toast]);
-  async function action(work){if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await work();}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);setPending(null);}}
+  async function action(work){if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await work();}catch(e){setError(e.message);}finally{await onRewardsChanged?.();lock.current=false;setBusy(false);setPending(null);}}
   async function preview(post,kind){await action(async()=>{setPending(post.id);try{
     const path=`/community/posts/${post.id}${kind?`/reactions/${kind}/revoke-preview`:'/delete-preview'}`;
     const data=await api(path);setConfirm({post,kind,...data});

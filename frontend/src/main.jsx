@@ -117,7 +117,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 채팅 식사기록은 서버 기능 플래그가 켜져 /chat/status가 있을 때만 메뉴에 보인다.
   const [chatEnabled,setChatEnabled] = useState(false);
   useEffect(()=>{let active=true;if(!user){setChatEnabled(false);return;}api('/chat/status').then(()=>{if(active)setChatEnabled(true)}).catch(()=>{if(active)setChatEnabled(false)});return()=>{active=false};},[user]);
-  async function loadAccount() {const [t,h,p] = await Promise.all([api('/analytics/today'),api('/meals/history'),api('/users/me/profile')]);setToday(t);setHistory(h.items);setProfile(p.profile);loadRewards();}
+  async function loadAccount() {const [t,h,p] = await Promise.all([api('/analytics/today'),api('/meals/history'),api('/users/me/profile'),loadRewards()]);setToday(t);setHistory(h.items);setProfile(p.profile);}
   // 리워드 요약은 식단·계정 화면과 독립이라 실패해도 다른 화면을 막지 않는다. 가입 단계 닉네임이 필요하면 홈보다 먼저 띄운다.
   async function loadRewards() {try {const data=await api('/rewards/me');setRewards(data);if(data.nickname_prompt==='signup')setNicknameStep(current=>current||(signupFlow.current?'signup':'relogin'));return data;} catch {return null;}}
   // 비동기 작업의 진행/오류 상태를 공통 처리해 중복 제출과 사용자 안내를 관리한다.
@@ -242,7 +242,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     })}</div></>}</>}
     {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
     {page==='채팅으로 식사기록'&&user&&chatEnabled&&<ChatRecord api={api} today={today} history={history} onNavigate={navigate} onSaved={mealId=>{if(mealId)setGrantMeal(mealId);loadAccount().catch(e=>setError(e.message))}}/>}
-    {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onShareOpened={()=>setCommunityMeal(null)}/>}
+    {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}
     {page==='테스트'&&canUseDevDemo&&<DevDemo api={api} status={devDemo} onChanged={loadRewards} onNavigate={navigate}/>}
     {page==='리워드'&&user&&<><h1>리워드 몰</h1><Rewards api={api} me={rewards} tab="mall" showTabs={false} onTab={tab=>navigate('리워드',tab)} onChanged={loadRewards}/></>}
@@ -253,7 +253,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='마이페이지'&&user&&accountTab==='profile'&&<AccountInfo key={nicknameEdit?'edit':'view'} api={api} rewards={rewards} onRewardsChanged={()=>{setNicknameEdit(false);loadRewards();}} startNicknameOpen={nicknameEdit} user={user} profile={profile} busy={busy} onGoals={()=>navigate('목표 설정')} onUpdate={name=>run(async()=>{const d=await api('/users/me',{name},'PUT');setUser(d.user);setMessage('회원정보를 수정했습니다.');})}/>}
     {page==='마이페이지'&&user&&accountTab==='profile'&&(user.password_login_enabled ? <PasswordForm api={api} onChanged={passwordChanged}/>
       : <section className="panel"><h2>비밀번호 관리</h2><p className="muted">Google 계정의 비밀번호는 Google 계정 설정에서 변경해 주세요.</p></section>)}
-    {user&&grantMeal&&!nicknameStep&&<RewardGrantPanel key={grantMeal} api={api} mealId={grantMeal} onLoaded={data=>setFirstPending(!!data.first_meal)} onNavigate={navigate} onShare={mealId=>{setGrantMeal(null);setFirstPending(false);setCommunityMeal(mealId);loadRewards();navigate('커뮤니티');}} onClose={()=>{setGrantMeal(null);loadRewards();if(firstPending){setFirstPending(false);setFirstDecorate(true);}}}/>}
+    {user&&grantMeal&&!nicknameStep&&<RewardGrantPanel key={grantMeal} api={api} mealId={grantMeal} onLoaded={data=>{setFirstPending(!!data.first_meal);loadRewards();}} onNavigate={navigate} onShare={mealId=>{setGrantMeal(null);setFirstPending(false);setCommunityMeal(mealId);loadRewards();navigate('커뮤니티');}} onClose={()=>{setGrantMeal(null);loadRewards();if(firstPending){setFirstPending(false);setFirstDecorate(true);}}}/>}
     {user&&firstDecorate&&!grantMeal&&<FirstDecorate api={api} onClose={()=>setFirstDecorate(false)} onDone={()=>{setFirstDecorate(false);loadRewards();navigate('리워드','room');}}/>}
     {user&&rewards?.pending_levelup&&!grantMeal&&!firstDecorate&&!nicknameStep&&!levelSkip.includes(rewards.pending_levelup.id)&&<LevelUpDialog api={api} event={rewards.pending_levelup} equipment={rewards.equipment}
       onNavigate={navigate} onClose={()=>{setLevelSkip(ids=>[...ids,rewards.pending_levelup.id]);loadRewards();}}/>}

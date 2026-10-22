@@ -610,17 +610,26 @@ def community_reaction_revoked(db, reaction_id):
     isolated(_reaction_revoked, db, reaction_id, conflict=(404, '이미 처리된 요청입니다.'))
 
 
+def post_share_lots(db, user_id, post_id):
+    return list(db.scalars(select(Lot).where(
+        Lot.user_id == user_id, Lot.ref_type == 'post', Lot.ref_id == post_id,
+        Lot.idem_key.startswith('share:'))))
+
+
 def _post_deleted(db, user_id, post_id, amount):
+    account(db, user_id, lock=True)
+    for lot in post_share_lots(db, user_id, post_id):
+        revoke_lot(db, user_id, lot.idem_key)
     if amount <= 0:
         return
-    account(db, user_id, lock=True)
-    if db.scalar(select(func.count()).select_from(Spend).where(Spend.ref_type == 'post', Spend.ref_id == post_id)):
+    if (db.scalar(select(func.count()).select_from(Spend).where(Spend.ref_type == 'post', Spend.ref_id == post_id))
+            or db.scalar(select(func.count()).select_from(Debt).where(Debt.ref_type == 'post', Debt.ref_id == post_id))):
         return
     take_for_revoke(db, user_id, amount, 'post', post_id)
 
 
 def community_post_deleted(db, user_id, post_id, amount):
-    """기존 게시물 삭제 감점(point_transactions)과 같은 금액을 리워드 원장에서도 회수한다."""
+    """해당 게시물 공유 lot과 기존 반응 포인트를 각각 한 번만 회수한다."""
     isolated(_post_deleted, db, user_id, post_id, amount, conflict=(404, '이미 처리된 요청입니다.'))
 
 

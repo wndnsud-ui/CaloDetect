@@ -234,7 +234,8 @@ def delete_preview(db, user, post_id):
     post = active_post(db, post_id)
     if post.user_id != user.id:
         raise HTTPException(403, '본인 게시물만 삭제할 수 있어요.')
-    return {'me': -max(0, deletion_net(db, post)), 'reactors_affected': False}
+    shared = sum(lot.amount for lot in rewards.post_share_lots(db, user.id, post.id))
+    return {'me': -max(0, deletion_net(db, post)) - shared, 'reactors_affected': False}
 
 
 def delete_post(db, user, post_id):
@@ -242,6 +243,7 @@ def delete_post(db, user, post_id):
     if post.user_id != user.id:
         raise HTTPException(403, '본인 게시물만 삭제할 수 있어요.')
     net = deletion_net(db, post)
+    shared = sum(lot.amount for lot in rewards.post_share_lots(db, user.id, post.id))
     already = db.scalar(select(Tx.id).where(Tx.post_id == post.id, Tx.reason == 'post_deleted_revoked'))
     deducted = -net if net > 0 and already is None else 0
     if deducted:
@@ -252,7 +254,7 @@ def delete_post(db, user, post_id):
     rewards.community_post_deleted(db, user.id, post.id, -deducted)  # 리워드 원장 회수
     commit_or_404(db)
     log.info('community post deleted deducted=%d', deducted)
-    return {'deleted': True, 'deducted': {'me': deducted}}
+    return {'deleted': True, 'deducted': {'me': deducted - shared}}
 
 
 def points(db, user):

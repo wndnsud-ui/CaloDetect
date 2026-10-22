@@ -155,6 +155,34 @@ def test_community_xp_mode(member):
 
 
 # 24·26-5. 랭킹: 반응·공유 XP 제외, 동점 동순위, 주 경계(KST 월요일), 응답 필드는 rank·nickname·xp·is_me뿐.
+@pytest.mark.parametrize('spent', [False, True])
+def test_delete_post_reclaims_share_points_once(member, spent):
+    from backend.app.models_rewards import RewardPointLot as Lot, RewardDebt as Debt
+    client, engine, user, mp = member
+    mp.setattr(settings, 'reward_community_xp_mode', True)
+    day = on(mp, 0)
+    posts = [client.post('/community/posts', json={'meal_id': save(client, t, day)['id']}).json()
+             for t in ('lunch', 'dinner')]
+    # 같은 날 두 번째 공유에는 보상이 없으므로 삭제 차감도 없어야 한다.
+    assert client.get(f'/community/posts/{posts[1]["id"]}/delete-preview').json()['me'] == 0
+    if spent:
+        with Session(engine) as db:
+            amount = sum(l.remaining for l in db.scalars(select(Lot).where(Lot.user_id == user['id'])))
+            service.spend_points(db, user['id'], amount, 'item', 'test', 'test-spent')
+            db.commit()
+    before = client.get('/rewards/me').json()['balance']
+    path = f'/community/posts/{posts[0]["id"]}'
+    assert client.get(path + '/delete-preview').json()['me'] == -1
+    assert client.delete(path).json()['deducted']['me'] == -1
+    assert client.get('/rewards/me').json()['balance'] == max(0, before - 1)
+    assert client.delete(path).status_code == 404
+    with Session(engine) as db:
+        service.community_post_deleted(db, user['id'], posts[0]['id'], 0)
+        db.commit()
+        debts = list(db.scalars(select(Debt).where(Debt.user_id == user['id'])))
+        assert sum(d.amount for d in debts) == (1 if spent else 0)
+
+
 def test_ranking(member):
     client, engine, user, mp = member
     day = on(mp, 0)

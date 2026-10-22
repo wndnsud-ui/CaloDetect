@@ -28,6 +28,8 @@ export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLo
     <button type="button" className="text-button" onClick={onClose} aria-label="안내 닫기">×</button>
   </div>;
   const status = data.today_meals;
+  // 보유 포인트·총 XP는 이번 보상이 더해진 값이다. 기록 전 값 + 이번 보상 = 현재 값으로 풀어서 보여 준다.
+  const before = data.balance - data.total_points, xpBefore = data.xp_total - data.total_xp;
   const threeLeft = ['breakfast', 'lunch', 'dinner'].filter(type => !status[type].done);
   return <aside className="reward-grant" role="dialog" aria-modal="false" aria-labelledby="reward-grant-title">
     <div className="reward-grant-head"><p className="reward-eyebrow" id="reward-grant-title">REWARD</p>
@@ -47,9 +49,9 @@ export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLo
         <small>{now ? '방금' : cell.done ? '완료' : `+${type === 'snack' ? 1 : data.photo_points}P`}</small></div>;
     })}</div>
     <div className="reward-grant-level">
-      <p><b>LV.{data.level} · 다음 레벨까지</b><span>{data.next_level_xp ? `${fmt(data.xp_total)} / ${fmt(data.next_level_xp)} XP` : '최고 레벨'}</span></p>
+      <p><b>LV.{data.level} · 다음 레벨까지</b><span>{data.next_level_xp ? <>{xpBefore >= 0 && data.total_xp > 0 ? <>{fmt(xpBefore)} <b className="reward-plus">+{fmt(data.total_xp)}</b> = </> : null}{fmt(data.xp_total)} / {fmt(data.next_level_xp)} XP</> : '최고 레벨'}</span></p>
       <Progress value={data.level_progress} label="다음 레벨까지 XP 진행률"/>
-      <p className="reward-small">{threeLeft.length && threeLeft.length < 3 ? `${threeLeft.map(type => status[type].label).join('·')}까지 기록하면 3끼 완료 +3P` : threeLeft.length === 0 ? '오늘 세 끼를 모두 기록했어요' : '세 끼를 모두 기록하면 +3P'} · 보유 {fmt(data.balance)}P</p>
+      <p className="reward-small">{threeLeft.length && threeLeft.length < 3 ? `${threeLeft.map(type => status[type].label).join('·')}까지 기록하면 3끼 완료 +3P` : threeLeft.length === 0 ? '오늘 세 끼를 모두 기록했어요' : '세 끼를 모두 기록하면 +3P'} · 보유 {before >= 0 && data.total_points > 0 ? <>{fmt(before)}P <b className="reward-plus">+{fmt(data.total_points)}P</b> = <b>{fmt(data.balance)}P</b></> : `${fmt(data.balance)}P`}</p>
     </div>
     <p className="reward-small">사진으로 기록하면 +{data.photo_points}P, 사진 없이 기록하면 +{data.text_points}P예요.</p>
     {onShare && <button type="button" className="primary" onClick={() => onShare(mealId)}>커뮤니티에 남기기</button>}

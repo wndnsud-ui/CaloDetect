@@ -39,34 +39,66 @@ export function StreakNotice({api, streak, onChanged}) {
   </div>;
 }
 
-export default function RewardHomeCard({api, me, onNavigate, onChanged}) {
-  if (!me) return <section className="panel reward-home-card"><p className="muted" role="status">리워드를 불러오고 있어요…</p></section>;
-  const goal = me.goal;
-  return <section className="panel reward-home-card" aria-labelledby="reward-home-title">
-    <div className="section-heading"><h2 id="reward-home-title">오늘의 건강 리워드</h2><button className="text-button" onClick={() => onNavigate('리워드', 'growth')}>성장 보기 →</button></div>
-    <div className="reward-home-top">
-      <button type="button" className="reward-home-room" onClick={() => onNavigate('리워드', 'room')} aria-label={`${CHARACTER_NAME} 방 꾸미기로 이동`}>
-        <Jibang equipment={me.equipment} level={me.level} bubble={bubbleFor(me)} figureWidth={118} motion="breathe"
-          badge={me.streak?.days ? <><span className="reward-flame"><Flame/></span>{me.streak.days}일 연속 기록 중</> : null}/>
-      </button>
-      <div className="reward-home-stats">
-        <p className="reward-level-name">LV.{me.level} · {me.level_name} {CHARACTER_NAME}</p>
-        <Progress value={me.level_progress} label="다음 레벨까지 XP 진행률"/>
-        <p className="reward-small">{me.next_level_xp ? `${fmt(me.xp_total)} / ${fmt(me.next_level_xp)} XP · ${etaText(me.xp_eta_days).replace('지금 속도면 ', '')}` : `${fmt(me.xp_total)} XP · 최고 레벨`}</p>
-        <div className="reward-balance"><p className="reward-points">{fmt(me.balance)}<span>P</span></p><p className="reward-today">오늘 +{fmt(me.today_points)}P</p></div>
-        {me.deco_only > 0 && <p className="reward-small">그중 꾸미기 전용 {fmt(me.deco_only)}P</p>}
-        {me.expiring_soon > 0 && <p className="reward-expire">30일 안에 사라지는 포인트 {fmt(me.expiring_soon)}P</p>}
+const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
+const ActionIcon = ({id}) => <svg viewBox="0 0 24 24" aria-hidden="true">{id === 'snack'
+  ? <><path d="M12 7c-3-2-7 0-7 5 0 5 3 9 5 9 1 0 1.3-.5 2-.5s1 .5 2 .5c2 0 5-4 5-9 0-5-4-7-7-5Z"/><path d="M12 7c0-2 1-3 3-4"/></>
+  : MEALS.includes(id) ? <><path d="M3 12h18a9 9 0 0 1-18 0Z"/><path d="M7 12a5 5 0 0 1 10 0M12 4v2"/></>
+  : <><rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12 2.5 2.5 5-5"/></>}</svg>;
+const Camera = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4Z"/><circle cx="12" cy="13" r="3.5"/></svg>;
+
+// 홈 지방이 카드. 식사 기록 안내와 리워드(레벨·포인트·목표·오늘 받을 수 있는 보상)를 한 카드로 묶는다.
+// me가 없으면(비로그인·불러오는 중) 기록 안내와 기본 지방이만 보여 준다. name은 닉네임(호칭 통일).
+export default function RewardHomeCard({api, name, me, onNavigate, onChanged, onRecord, loading = false}) {
+  const [todayOpen, setTodayOpen] = useState(false);
+  const goal = me?.goal;
+  const record = type => onRecord ? onRecord(type) : onNavigate('음식 추가');
+  return <section className="panel reward-home-card home-jibang-card" aria-labelledby="home-jibang-title">
+    <div className="home-hero">
+      <div className="home-hero-copy">
+        <p className="home-hero-kicker">{name && <strong className="home-hero-name">{name}님, </strong>}매일 조금씩, 더 건강하게</p>
+        <h2 id="home-jibang-title">오늘의 한 끼를<br/>기록해 보세요</h2>
+        <p className="home-hero-sub">사진 한 장으로 간편하게 기록하고<br/>건강한 습관을 만들어가요!</p>
+        <span className="home-hero-pill"><Camera/>사진 한 장으로 간편하게 기록해요</span>
+        <button type="button" className="primary home-hero-cta" onClick={() => record()}>지금 기록할게요 <span aria-hidden="true">→</span></button>
       </div>
+      <button type="button" className="home-hero-room" onClick={() => onNavigate(me ? '리워드' : '음식 추가', me ? 'room' : undefined)}
+        aria-label={me ? `${CHARACTER_NAME} 방 꾸미기로 이동` : '식사 기록하러 가기'}>
+        <Jibang equipment={me?.equipment} level={me?.level || 1} bubble={bubbleFor(me)} figureWidth={150} motion="breathe"
+          badge={me?.streak?.days ? <><span className="reward-flame"><Flame/></span>{me.streak.days}일 연속 기록 중</> : null}/>
+      </button>
     </div>
-    <StreakNotice api={api} streak={me.streak} onChanged={onChanged}/>
-    {goal && <button type="button" className="reward-goal" onClick={() => onNavigate('리워드', 'mall')}>
-      <span className="reward-goal-head"><span>{goal.chosen ? '목표 리워드' : '다음 목표'} · {goal.name}</span><b>{fmt(goal.price)}P</b></span>
-      <Progress value={goal.progress} tone="gold" label={`${goal.name}까지 진행률`}/>
-      <span className="reward-goal-foot"><span>{goal.remaining ? `${fmt(goal.remaining)}P 남았어요` : '모두 모았어요'}</span><span>{etaText(goal.eta_days)}</span></span>
-    </button>}
-    {me.actions?.length > 0 && <div className="reward-actions-list"><p>오늘 더 받을 수 있어요</p>
-      <ul>{me.actions.map(action => <li key={action.id}><span className="dot" aria-hidden="true"/><span>{action.label}<small>{action.detail}{action.goal ? ` · ${action.progress}/${action.goal}` : ''}</small></span><b>+{action.points}P · +{action.xp} XP</b></li>)}</ul></div>}
-    {me.today_items?.length > 0 && <details className="reward-today-list"><summary>오늘 받은 내역 {me.today_items.length}건</summary>
-      <ul>{me.today_items.map(row => <li key={row.key}><span>{row.label}</span><b>{row.points ? `+${row.points}P` : ''}{row.points && row.xp ? ' · ' : ''}{row.xp ? `+${row.xp} XP` : ''}</b></li>)}</ul></details>}
+    {loading && !me && <p className="muted home-reward-loading" role="status">리워드를 불러오고 있어요…</p>}
+    {me && <>
+      <div className="home-reward-row">
+        <button type="button" className="home-level" onClick={() => onNavigate('리워드', 'growth')} aria-label="지방이 성장 보기">
+          <span className="home-level-badge" aria-hidden="true">LV</span>
+          <span className="home-level-body">
+            <span className="reward-level-name">LV.{me.level} · {me.level_name} {CHARACTER_NAME}</span>
+            <Progress value={me.level_progress} label="다음 레벨까지 XP 진행률"/>
+            <span className="reward-small">{me.next_level_xp ? `${fmt(me.xp_total)} / ${fmt(me.next_level_xp)} XP · ${etaText(me.xp_eta_days).replace('지금 속도면 ', '')}` : `${fmt(me.xp_total)} XP · 최고 레벨`}</span>
+            <span className="reward-balance"><span className="reward-points">{fmt(me.balance)}<span>P</span></span><span className="reward-today">오늘 +{fmt(me.today_points)}P</span></span>
+            {me.deco_only > 0 && <span className="reward-small">그중 꾸미기 전용 {fmt(me.deco_only)}P</span>}
+            {me.expiring_soon > 0 && <span className="reward-expire">30일 안에 사라지는 포인트 {fmt(me.expiring_soon)}P</span>}
+          </span>
+        </button>
+        {goal && <button type="button" className="reward-goal" onClick={() => onNavigate('리워드', 'mall')}>
+          <span className="reward-goal-head"><span><span aria-hidden="true">🎁 </span>{goal.chosen ? '목표 리워드' : '다음 목표'} · {goal.name}</span><b>{fmt(goal.price)}P</b></span>
+          <Progress value={goal.progress} tone="gold" label={`${goal.name}까지 진행률`}/>
+          <span className="reward-goal-foot"><span>{goal.remaining ? `${fmt(goal.remaining)}P 남았어요` : '모두 모았어요'}</span><span>{etaText(goal.eta_days)}</span></span>
+        </button>}
+      </div>
+      <StreakNotice api={api} streak={me.streak} onChanged={onChanged}/>
+      {(me.actions?.length > 0 || me.today_items?.length > 0) && <div className="home-actions">
+        <div className="home-actions-head"><h3>{me.actions?.length ? '오늘 더 받을 수 있어요' : '오늘 받은 보상'}</h3>
+          {me.today_items?.length > 0 && <button type="button" className="text-button" aria-expanded={todayOpen} onClick={() => setTodayOpen(open => !open)}>오늘 받은 내역 {me.today_items.length}건 <span aria-hidden="true">{todayOpen ? '˄' : '›'}</span></button>}</div>
+        {todayOpen && <ul className="home-today-list">{me.today_items.map(row => <li key={row.key}><span>{row.label}</span><b>{row.points ? `+${row.points}P` : ''}{row.points && row.xp ? ' · ' : ''}{row.xp ? `+${row.xp} XP` : ''}</b></li>)}</ul>}
+        {me.actions?.length > 0 && <ul className="home-action-list">{me.actions.map(action => <li key={action.id}>
+          <button type="button" onClick={() => record(MEALS.includes(action.id) ? action.id : undefined)}>
+            <span className={`home-action-icon is-${MEALS.includes(action.id) ? (action.id === 'snack' ? 'snack' : 'meal') : 'done'}`}><ActionIcon id={action.id}/></span>
+            <span className="home-action-text"><strong>{action.label}</strong><small>{action.detail}{action.goal ? ` · ${action.progress}/${action.goal}` : ''}</small></span>
+            <b>+{action.points}P · +{action.xp} XP</b><span className="home-action-arrow" aria-hidden="true">›</span>
+          </button></li>)}</ul>}
+      </div>}
+    </>}
   </section>;
 }

@@ -1,6 +1,6 @@
 // 리워드 메뉴(지시서 v3 §11-5): 리워드 몰 / 지방이 방 / 성장 · 랭킹 탭. 쿠폰함은 Stage C 플래그가 켜질 때만(현재 비활성).
 // 가격·잔액·진행률·예상 일수·미션 문구는 모두 서버 응답을 쓰고 화면에서 계산하지 않는다.
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import Jibang, {JibangFigure, CHARACTER_NAME} from './Jibang';
 import JibangBackground, {BACKGROUND_LABELS} from './JibangBackgrounds';
 import RewardDialog from './RewardDialog';
@@ -17,11 +17,17 @@ function ShieldIcon() {
   return <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16805C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>;
 }
 
+// 장착 상태에 아이템 하나를 입힌 모습. 운동복은 몸통 의상(outfit)과 함께 입지 않는다.
+function wearing(equipment, item) {
+  const preview = {...equipment, [item.slot]: item.id};
+  if (item.id === 'outfit_workout') delete preview.outfit;
+  return preview;
+}
+
 function ItemPreview({item, equipment, level}) {
   if (item.kind === 'protector') return <span className="mall-item-art"><ShieldIcon/></span>;
   if (item.slot === 'background') return <span className="mall-item-art bg"><JibangBackground id={item.id}/></span>;
-  const preview = {...equipment, [item.slot]: item.id};
-  if (item.id === 'outfit_workout') delete preview.outfit;
+  const preview = wearing(equipment, item);
   return <span className="mall-item-art"><JibangFigure equipment={preview} level={level} width={78} motion="none" label={`${item.name} 착용 미리보기`}/></span>;
 }
 
@@ -62,9 +68,15 @@ function PurchaseDialog({api, item, me, onClose, onDone, onGoal, onNavigate}) {
 
 function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
   const [category, setCategory] = useState(initialCategory), [buying, setBuying] = useState(null), [ledger, setLedger] = useState(null);
-  const items = catalog.items.filter(item => item.sellable || item.default_provided);
+  // 방 배경은 레벨(XP) 보상이라 몰에서 팔지 않는다. 적용은 지방이 성장 > 내 방 꾸미기에서 한다.
+  const items = catalog.items.filter(item => (item.sellable || item.default_provided) && item.slot !== 'background');
   const [equipping, setEquipping] = useState(false), [equipError, setEquipError] = useState('');
+  // 미리 입어보기: 카드 그림을 누르면 위쪽 '내 지방이'에만 잠깐 입혀 본다. 저장하지 않는다.
+  const [trying, setTrying] = useState(null);
+  const tryable = item => item.kind !== 'protector';
+  const shown = trying ? wearing(me.equipment, trying) : me.equipment;
   async function toggleItem(item) {
+    setTrying(null);
     setEquipping(true); setEquipError('');
     try {
       await api('/rewards/equipment', {slot: item.slot, item_id: item.equipped ? null : item.id}, 'PUT');
@@ -81,7 +93,11 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
   }
   return <>
     <section className="panel mall-summary">
-      <div><p className="reward-eyebrow">REWARD MALL</p><p className="reward-points">{fmt(me.balance)}<span>P</span></p>
+      <div className="mall-my-jibang">
+        <span className="mall-my-figure"><JibangFigure equipment={shown} level={me.level} width={86} motion="breathe"/></span>
+        <p className="mall-my-label">{trying ? <><b>{trying.name} 미리보기</b><button type="button" className="text-button" onClick={() => setTrying(null)}>되돌리기</button></> : <><b>내 {CHARACTER_NAME}</b><small>바로 적용하면 여기 보여요</small></>}</p>
+      </div>
+      <div className="mall-balance"><p className="reward-eyebrow">REWARD MALL</p><p className="reward-points">{fmt(me.balance)}<span>P</span></p>
         {me.deco_only > 0 && <p className="reward-small">꾸미기 전용 {fmt(me.deco_only)}P 포함</p>}
         {me.expiring_soon > 0 && <p className="reward-expire">30일 안에 사라지는 포인트 {fmt(me.expiring_soon)}P</p>}</div>
       {me.goal && <div className="mall-goal"><p><span>{me.goal.chosen ? '목표 리워드' : '다음 목표'} · <b>{me.goal.name}</b></span><span>{fmt(me.goal.price)}P</span></p>
@@ -90,7 +106,10 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
     </section>
     <div className="reward-chips" role="tablist" aria-label="리워드 종류">{CATEGORIES.map(([key, label]) => <button key={key} role="tab" aria-selected={category === key} className={category === key ? 'active' : ''} onClick={() => setCategory(key)}>{label}</button>)}</div>
     {category === 'deco' ? <div className="mall-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
-      <ItemPreview item={item} equipment={me.equipment} level={me.level}/>
+      {tryable(item) ? <button type="button" className={`mall-try${trying?.id === item.id ? ' is-trying' : ''}`} aria-pressed={trying?.id === item.id}
+        aria-label={`${item.name} 내 ${CHARACTER_NAME}에게 미리 입어보기`} onClick={() => setTrying(current => current?.id === item.id ? null : item)}>
+        <ItemPreview item={item} equipment={{}} level={me.level}/></button>
+        : <ItemPreview item={item} equipment={{}} level={me.level}/>}
       <h3>{item.name}</h3><p className="mall-price">{item.default_provided ? '기본 제공' : `${fmt(item.price)}P`}</p>
       {item.owned && item.kind !== 'protector' ? <p className="reward-small">{item.equipped ? '착용 중' : '보유'}</p>
         : item.lock_reason ? <p className="reward-small">{item.lock_reason}</p>
@@ -215,6 +234,19 @@ function Growth({api, me, onChanged}) {
   </>;
 }
 
+// 지방이 성장 한 페이지: 성장·랭킹을 먼저, 내 방 꾸미기를 뒤에 둔다. 'room'으로 들어오면 꾸미기 위치로 스크롤한다.
+function JibangPage({api, me, catalog, onChanged, focusRoom}) {
+  const roomRef = useRef(null);
+  useEffect(() => { if (focusRoom) roomRef.current?.scrollIntoView({behavior: 'smooth', block: 'start'}); }, [focusRoom]);
+  return <>
+    <Growth api={api} me={me} onChanged={onChanged}/>
+    <section className="jibang-room-section" ref={roomRef} aria-labelledby="jibang-room-title">
+      <h2 id="jibang-room-title" className="jibang-section-title">내 방 꾸미기</h2>
+      <Room key={me.equipment.background} api={api} me={me} catalog={catalog} onChanged={onChanged}/>
+    </section>
+  </>;
+}
+
 export default function Rewards({api, me, tab = 'mall', onTab, onChanged, showTabs = true}) {
   const [catalog, setCatalog] = useState(null), [error, setError] = useState(''), [mallCategory, setMallCategory] = useState('deco');
   // 쿠폰함 탭은 교환 기능(Stage C 플래그)이 켜져 /rewards/me에 exchange가 있을 때만 보인다.
@@ -227,8 +259,7 @@ export default function Rewards({api, me, tab = 'mall', onTab, onChanged, showTa
     {showTabs && <div role="tablist" aria-label="리워드 메뉴" className="reward-tabs">{tabs.map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => goTab(key)}>{label}</button>)}</div>}
     {error && <p className="error" role="alert">{error}</p>}
     {!me || !catalog ? <p className="muted" role="status">리워드를 불러오고 있어요…</p>
-      : tab === 'room' ? <Room key={me.equipment.background} api={api} me={me} catalog={catalog} onChanged={changed}/>
-      : tab === 'growth' ? <Growth api={api} me={me} onChanged={changed}/>
+      : tab === 'room' || tab === 'growth' ? <JibangPage api={api} me={me} catalog={catalog} onChanged={changed} focusRoom={tab === 'room'}/>
       : tab === 'coupons' && me.exchange ? <Coupons api={api} onChanged={changed} onTab={goTab}/>
       : <Mall key={mallCategory} api={api} me={me} catalog={catalog} onChanged={changed} onTab={goTab} initialCategory={mallCategory}/>}
   </div>;

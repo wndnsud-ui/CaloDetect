@@ -41,8 +41,20 @@ def options(data):
     elif kind=='ring':
         value=number(data.get('value')); target=number(data.get('target'))
         fraction=min(1,value/target) if target else 0
-        base.update({'series':[{'type':'pie','radius':['66%','74%'],'center':['50%','45%'],'silent':True,'label':{'show':False},
-                     'data':[{'value':fraction,'itemStyle':{'color':'#268461'}},{'value':1-fraction,'itemStyle':{'color':'#e6eeea'}}]}],
+        # 마우스를 올리면 섭취·남은 목표(또는 초과) kcal과 비율을 툴팁으로 보여 준다. 모양·색은 기존과 같다.
+        eaten=round(value,1)
+        left=round(max(target-value,0),1)
+        if target:
+            slices=[{'name':'섭취','value':eaten,'itemStyle':{'color':'#268461'}}]
+            if left>0: slices.append({'name':'남은 목표','value':left,'itemStyle':{'color':'#e6eeea'}})
+            over=f'<br/>목표 초과 {value-target:,.1f} kcal' if value>target else ''
+            formatter='{b}<br/>{c} kcal ({d}%)'+over
+        else:
+            slices=[{'name':'섭취','value':max(eaten,1),'itemStyle':{'color':'#e6eeea'}}]
+            formatter=f'섭취 {eaten:,.1f} kcal<br/>목표를 설정하면 비율이 보여요'
+        base.update({'tooltip':{'trigger':'item','confine':True,'padding':[4,7],'textStyle':{'fontSize':11},'formatter':formatter},
+                     'series':[{'type':'pie','radius':['66%','74%'],'center':['50%','45%'],'percentPrecision':0,'label':{'show':False},
+                     'emphasis':{'scale':True,'scaleSize':3},'data':slices}],
                      'graphic':[{'type':'text','left':'center','top':'34%','style':{'text':f'{value:,.0f}','fontSize':24,'fontWeight':'bold','fill':'#193c32'}},
                                 {'type':'text','left':'center','top':'51%','style':{'text':f'/ {target:g} kcal' if target else '목표 설정 전','fontSize':11,'fill':'#788b83'}},
                                 {'type':'text','left':'center','top':'88%','style':{'text':f'{fraction*100:.0f}%' if target else '—','fontSize':13,'fill':'#268461'}}]})

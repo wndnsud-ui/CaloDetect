@@ -46,12 +46,12 @@ export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLo
     <div className="reward-meal-cells">{MEALS.map(type => {
       const cell = status[type], now = type === data.meal_type;
       return <div key={type} className={now ? 'is-now' : cell.done ? 'is-done' : 'is-open'}><b>{cell.label}</b>
-        <small>{now ? '방금' : cell.done ? '완료' : `+${type === 'snack' ? 1 : data.photo_points}P`}</small></div>;
+        <small>{now ? '방금' : cell.done ? '완료' : '미기록'}</small></div>;
     })}</div>
     <div className="reward-grant-level">
       <p><b>LV.{data.level} · 다음 레벨까지</b><span>{data.next_level_xp ? <>{xpBefore >= 0 && data.total_xp > 0 ? <>{fmt(xpBefore)} <b className="reward-plus">+{fmt(data.total_xp)}</b> = </> : null}{fmt(data.xp_total)} / {fmt(data.next_level_xp)} XP</> : '최고 레벨'}</span></p>
       <Progress value={data.level_progress} label="다음 레벨까지 XP 진행률"/>
-      <p className="reward-small">{threeLeft.length && threeLeft.length < 3 ? `${threeLeft.map(type => status[type].label).join('·')}까지 기록하면 3끼 완료 +3P` : threeLeft.length === 0 ? '오늘 세 끼를 모두 기록했어요' : '세 끼를 모두 기록하면 +3P'} · 보유 {before >= 0 && data.total_points > 0 ? <>{fmt(before)}P <b className="reward-plus">+{fmt(data.total_points)}P</b> = <b>{fmt(data.balance)}P</b></> : `${fmt(data.balance)}P`}</p>
+      <p className="reward-small">{threeLeft.length && threeLeft.length < 3 ? `${threeLeft.map(type => status[type].label).join('·')}까지 기록하면 오늘 세 끼 기록 완료` : threeLeft.length === 0 ? '오늘 세 끼를 모두 기록했어요' : '오늘 세 끼를 기록해 보세요'} · 보유 {before >= 0 && data.total_points > 0 ? <>{fmt(before)}P <b className="reward-plus">+{fmt(data.total_points)}P</b> = <b>{fmt(data.balance)}P</b></> : `${fmt(data.balance)}P`}</p>
     </div>
     <p className="reward-small">사진으로 기록하면 +{data.photo_points}P, 사진 없이 기록하면 +{data.text_points}P예요.</p>
     {onShare && <button type="button" className="primary" onClick={() => onShare(mealId)}>커뮤니티에 남기기</button>}

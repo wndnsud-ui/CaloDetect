@@ -141,6 +141,27 @@ def test_first_meal_reused_photo_has_points_but_no_xp(member):
         assert grant['next_level_xp'] == 300
 
 
+def test_recorded_meals_are_done_even_when_photo_reward_is_skipped(member):
+    client, engine, user, day = member
+    with TestClient(app) as other:
+        stranger = account(other, 'status-photo-source@example.com')
+        save(other, 'breakfast', day, photo(engine, stranger['id'], b'status-reused-photo'))
+    breakfast = save(client, 'breakfast', day, photo(engine, user['id'], b'status-reused-photo'))
+    save(client, 'lunch', day)
+    snack = save(client, 'snack', day)
+    grant = client.get(f'/rewards/grants?meal_id={snack["id"]}').json()
+    status = grant['today_meals']
+    assert status['breakfast']['done'] is True
+    assert status['breakfast']['rewarded'] is False
+    assert status['lunch']['done'] is True
+    assert status['snack']['done'] is True
+    assert status['dinner']['done'] is False
+    assert client.get('/rewards/me').json()['today_meals'] == status
+    skipped = client.get(f'/rewards/grants?meal_id={breakfast["id"]}').json()
+    assert skipped['skip_reason'] == 'photo_reused'
+    assert f'meal:{day}:breakfast' not in lots(engine, user['id'])
+
+
 # 8. 보상 훅 예외 → 식단은 저장되고 보상만 없음, POST /meals 응답 본문 형태 동일.
 def test_hook_failure_isolated(member, monkeypatch):
     client, engine, user, day = member

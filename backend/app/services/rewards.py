@@ -683,12 +683,13 @@ def public_rows(rows):
 
 def meal_status(db, user_id, day):
     granted = granted_meals(db, user_id, day)
-    meals = {m.id: m for m in db.scalars(select(Meal).where(Meal.id.in_([r for r in granted.values() if r])))}
+    meals = list(db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.meal_date == day)))
     result = {}
     for meal_type in (*rules.MEAL_TYPES, 'snack'):
         ref = granted.get(meal_idem(meal_type, day))
-        result[meal_type] = {'label': rules.MEAL_LABELS[meal_type], 'done': bool(ref),
-                             'photo': bool(ref and ref in meals and is_photo_meal(meals[ref]))}
+        recorded = [meal for meal in meals if meal.meal_type == meal_type]
+        result[meal_type] = {'label': rules.MEAL_LABELS[meal_type], 'done': bool(recorded),
+                             'rewarded': bool(ref), 'photo': any(is_photo_meal(meal) for meal in recorded)}
     return result
 
 
@@ -797,11 +798,11 @@ def protections_this_month(db, user_id, day):
 def available_actions(db, user, status, day):
     actions = []
     for meal_type in rules.MEAL_TYPES:
-        if not status[meal_type]['done']:
+        if not status[meal_type]['rewarded']:
             actions.append({'id': meal_type, 'label': f'{rules.MEAL_LABELS[meal_type]} 기록',
                             'detail': f'사진 +{settings.reward_meal_photo_points}P · 사진 없이 +{settings.reward_meal_text_points}P',
                             'points': settings.reward_meal_photo_points, 'xp': settings.reward_meal_xp})
-    if not status['snack']['done']:
+    if not status['snack']['rewarded']:
         actions.append({'id': 'snack', 'label': '간식 기록', 'detail': '하루 한 번',
                         'points': settings.reward_snack_points, 'xp': settings.reward_snack_xp})
     lots = {l.idem_key for l in db.scalars(select(Lot).where(Lot.user_id == user.id, Lot.idem_key.in_(

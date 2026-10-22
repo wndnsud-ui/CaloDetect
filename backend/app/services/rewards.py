@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from collections import defaultdict, deque
-from datetime import datetime, time as dtime, timedelta, timezone
+from datetime import date, datetime, time as dtime, timedelta, timezone
 from pathlib import Path
 from fastapi import HTTPException
 from sqlalchemy import select, func, delete
@@ -48,8 +48,8 @@ ITEMS = (
     ('bg_lv3', '산책 공원', 'background', 'background', None, 3, False, 'B', True),
     ('bg_lv4', '텃밭 피크닉', 'background', 'background', None, 4, False, 'B', True),
     ('bg_lv5', '햇살 언덕', 'background', 'background', None, 5, False, 'B', True),
-    ('outfit_lv3', 'LV.3 전용 의상', 'deco', 'outfit', None, 3, False, 'B', True),
-    ('costume_lv4', 'LV.4 전용 코스튬', 'deco', 'outfit', None, 4, False, 'B', True),
+    ('outfit_lv3', '전용 의상', 'deco', 'outfit', 150, None, True, 'B', True),
+    ('costume_lv4', '전용 코스튬', 'deco', 'outfit', 250, None, True, 'B', True),
     ('title_lv5', '건강 습관 칭호', 'deco', 'title', None, 5, False, 'B', True),
 )
 SLOTS = frozenset({'hat', 'glasses', 'ribbon', 'shoes', 'sticker', 'background', 'prop', 'outfit', 'title'})
@@ -113,6 +113,10 @@ def ensure_items(db):
             savepoint(db, lambda: (db.add(Item(id=item_id, name=name, kind=kind, slot=slot, price=price,
                 level_required=level, sellable=sellable, stage=stage, asset_key=item_id, active=active,
                 sort_order=order)), db.flush()))
+    # 코스튬 판매 전환을 기존 DB에도 반영하되 기존 소유권·구매 원장은 유지한다.
+    for item_id, name, price in [('outfit_lv3', '전용 의상', 150), ('costume_lv4', '전용 코스튬', 250)]:
+        item = db.get(Item, item_id)
+        item.name, item.price, item.level_required, item.sellable = name, price, None, True
     # 기존 DB에도 기본 제공 정책을 적용하며 구매·포인트 원장은 보존한다.
     for item_id in DEFAULT_ITEMS:
         item = db.get(Item, item_id)
@@ -662,6 +666,8 @@ def grant_label(idem, meal=None):
         return f'LV.{idem.split(":")[1]} 달성 보상'
     if head == 'revoke':
         return '반응 취소 회수'
+    if head == 'demo':
+        return '시연용 적립'
     if head == 'reaction':
         return '받은 반응' if idem.endswith('received') else '누른 반응' if idem.endswith('given') else '커뮤니티 반응'
     return rules.GRANT_LABELS.get(head, '보상')
@@ -752,18 +758,22 @@ def goal_info(db, user, row, balance):
     product = None
     if settings.reward_exchange_active:
         from ..models_rewards import RewardProduct as Product
+        from .reward_exchange import visible
         if row.goal_ref and row.goal_ref.startswith('product:'):
             product = db.get(Product, row.goal_ref[8:])
+            product = product if visible(product) else None
             chosen = product is not None
             item = None if product else item
         elif item is None:
-            # 목표 없음 + 살 아이템이 없으면 가장 싼 건강상품(교환 가능 포인트 기준).
-            product = db.scalar(select(Product).where(Product.active.is_(True), Product.available.is_(True))
-                                .order_by(Product.price, Product.sort_order))
+            # 목표 없음 + 살 아이템이 없으면 몰에 보이는 가장 싼 건강상품(교환 가능 포인트 기준).
+            product = next((p for p in db.scalars(select(Product).where(
+                Product.active.is_(True), Product.available.is_(True), Product.category == 'goods',
+                Product.listed.is_(True)).order_by(Product.price, Product.sort_order)) if visible(p)), None)
     if product is not None:
         base = balance['exchangeable']
         remaining = max(0, product.price - base)
         return {'ref': f'product:{product.id}', 'chosen': chosen, 'product_id': product.id, 'name': product.name,
+                'category': product.category, 'coach_id': product.coach_id, 'hero': (product.content or {}).get('hero'),
                 'price': product.price, 'basis': 'exchangeable', 'base_points': base, 'remaining': remaining,
                 'progress': round(min(1, base / product.price), 4), 'eta_days': eta_points(db, user, remaining, exchange_only=True)}
     if item is None:
@@ -866,12 +876,37 @@ def me(db, user):
               **level_info(db, user.id, row), 'streak': streak_info(db, user),
               'pending_levelup': pending_levelup(db, user.id)}
     result['xp_eta_days'] = eta_xp(db, user, result['xp_to_next']) if result['next_level_xp'] else None
+    result['earn_rules'] = earn_rules()
     if settings.reward_exchange_active:
         # Stage C: 플래그가 켜졌을 때만 교환 조건을 넣는다(꺼진 기능의 필드는 응답에 넣지 않음).
         from .reward_exchange import conditions
         result['exchange'] = conditions(db, user)
     db.commit()
     return result
+
+
+def earn_rules():
+    """화면의 '포인트 모으는 법'. 수치를 하드코딩하지 않고 현재 설정값으로 만든다(리워드몰 v1.3 §3-2)."""
+    rows = [('meal_photo', '사진으로 식단 기록', settings.reward_meal_photo_points, '끼니당 1회'),
+            ('meal_text', '사진 없이 식단 기록', settings.reward_meal_text_points, '끼니당 1회'),
+            ('snack', '간식 기록', settings.reward_snack_points, '하루 1회'),
+            ('three_meals', '하루 3끼 기록 완료', settings.reward_three_meals_points,
+             f'끼니 사이 {settings.reward_three_meal_min_gap_minutes // 60}시간 이상'),
+            ('daily_mission', '오늘의 미션 완료', settings.reward_daily_mission_points, '하루 1회'),
+            ('streak3', '3일 연속 기록', settings.reward_streak3_points, '7일마다 반복'),
+            ('streak7', '7일 연속 기록', settings.reward_streak7_points, '7일마다 반복')]
+    return [{'id': key, 'label': label, 'points': points, 'condition': condition} for key, label, points, condition in rows if points > 0]
+
+
+def target_date(lot):
+    """idem 키의 날짜가 적립일(KST)과 다르면 그 날짜가 정산 대상일이다(예: 전날 기록이 오늘 정산)."""
+    for part in lot.idem_key.split(':'):
+        try:
+            day = date.fromisoformat(part)
+        except ValueError:
+            continue
+        return day.isoformat() if day != korean_date(rules.as_aware(lot.earned_at)) else None
+    return None
 
 
 def grants(db, user, meal_id):
@@ -896,8 +931,19 @@ def grants(db, user, meal_id):
             **level_info(db, user.id, row)}
 
 
-def ledger(db, user, cursor=None, limit=30):
-    """적립·사용 내역. 커서는 마지막 줄의 '시각|ID'."""
+def spend_label(db, spend, names, products):
+    if spend.kind == 'item':
+        return f'{names.get(spend.ref_id, "아이템")} 구매'
+    if spend.kind == 'exchange':
+        return f'{products.get(spend.ref_id, "건강상품")} 교환 신청'
+    if spend.kind == 'coach_pass':
+        from .reward_coaching import spend_label as coach_label
+        return coach_label(db, spend)
+    return {'expire': '유효기간 만료', 'revoke': '포인트 회수'}.get(spend.kind, spend.kind)
+
+
+def ledger(db, user, cursor=None, limit=30, kind=None):
+    """적립·사용 내역. 커서는 마지막 줄의 '시각|ID'. kind: earn | spend(사용·회수 모두) | None."""
     before = None
     if cursor:
         try:
@@ -907,21 +953,31 @@ def ledger(db, user, cursor=None, limit=30):
             raise HTTPException(422, '입력값을 확인하세요.')
     rows = []
     for lot in db.scalars(select(Lot).where(Lot.user_id == user.id).order_by(Lot.earned_at.desc()).limit(500)):
-        rows.append({'id': lot.id, 'type': 'earn', 'source': lot.source, 'label': grant_label(lot.idem_key),
+        rows.append({'id': lot.id, 'type': 'earn', 'kind': 'earn', 'source': lot.source, 'label': grant_label(lot.idem_key),
                      'amount': lot.amount, 'at': rules.as_aware(lot.earned_at),
-                     'expires_at': rules.as_aware(lot.expires_at)})
+                     'expires_at': rules.as_aware(lot.expires_at), 'target_date': target_date(lot)})
     names = {i.id: i.name for i in db.scalars(select(Item))}
+    from ..models_rewards import RewardProduct as Product
+    products = {p.id: p.name for p in db.scalars(select(Product))}
     for spend in db.scalars(select(Spend).where(Spend.user_id == user.id).order_by(Spend.created_at.desc()).limit(500)):
-        label = {'item': f'{names.get(spend.ref_id, "아이템")} 구매', 'expire': '유효기간 만료',
-                 'revoke': '포인트 회수', 'exchange': '교환'}.get(spend.kind, spend.kind)
-        rows.append({'id': spend.id, 'type': spend.kind, 'source': spend.kind, 'label': label,
-                     'amount': -spend.amount, 'at': rules.as_aware(spend.created_at), 'expires_at': None})
+        rows.append({'id': spend.id, 'type': spend.kind, 'kind': 'revoke' if spend.kind in ('revoke', 'expire') else 'spend',
+                     'source': spend.kind, 'label': spend_label(db, spend, names, products),
+                     'amount': -spend.amount, 'at': rules.as_aware(spend.created_at), 'expires_at': None, 'target_date': None})
     rows.sort(key=lambda r: (r['at'], r['id']), reverse=True)
+    month_start = day_start(today().replace(day=1))
+    summary = {'balance': balance_info(db, user.id)['balance'], 'expiring_soon': balance_info(db, user.id)['expiring_soon'],
+               'month_earned': sum(r['amount'] for r in rows if r['kind'] == 'earn' and r['at'] >= month_start),
+               'month_spent': -sum(r['amount'] for r in rows if r['kind'] != 'earn' and r['at'] >= month_start),
+               'month': today().month}
+    if kind == 'earn':
+        rows = [r for r in rows if r['kind'] == 'earn']
+    elif kind == 'spend':
+        rows = [r for r in rows if r['kind'] != 'earn']
     if before:
         rows = [r for r in rows if (r['at'], r['id']) < (rules.as_aware(before[0]), before[1])]
     page = rows[:limit]
     nxt = f'{page[-1]["at"].isoformat()}|{page[-1]["id"]}' if len(rows) > limit else None
-    return {'items': page, 'next_cursor': nxt}
+    return {'items': page, 'next_cursor': nxt, 'summary': summary}
 
 
 def items_view(db, user):
@@ -1026,8 +1082,11 @@ def set_goal(db, user, ref):
         row.goal_ref = ref
     elif ref.startswith('product:') and settings.reward_exchange_active:
         from ..models_rewards import RewardProduct as Product
+        from .reward_exchange import visible
         product = db.get(Product, ref[8:])
-        if not product or not product.active or not product.available:
+        if product is not None and product.coach_id and not settings.reward_coaching_enabled:
+            raise HTTPException(400, '전문 코칭은 아직 열리지 않았어요.')
+        if not visible(product) or not product.available:
             raise HTTPException(404, '목표로 정할 수 없는 리워드예요.')
         row.goal_ref = ref
     else:

@@ -220,6 +220,26 @@ def test_equipment(member):
     assert client.put('/rewards/equipment', json={'slot': 'hat', 'item_id': None}).json()['equipment'] == {'background': 'starter_bg'}
 
 
+def test_costumes_are_purchasable_at_level_one(member):
+    client, engine, user, day = member
+    client.get('/rewards/me')
+    with Session(engine) as db:
+        service.grant_points(db, user['id'], 'adjust', 500, 'costume-budget', 'test', 'costume-budget')
+        db.commit()
+    assert client.get('/rewards/me').json()['level'] == 1
+    catalog = {item['id']: item for item in client.get('/rewards/items').json()['items']}
+    before = client.get('/rewards/me').json()['balance']
+    for item_id, price in [('outfit_lv3', 150), ('costume_lv4', 250)]:
+        assert catalog[item_id]['sellable'] and catalog[item_id]['level_required'] is None
+        assert catalog[item_id]['price'] == price
+        bought = client.post(f'/rewards/items/{item_id}/purchase')
+        assert bought.status_code == 200, bought.text
+        assert bought.json()['spent'] == price
+        assert client.put('/rewards/equipment', json={'slot': 'outfit', 'item_id': item_id}).status_code == 200
+        assert client.post(f'/rewards/items/{item_id}/purchase').status_code == 409
+    assert client.get('/rewards/me').json()['balance'] == before - 400
+
+
 def test_clothing_switch_keeps_ownership_and_regular_props(member):
     from backend.app.models_rewards import RewardUserItem as UserItem
     client, engine, user, _ = member

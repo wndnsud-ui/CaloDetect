@@ -7,10 +7,10 @@ import RewardDialog from './RewardDialog';
 import NicknameDialog from './NicknameDialog';
 import StreamlitChart from './StreamlitChart';
 import {Progress, StreakNotice, Flame, etaText, fmt} from './RewardHomeCard';
-import {ProductSection, Coupons} from './RewardExchange';
+import {Coupons} from './RewardExchange';
+import RewardMall from './RewardMall.jsx';
 
 const TABS = [['mall', '리워드 몰'], ['room', `${CHARACTER_NAME} 방`], ['growth', '성장 · 랭킹']];
-const CATEGORIES = [['deco', '꾸미기'], ['goods', '건강상품'], ['pro', '전문 코칭']];
 const ROOM_LINES = {bg_lv1: '여기가 우리 방이야', bg_lv2: '새싹이 돋았어!', bg_lv3: '같이 걸을래?', bg_lv4: '채소가 자라고 있어', bg_lv5: '여기까지 왔다니!', starter_bg: '깔끔해서 좋아!'};
 
 function ShieldIcon() {
@@ -66,10 +66,27 @@ function PurchaseDialog({api, item, me, onClose, onDone, onGoal, onNavigate}) {
   </RewardDialog>;
 }
 
-function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
-  const [category, setCategory] = useState(initialCategory), [buying, setBuying] = useState(null), [ledger, setLedger] = useState(null);
+// 전문 코칭 탭의 기존 시안 화면. REWARD_COACHING_ENABLED가 꺼져 코칭 API가 404면 이 화면을 그대로 보여 준다(§6-4).
+function CoachingPreview() {
+  return <section className="coaching-preview" aria-labelledby="coaching-title">
+    <div className="panel coaching-intro"><span className="coaching-label">COACHING · 서비스 시안</span><h3 id="coaching-title">작은 습관부터, 나에게 맞는 코칭</h3><p>꾸준히 모은 포인트로 만나 보는 건강한 일상.</p><small>아래 서비스와 포인트는 예시예요. 실제 신청·포인트 차감은 제공하지 않아요.</small></div>
+    <div className="coaching-grid">{[
+      {icon:'01',tag:'식단 돌아보기',name:'일주일 식단 피드백',description:'최근 식단 기록을 함께 돌아보고, 다음 주에 실천할 식사 습관을 제안해요.',details:'7일 기록 리뷰 · 피드백 리포트 1회',price:1500},
+      {icon:'02',tag:'나만의 루틴',name:'1:1 식습관 코칭',description:'나의 생활 패턴과 고민을 나누고, 무리 없이 이어갈 식사 루틴을 함께 정해요.',details:'온라인 상담 30분 · 실천 가이드',price:3000},
+      {icon:'03',tag:'꾸준함을 함께',name:'4주 건강 습관 프로그램',description:'작은 목표를 세우고 매주 기록을 점검하며, 나에게 맞는 건강 습관을 만들어 가요.',details:'4주 프로그램 · 주 1회 체크인',price:8000}
+    ].map(service=><article className="mall-item coaching-card" key={service.icon}>
+      <div className="coaching-art" aria-hidden="true"><span>{service.icon}</span><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="19" y="16" width="42" height="51" rx="8"/><path d="M30 16v-4h20v4M29 33l4 4 7-8M45 34h7M29 49l4 4 7-8M45 50h7"/></svg></div>
+      <span className="coaching-label">{service.tag}</span><h3>{service.name}</h3><p className="coaching-description">{service.description}</p><p className="reward-small">{service.details}</p><p className="mall-price">{fmt(service.price)}P <small>예시</small></p><button type="button" className="outline" disabled>서비스 준비 중</button>
+    </article>)}</div>
+  </section>;
+}
+
+// 리워드몰(몰 전용, 2026-10-22 메뉴 결정): 본문은 RewardMall(v1.3). 꾸미기 그리드·미리 입어보기·구매 창은 여기서 넘긴다.
+function Mall({api, me, catalog, onChanged, onTab, initialCategory}) {
+  const [buying, setBuying] = useState(null), [ledger, setLedger] = useState(null);
   // 방 배경은 레벨(XP) 보상이라 몰에서 팔지 않는다. 적용은 지방이 성장 > 내 방 꾸미기에서 한다.
-  const items = catalog.items.filter(item => (item.sellable || item.default_provided) && item.slot !== 'background');
+  const items = catalog.items.filter(item => item.slot !== 'background' &&
+    (item.sellable || item.default_provided || item.slot === 'outfit'));
   const [equipping, setEquipping] = useState(false), [equipError, setEquipError] = useState('');
   // 미리 입어보기: 카드 그림을 누르면 위쪽 '내 지방이'에만 잠깐 입혀 본다. 저장하지 않는다.
   const [trying, setTrying] = useState(null);
@@ -91,26 +108,16 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
     const page = await api(`/rewards/ledger${ledger?.next_cursor ? `?cursor=${encodeURIComponent(ledger.next_cursor)}` : ''}`);
     setLedger(current => ({items: [...(current?.items || []), ...page.items], next_cursor: page.next_cursor}));
   }
-  return <>
-    <section className="panel mall-summary">
-      <div className="mall-my-jibang">
-        <span className="mall-my-figure"><JibangFigure equipment={shown} level={me.level} width={86} motion="breathe"/></span>
-        <p className="mall-my-label">{trying ? <><b>{trying.name} 미리보기</b><button type="button" className="text-button" onClick={() => setTrying(null)}>되돌리기</button></> : <><b>내 {CHARACTER_NAME}</b><small>바로 적용하면 여기 보여요</small></>}</p>
-      </div>
-      <div className="mall-balance"><p className="reward-eyebrow">REWARD MALL</p><p className="reward-points">{fmt(me.balance)}<span>P</span></p>
-        {me.deco_only > 0 && <p className="reward-small">꾸미기 전용 {fmt(me.deco_only)}P 포함</p>}
-        {me.expiring_soon > 0 && <p className="reward-expire">30일 안에 사라지는 포인트 {fmt(me.expiring_soon)}P</p>}</div>
-      {me.goal && <div className="mall-goal"><p><span>{me.goal.chosen ? '목표 리워드' : '다음 목표'} · <b>{me.goal.name}</b></span><span>{fmt(me.goal.price)}P</span></p>
-        <Progress value={me.goal.progress} tone="gold" label={`${me.goal.name}까지 진행률`}/>
-        <p className="reward-small">{me.goal.remaining ? `${fmt(me.goal.remaining)}P 남았어요 · ${etaText(me.goal.eta_days)}` : '모두 모았어요'}</p></div>}
-    </section>
-    <div className="reward-chips" role="tablist" aria-label="리워드 종류">{CATEGORIES.map(([key, label]) => <button key={key} role="tab" aria-selected={category === key} className={category === key ? 'active' : ''} onClick={() => setCategory(key)}>{label}</button>)}</div>
-    {category === 'deco' ? <div className="mall-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
+  const figure = <JibangFigure equipment={shown} level={me.level} width={80} motion="breathe"/>;
+  const figureLabel = trying ? <><b>{trying.name} 미리보기</b><button type="button" className="text-button" onClick={() => setTrying(null)}>되돌리기</button></>
+    : <><b>내 {CHARACTER_NAME}</b><small>바로 적용하면 여기 보여요</small></>;
+  const deco = <>
+    <div className="mall-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
       {tryable(item) ? <button type="button" className={`mall-try${trying?.id === item.id ? ' is-trying' : ''}`} aria-pressed={trying?.id === item.id}
         aria-label={`${item.name} 내 ${CHARACTER_NAME}에게 미리 입어보기`} onClick={() => setTrying(current => current?.id === item.id ? null : item)}>
         <ItemPreview item={item} equipment={{}} level={me.level}/></button>
         : <ItemPreview item={item} equipment={{}} level={me.level}/>}
-      <h3>{item.name}</h3><p className="mall-price">{item.default_provided ? '기본 제공' : `${fmt(item.price)}P`}</p>
+      <h3>{item.name}</h3><p className="mall-price">{item.default_provided ? '기본 제공' : item.sellable ? `${fmt(item.price)}P` : `LV.${item.level_required} 레벨 보상`}</p>
       {item.owned && item.kind !== 'protector' ? <p className="reward-small">{item.equipped ? '착용 중' : '보유'}</p>
         : item.lock_reason ? <p className="reward-small">{item.lock_reason}</p>
         : item.shortfall > 0 ? <><Progress value={me.balance / item.price} tone="gold" label={`${item.name}까지 진행률`}/><p className="reward-small">{fmt(item.shortfall)}P 남음 · {etaText(item.eta_days).replace('지금 속도면 ', '')}</p></>
@@ -118,28 +125,19 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory = 'deco'}) {
       {!(item.owned && item.kind !== 'protector') && !item.lock_reason && <button type="button" className={item.shortfall ? 'outline' : 'primary'} onClick={() => setBuying(item)}>{item.shortfall ? '살펴보기' : '구매하기'}</button>}
       {item.owned && item.kind !== 'protector' && <button type="button" className="outline" disabled={equipping} onClick={() => toggleItem(item)}>{item.equipped ? '빼기' : '바로 적용하기'}</button>}
     </article>)}</div>
-      : category === 'pro' ? <section className="coaching-preview" aria-labelledby="coaching-title">
-        <div className="panel coaching-intro"><span className="coaching-label">COACHING · 서비스 시안</span><h3 id="coaching-title">작은 습관부터, 나에게 맞는 코칭</h3><p>꾸준히 모은 포인트로 만나 보는 건강한 일상.</p><small>아래 서비스와 포인트는 예시예요. 실제 신청·포인트 차감은 제공하지 않아요.</small></div>
-        <div className="coaching-grid">{[
-          {icon:'01',tag:'식단 돌아보기',name:'일주일 식단 피드백',description:'최근 식단 기록을 함께 돌아보고, 다음 주에 실천할 식사 습관을 제안해요.',details:'7일 기록 리뷰 · 피드백 리포트 1회',price:1500},
-          {icon:'02',tag:'나만의 루틴',name:'1:1 식습관 코칭',description:'나의 생활 패턴과 고민을 나누고, 무리 없이 이어갈 식사 루틴을 함께 정해요.',details:'온라인 상담 30분 · 실천 가이드',price:3000},
-          {icon:'03',tag:'꾸준함을 함께',name:'4주 건강 습관 프로그램',description:'작은 목표를 세우고 매주 기록을 점검하며, 나에게 맞는 건강 습관을 만들어 가요.',details:'4주 프로그램 · 주 1회 체크인',price:8000}
-        ].map(service=><article className="mall-item coaching-card" key={service.icon}>
-          <div className="coaching-art" aria-hidden="true"><span>{service.icon}</span><svg viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="19" y="16" width="42" height="51" rx="8"/><path d="M30 16v-4h20v4M29 33l4 4 7-8M45 34h7M29 49l4 4 7-8M45 50h7"/></svg></div>
-          <span className="coaching-label">{service.tag}</span><h3>{service.name}</h3><p className="coaching-description">{service.description}</p><p className="reward-small">{service.details}</p><p className="mall-price">{fmt(service.price)}P <small>예시</small></p><button type="button" className="outline" disabled>서비스 준비 중</button>
-        </article>)}</div>
-      </section>      : me.exchange ? <ProductSection api={api} category={category} onChanged={onChanged} onTab={onTab}
-        onGoal={async product => { await api('/rewards/goal', {ref: `product:${product.id}`}, 'PUT'); onChanged(); }}/>
-      : <section className="panel mall-soon"><h3>{CATEGORIES.find(([key]) => key === category)[1]}</h3><p>준비 중이에요. 제휴와 운영 기준이 확정되면 열려요.</p>
-        {category === 'goods' && <p className="reward-small">실물 교환은 가입 14일 이후, 한 달에 한 번 신청할 수 있게 준비하고 있어요. 가입 보너스·커뮤니티 포인트는 꾸미기에만 쓸 수 있어요.</p>}</section>}
     {equipError && <p className="error" role="alert">{equipError}</p>}
-    <details className="panel reward-ledger" onToggle={event => { if (event.currentTarget.open && !ledger) more(); }}>
-      <summary>적립·사용 내역</summary>
-      {ledger && <ul>{ledger.items.map(row => <li key={row.type + row.id}><span>{row.label}<small>{new Date(row.at).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'})}{row.expires_at ? ` · ${new Date(row.expires_at).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul'})}까지` : ''}</small></span><b className={row.amount < 0 ? 'minus' : ''}>{row.amount > 0 ? '+' : ''}{fmt(row.amount)}P</b></li>)}</ul>}
-      {ledger?.next_cursor && <button type="button" className="text-button" onClick={more}>더 보기</button>}
-      {ledger && !ledger.items.length && <p className="muted">아직 내역이 없어요.</p>}
-      <p className="reward-small">포인트 유효기간은 적립일부터 12개월이에요. 먼저 받은(만료가 빠른) 포인트부터 쓰여요.</p>
-    </details>
+  </>;
+  // 교환 기능이 꺼져 쿠폰함이 없을 때만 몰 아래에 적립·사용 내역을 둔다(켜지면 쿠폰함 > 포인트 내역).
+  const ledgerBox = <details className="panel reward-ledger" onToggle={event => { if (event.currentTarget.open && !ledger) more(); }}>
+    <summary>적립·사용 내역</summary>
+    {ledger && <ul>{ledger.items.map(row => <li key={row.type + row.id}><span>{row.label}<small>{new Date(row.at).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'})}{row.expires_at ? ` · ${new Date(row.expires_at).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul'})}까지` : ''}</small></span><b className={row.amount < 0 ? 'minus' : ''}>{row.amount > 0 ? '+' : ''}{fmt(row.amount)}P</b></li>)}</ul>}
+    {ledger?.next_cursor && <button type="button" className="text-button" onClick={more}>더 보기</button>}
+    {ledger && !ledger.items.length && <p className="muted">아직 내역이 없어요.</p>}
+    <p className="reward-small">포인트 유효기간은 적립일부터 12개월이에요. 먼저 받은(만료가 빠른) 포인트부터 쓰여요.</p>
+  </details>;
+  return <>
+    <RewardMall api={api} me={me} onChanged={onChanged} onTab={onTab} initialCategory={initialCategory} figure={figure} figureLabel={figureLabel}
+      deco={deco} proPreview={<CoachingPreview/>} ledger={ledgerBox}/>
     {buying && <PurchaseDialog api={api} item={buying} me={me} onClose={() => setBuying(null)} onDone={onChanged} onGoal={setGoal} onNavigate={onTab}/>}
   </>;
 }
@@ -248,7 +246,7 @@ function JibangPage({api, me, catalog, onChanged, focusRoom}) {
 }
 
 export default function Rewards({api, me, tab = 'mall', onTab, onChanged, showTabs = true}) {
-  const [catalog, setCatalog] = useState(null), [error, setError] = useState(''), [mallCategory, setMallCategory] = useState('deco');
+  const [catalog, setCatalog] = useState(null), [error, setError] = useState(''), [mallCategory, setMallCategory] = useState(null);
   // 쿠폰함 탭은 교환 기능(Stage C 플래그)이 켜져 /rewards/me에 exchange가 있을 때만 보인다.
   const tabs = me?.exchange ? [...TABS, ['coupons', '쿠폰함']] : TABS;
   const goTab = (next, category) => { if (category) setMallCategory(category); onTab(next); };
@@ -260,7 +258,7 @@ export default function Rewards({api, me, tab = 'mall', onTab, onChanged, showTa
     {error && <p className="error" role="alert">{error}</p>}
     {!me || !catalog ? <p className="muted" role="status">리워드를 불러오고 있어요…</p>
       : tab === 'room' || tab === 'growth' ? <JibangPage api={api} me={me} catalog={catalog} onChanged={changed} focusRoom={tab === 'room'}/>
-      : tab === 'coupons' && me.exchange ? <Coupons api={api} onChanged={changed} onTab={goTab}/>
-      : <Mall key={mallCategory} api={api} me={me} catalog={catalog} onChanged={changed} onTab={goTab} initialCategory={mallCategory}/>}
+      : (tab === 'coupons' || tab === 'ledger') && me.exchange ? <Coupons api={api} me={me} onChanged={changed} onTab={goTab} initialView={tab === 'ledger' ? 'ledger' : 'coupons'}/>
+      : <Mall key={mallCategory || 'default'} api={api} me={me} catalog={catalog} onChanged={changed} onTab={goTab} initialCategory={mallCategory}/>}
   </div>;
 }

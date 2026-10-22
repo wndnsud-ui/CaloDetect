@@ -1,105 +1,17 @@
-// 리워드 Stage C 화면(지시서 v3 §11-5·§11-7, 시안 15-1·17·17-1·17-2): 건강상품 목록·교환 신청·쿠폰함·쿠폰 상세.
+// 리워드 Stage C 화면: 쿠폰함·포인트 내역(리워드몰 v1.3 §7-5, 시안 W3)·쿠폰 상세. 건강상품 목록·상세·교환은 RewardMall.jsx.
 // 서버가 REWARD_EXCHANGE_ENABLED일 때만 /rewards/me에 exchange가 들어오고, 그때만 이 화면을 쓴다.
 // §11-10: 알림 약속 문구, 스캔 자동 사용 안내, 바코드 이미지 저장 버튼, 밝기 조절 버튼은 만들지 않는다(밝기는 안내 문구만).
 import React, {useCallback, useEffect, useState} from 'react';
 import RewardDialog from './RewardDialog';
 import CouponBarcode from './CouponBarcode';
 import {MOOD_IMAGES, CHARACTER_NAME} from './Jibang';
-import {Progress, etaText, fmt} from './RewardHomeCard';
+import {fmt} from './RewardHomeCard';
+import {COUPON_TABS, couponsFor, couponChip, targetSuffix, nextMonthLabel} from './rewardMallUtils';
+import './reward-mall.css';
 
 const day = value => value ? new Date(value).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. ?/g, '.').replace(/\.$/, '') : '—';
 const short = value => value ? new Date(value).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric'}) : '—';
 const STATE_LABEL = {requested: '발급 대기', held: '확인 중', issued: '사용 가능', used: '사용 완료', canceled: '취소됨', failed: '발급 안 됨'};
-
-// 상품 이미지: image_key가 생기면 /products/<image_key>를 쓰고, 없으면 이름 첫 글자 타일(사용자가 이미지 교체 예정).
-export function ProductArt({product, size = 'md'}) {
-  if (product.image_key) return <span className={`product-art ${size}`}><img src={`/products/${product.image_key}`} alt=""/></span>;
-  return <span className={`product-art ${size} ${product.category}`} aria-hidden="true">{product.name.slice(0, 1)}</span>;
-}
-
-// 교환 조건 패널: 가입 14일 D-n, 이번 달 n/1회, 실물 교환에 쓸 수 있는 포인트, 꾸미기 전용.
-function ConditionPanel({conditions}) {
-  const days = conditions.account_days_left;
-  return <section className="panel exchange-conditions" aria-label="실물 교환 조건">
-    <div className={days ? 'wait' : 'ok'}><span>가입 14일 이후</span><b>{days ? `D-${days}` : '충족'}</b></div>
-    <div className={conditions.monthly_used >= conditions.monthly_limit ? 'wait' : 'ok'}><span>이번 달 실물 교환</span><b>{conditions.monthly_used} / {conditions.monthly_limit}회</b></div>
-    <div><span>실물 교환에 쓸 수 있는 포인트</span><b className="gold">{fmt(conditions.exchangeable)}P</b></div>
-    {conditions.deco_only > 0 && <p className="reward-small">가입 보너스·커뮤니티 포인트 {fmt(conditions.deco_only)}P는 꾸미기 전용이에요.</p>}
-  </section>;
-}
-
-function ExchangeDialog({api, product, conditions, onClose, onDone, onTab}) {
-  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [result, setResult] = useState(null);
-  async function submit() {
-    if (busy) return;
-    setBusy(true); setError('');
-    try { setResult(await api('/rewards/exchanges', {product_id: product.id})); onDone(); }
-    catch (e) { setError(e.message); } finally { setBusy(false); }
-  }
-  async function cancel() {
-    setBusy(true); setError('');
-    try { await api(`/rewards/exchanges/${result.id}/cancel`, {}); onDone(); onClose(); }
-    catch (e) { setError(e.message); setBusy(false); }
-  }
-  const after = conditions.exchangeable - product.price;
-  if (result) return <RewardDialog labelledBy="exchange-done" onClose={onClose} className="exchange-dialog">
-    <p className="reward-eyebrow">교환 신청 완료</p>
-    <div className="exchange-done-head"><img src={MOOD_IMAGES.proud} alt={`뿌듯한 ${CHARACTER_NAME}`}/><div><h2 id="exchange-done">교환 신청을 받았어요</h2><p className="jb-bubble static">기록한 보람이야!</p></div></div>
-    <ol className="exchange-steps">
-      <li className="done"><span>1</span><div><b>교환 신청 · {fmt(product.price)}P 사용</b><small>{new Date(result.requested_at).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'})}</small></div></li>
-      <li className="now"><span>2</span><div><b>{result.first_exchange ? '운영자 확인 · 쿠폰 발급 중' : '쿠폰 발급 중'}</b><small>{result.first_exchange ? '첫 교환은 운영자가 확인한 뒤 발급돼요.' : '발급되면 쿠폰함에서 확인할 수 있어요.'}</small></div></li>
-      <li><span>3</span><div><b>쿠폰함 도착</b><small>리워드 › 쿠폰함</small></div></li>
-    </ol>
-    <p className="reward-soft-note">발급 전에 취소하면 {fmt(product.price)}P를 그대로 돌려받아요. 사정으로 발급되지 않으면 자동으로 돌려드려요.</p>
-    {error && <p className="error" role="alert">{error}</p>}
-    <div className="reward-actions"><button type="button" className="outline" onClick={cancel} disabled={busy}>교환 취소</button>
-      <button type="button" className="primary" onClick={() => { onClose(); onTab('coupons'); }}>쿠폰함 보기</button></div>
-  </RewardDialog>;
-  return <RewardDialog labelledBy="exchange-title" onClose={onClose} className="exchange-dialog">
-    <p className="reward-eyebrow">교환 확인</p>
-    <div className="exchange-product"><ProductArt product={product}/><div><small>건강상품 · 모바일 쿠폰</small><h2 id="exchange-title">{product.name}</h2><p className="reward-small">{product.partner_label} · {product.description}</p></div></div>
-    <ul className="exchange-checks">
-      <li className={conditions.account_days_left ? 'no' : 'yes'}>가입 14일 이후{conditions.account_days_left ? ` · ${conditions.account_days_left}일 남음` : ''}</li>
-      <li className={conditions.monthly_used >= conditions.monthly_limit ? 'no' : 'yes'}>이번 달 실물 교환 {conditions.monthly_used} / {conditions.monthly_limit}회</li>
-    </ul>
-    <dl className="exchange-sum">
-      <div><dt>실물 교환에 쓸 수 있는 포인트</dt><dd>{fmt(conditions.exchangeable)}P</dd></div>
-      <div><dt>사용할 포인트</dt><dd className="gold">−{fmt(product.price)}P</dd></div>
-      <div className="total"><dt>교환 후 잔액</dt><dd>{fmt(Math.max(0, after))}P</dd></div>
-    </dl>
-    {conditions.deco_only > 0 && <p className="reward-small">가입 보너스·커뮤니티 포인트 {fmt(conditions.deco_only)}P는 꾸미기 전용이라 그대로 남아요.</p>}
-    <p className="reward-small">받는 곳: CaloDetect 쿠폰함 (따로 입력할 정보 없음)<br/>쿠폰이 발급되기 전까지는 취소할 수 있어요.{conditions.first_hold ? ' 첫 교환은 운영자가 확인한 뒤 발급돼요.' : ''}</p>
-    {!product.can_exchange && <p className="error" role="alert">{product.message}</p>}
-    {error && <p className="error" role="alert">{error}</p>}
-    <div className="reward-actions"><button type="button" className="outline" onClick={onClose}>취소</button>
-      <button type="button" className="primary" onClick={submit} disabled={busy || !product.can_exchange}>{busy ? '신청 중…' : `${fmt(product.price)}P로 교환 신청`}</button></div>
-  </RewardDialog>;
-}
-
-// 리워드 몰의 건강상품·AI 서비스·전문 코칭 탭.
-export function ProductSection({api, category, onChanged, onTab, onGoal}) {
-  const [data, setData] = useState(null), [error, setError] = useState(''), [picked, setPicked] = useState(null);
-  const load = useCallback(() => api('/rewards/products').then(setData).catch(e => setError(e.message)), [api]);
-  useEffect(() => { load(); }, [load]);
-  if (error) return <p className="error" role="alert">{error}</p>;
-  if (!data) return <p className="muted" role="status">상품을 불러오고 있어요…</p>;
-  const items = data.items.filter(item => item.category === category);
-  return <>
-    {category === 'goods' && <ConditionPanel conditions={data.conditions}/>}
-    <div className="mall-grid">{items.map(item => <article key={item.id} className={`mall-item product-item${item.available ? '' : ' is-soon'}`}>
-      <ProductArt product={item}/>
-      <h3>{item.name}</h3><p className="reward-small">{item.description}</p><p className="mall-price">{fmt(item.price)}P</p>
-      {!item.available ? <p className="reward-small">준비 중이에요</p>
-        : item.shortfall > 0 ? <><Progress value={(item.price - item.shortfall) / item.price} tone="gold" label={`${item.name}까지 진행률`}/><p className="reward-small">{fmt(item.shortfall)}P 남음 · {etaText(item.eta_days).replace('지금 속도면 ', '')}</p></>
-        : !item.can_exchange ? <p className="reward-small">{item.message}</p> : <p className="reward-small ok">지금 교환할 수 있어요</p>}
-      {item.available && (item.can_exchange
-        ? <button type="button" className="primary" onClick={() => setPicked(item)}>교환하기</button>
-        : <button type="button" className="outline" onClick={() => item.shortfall ? onGoal(item) : setPicked(item)}>{item.shortfall ? '목표로 정하기' : '조건 보기'}</button>)}
-    </article>)}</div>
-    {category !== 'goods' && <p className="reward-small">AI 서비스·전문 코칭은 준비 중이에요. 열리면 리워드 몰에서 알려 드릴게요.</p>}
-    {picked && <ExchangeDialog api={api} product={picked} conditions={data.conditions} onClose={() => setPicked(null)} onDone={() => { load(); onChanged(); }} onTab={onTab}/>}
-  </>;
-}
 
 // 쿠폰 상세: PC는 창, 모바일은 진녹 전체 화면(CSS). 바코드·번호·복사·유효기간·사용 방법·이미 사용했어요.
 function CouponDialog({api, coupon, onClose, onChanged}) {
@@ -115,7 +27,7 @@ function CouponDialog({api, coupon, onClose, onChanged}) {
   return <RewardDialog labelledBy="coupon-title" onClose={onClose} className="coupon-dialog">
     <div className="coupon-dialog-body">
       <div className="coupon-main">
-        <div className="coupon-head"><div><small>{coupon.partner_label} 모바일 쿠폰</small><h2 id="coupon-title">{coupon.product_name} 1개</h2></div>
+        <div className="coupon-head"><div><small>{coupon.partner_label} 모바일 쿠폰</small><h2 id="coupon-title">{couponName(coupon)}</h2></div>
           <span>{STATE_LABEL[coupon.status]}{usable && coupon.days_left != null ? ` · D-${coupon.days_left}` : ''}</span></div>
         <div className="coupon-code-box">
           {coupon.coupon_code ? <><CouponBarcode code={coupon.coupon_code} height={96}/>
@@ -141,43 +53,100 @@ function CouponDialog({api, coupon, onClose, onChanged}) {
   </RewardDialog>;
 }
 
-const TABS = [['active', '사용 가능'], ['pending', '발급 대기'], ['closed', '지난 쿠폰']];
-const EMPTY = {active: '사용할 수 있는 쿠폰이 아직 없어요.', pending: '발급을 기다리는 쿠폰이 없어요.', closed: '지난 쿠폰이 없어요.'};
+const EMPTY = {all: '아직 교환한 쿠폰이 없어요.', active: '사용할 수 있는 쿠폰이 아직 없어요.', pending: '발급을 기다리는 쿠폰이 없어요.', closed: '지난 쿠폰이 없어요.'};
+const when = value => new Date(value).toLocaleString('ko-KR', {timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false});
 
-export function Coupons({api, onChanged, onTab}) {
-  const [data, setData] = useState(null), [state, setState] = useState('active'), [open, setOpen] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState('');
+// 쿠폰 이름 + 수량(수량 상품만 "× N").
+export function couponName(coupon) {
+  return `${coupon.product_name}${coupon.quantity > 1 ? ` × ${coupon.quantity}` : ' 1개'}`;
+}
+
+function CouponCard({coupon, onOpen, onCancel, busy}) {
+  const option = coupon.option_label ? ` · 옵션 ${coupon.option_label}` : '';
+  const meta = coupon.state === 'pending' ? `${short(coupon.requested_at)} 교환 신청${option} · 발급 전까지 취소할 수 있어요.`
+    : coupon.state === 'active' ? `${short(coupon.requested_at)} 교환${option} · 유효기간 ${day(coupon.coupon_expires_at)}까지${coupon.days_left != null ? ` (D-${coupon.days_left})` : ''}`
+    : `${short(coupon.requested_at)} 교환${option} · ${couponChip(coupon)}${coupon.used_marked_at ? ` ${short(coupon.used_marked_at)}` : ''}`;
+  return <article className={`my-coupon is-${coupon.state}`}>
+    <div className="my-coupon-head"><div><small>{coupon.partner_label} 모바일 쿠폰</small><b>{couponName(coupon)}</b></div><em>{couponChip(coupon)}</em></div>
+    <div className="my-coupon-body">
+      {coupon.state === 'active' && coupon.coupon_code && <><CouponBarcode code={coupon.coupon_code} height={56}/><p className="mall-small center">{coupon.coupon_code}</p></>}
+      {coupon.state === 'pending' && <ol className="mall-steps">
+        <li className="done"><span>1</span><div><b>교환 신청 · {fmt(coupon.points)}P 차감</b></div></li>
+        <li className="now"><span>2</span><div><b>{coupon.status === 'held' ? '운영자 확인 · 쿠폰 발급 중' : '쿠폰 발급 중 · 보통 [N시간]'}</b>{coupon.status === 'held' && <small>첫 교환은 운영자가 확인한 뒤 발급돼요</small>}</div></li>
+        <li><span>3</span><div><b>쿠폰함 도착</b></div></li></ol>}
+      <p className="mall-small">{meta}</p>
+      {coupon.state === 'active' ? <button type="button" className="primary" onClick={() => onOpen(coupon)}>쿠폰 크게 보기</button>
+        : coupon.cancelable ? <button type="button" className="outline" onClick={() => onCancel(coupon)} disabled={busy}>{busy ? '취소하는 중…' : '교환 취소'}</button>
+        : <button type="button" className="outline" onClick={() => onOpen(coupon)}>자세히</button>}
+    </div>
+  </article>;
+}
+
+function Ledger({api}) {
+  const [kind, setKind] = useState(''), [data, setData] = useState(null), [error, setError] = useState('');
+  async function fetchPage(more) {
+    try {
+      const cursor = more && data?.next_cursor ? `cursor=${encodeURIComponent(data.next_cursor)}` : '';
+      const query = [kind ? `kind=${kind}` : '', cursor].filter(Boolean).join('&');
+      const page = await api(`/rewards/ledger${query ? `?${query}` : ''}`);
+      setData(current => more && current ? {...page, items: [...current.items, ...page.items]} : page);
+    } catch (e) { setError(e.message); }
+  }
+  useEffect(() => { setData(null); fetchPage(false); }, [api, kind]);
+  if (error) return <p className="error" role="alert">{error}</p>;
+  if (!data) return <p className="muted" role="status">포인트 내역을 불러오고 있어요…</p>;
+  const s = data.summary;
+  const kindLabel = row => row.kind === 'earn' ? '적립' : row.kind === 'revoke' ? (row.source === 'expire' ? '소멸' : '회수') : '사용';
+  const amount = row => `${row.amount > 0 ? '+' : '−'}${fmt(Math.abs(row.amount))}P`;
+  return <div className="my-rewards">
+    <div className="my-ledger-sum">
+      <div><small>보유</small><b>{fmt(s.balance)}P</b></div>
+      <div><small>{s.month}월 적립</small><b className="plus">+{fmt(s.month_earned)}P</b></div>
+      <div><small>{s.month}월 사용</small><b className="minus">−{fmt(s.month_spent)}P</b></div>
+      <div><small>소멸 예정 (30일 안)</small><b>{fmt(s.expiring_soon)}P</b></div>
+    </div>
+    <div className="mall-chips" role="tablist" aria-label="내역 종류">{[['', '전체'], ['earn', '적립'], ['spend', '사용·회수']].map(([key, label]) =>
+      <button key={key || 'all'} type="button" role="tab" aria-selected={kind === key} className={kind === key ? 'on' : ''} onClick={() => setKind(key)}>{label}</button>)}</div>
+    {data.items.length ? <>
+      <div className="my-table-box"><table className="my-table"><thead><tr><th scope="col">일시</th><th scope="col">내용</th><th scope="col">구분</th><th scope="col">포인트</th></tr></thead>
+        <tbody>{data.items.map(row => <tr key={row.type + row.id}><td className="when">{when(row.at)}</td><td>{row.label}{targetSuffix(row.target_date)}</td><td className="kind">{kindLabel(row)}</td>
+          <td className={`amt ${row.amount < 0 ? 'minus' : 'plus'}`}>{amount(row)}</td></tr>)}</tbody></table></div>
+      <ul className="my-ledger-list">{data.items.map(row => <li key={row.type + row.id}><span>{row.label}{targetSuffix(row.target_date)}<small>{when(row.at)} · {kindLabel(row)}</small></span>
+        <b className={row.amount < 0 ? 'minus' : 'plus'}>{amount(row)}</b></li>)}</ul>
+    </> : <p className="mall-panel muted">아직 내역이 없어요.</p>}
+    {data.next_cursor && <button type="button" className="text-button" onClick={() => fetchPage(true)}>더 보기</button>}
+    <p className="mall-small">포인트 유효기간은 적립일부터 12개월이에요. 먼저 받은(만료가 빠른) 포인트부터 쓰여요.</p>
+  </div>;
+}
+
+// 쿠폰함 · 포인트 내역(시안 W3): 상단 요약 카드 → [쿠폰함 | 포인트 내역] → 상태 탭·쿠폰 카드 / 요약·필터·표.
+export function Coupons({api, me, onChanged, onTab, initialView = 'coupons'}) {
+  const [view, setView] = useState(initialView), [data, setData] = useState(null), [state, setState] = useState('all'), [open, setOpen] = useState(null), [error, setError] = useState(''), [busy, setBusy] = useState('');
   const load = useCallback(() => api('/rewards/coupons').then(setData).catch(e => setError(e.message)), [api]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { setView(initialView); }, [initialView]);
   async function cancel(coupon) {
     setBusy(coupon.id); setError('');
     try { await api(`/rewards/exchanges/${coupon.id}/cancel`, {}); await load(); onChanged(); } catch (e) { setError(e.message); } finally { setBusy(''); }
   }
-  if (!data) return error ? <p className="error" role="alert">{error}</p> : <p className="muted" role="status">쿠폰함을 불러오고 있어요…</p>;
-  const items = data.items.filter(item => item.state === state);
-  const s = data.summary;
-  return <div className="coupons">
-    <div><p className="reward-eyebrow">MY COUPONS</p><h1 className="coupons-title">쿠폰함</h1><p className="reward-small">교환한 건강상품 쿠폰을 모아 봐요. 매장에서는 바코드를 보여주면 돼요.</p></div>
-    <section className="coupon-summary">
-      <div><span>사용 가능</span><b>{s.active}<small>장</small></b></div>
-      <div><span>발급 대기</span><b>{s.pending}<small>장</small></b></div>
-      <div><span>이번 달 실물 교환</span><b>{s.monthly_used}<small> / {s.monthly_limit}회</small></b></div>
-      <div className={s.expiring_soon ? 'warn' : ''}><span>곧 만료되는 쿠폰</span><b>{s.expiring_soon ? `${s.expiring_soon}장` : '없음'}</b></div>
-    </section>
-    <div className="reward-chips" role="tablist" aria-label="쿠폰 상태">{TABS.map(([key, label]) => <button key={key} role="tab" aria-selected={state === key} className={state === key ? 'active' : ''} onClick={() => setState(key)}>{label}</button>)}</div>
-    {error && <p className="error" role="alert">{error}</p>}
-    {items.length ? <div className="coupon-grid">{items.map(coupon => <article key={coupon.id} className={`coupon-card s-${coupon.status}`}>
-      <button type="button" className="coupon-card-open" onClick={() => setOpen(coupon)} aria-label={`${coupon.product_name} 쿠폰 열기, ${STATE_LABEL[coupon.status]}`}>
-        <span className="coupon-card-head"><span><small>{coupon.partner_label} 모바일 쿠폰</small><b>{coupon.product_name} 1개</b></span><em>{STATE_LABEL[coupon.status]}</em></span>
-        <span className="coupon-card-foot">
-          <span><small>{coupon.state === 'active' ? '유효기간' : coupon.state === 'pending' ? '신청일' : '처리일'}</small><b>{coupon.state === 'active' ? `${day(coupon.coupon_expires_at)} · D-${coupon.days_left}` : short(coupon.state === 'pending' ? coupon.requested_at : coupon.used_marked_at || coupon.issued_at || coupon.requested_at)}</b></span>
-          <span><small>사용 포인트</small><b>{fmt(coupon.points)}P</b></span>
-          <span className="cta">{coupon.state === 'active' ? '바코드 열기' : '자세히'} →</span>
-        </span>
-      </button>
-      {coupon.cancelable && <button type="button" className="text-button" onClick={() => cancel(coupon)} disabled={busy === coupon.id}>{busy === coupon.id ? '취소하는 중…' : `교환 취소 · ${fmt(coupon.points)}P 돌려받기`}</button>}
-    </article>)}</div>
-      : <div className="panel coupon-empty"><img src={MOOD_IMAGES.smile} alt=""/><p>{EMPTY[state]}</p><button type="button" className="text-button" onClick={() => onTab('mall', 'goods')}>리워드 몰 둘러보기 →</button></div>}
-    <p className="reward-small">발급 전 쿠폰은 취소하면 포인트를 그대로 돌려받아요. 발급된 쿠폰은 취소할 수 없고, 사용 조건과 유효기간은 제휴사 정책을 따라요.</p>
+  const s = data?.summary;
+  const used = s && s.monthly_used >= s.monthly_limit;
+  const items = data ? couponsFor(data.items, state) : [];
+  return <div className="mall-page my-rewards">
+    <section className="my-summary"><img src={MOOD_IMAGES.cheer} alt={`응원하는 ${CHARACTER_NAME}`}/>
+      <div><p className="mall-eyebrow">CALO REWARD</p><p className="balance">{fmt(me?.balance)}<span>P</span></p>
+        {s && <p className="sub">이번 달 실물 교환 {s.monthly_used} / {s.monthly_limit}회{used ? ` · 다음 교환은 ${nextMonthLabel(new Date().getMonth() + 1)}부터` : ''}</p>}</div>
+      <p className="mall-hand">맛있게 먹고 또 기록해 줘!</p></section>
+    <div className="my-seg" role="tablist" aria-label="보기">{[['coupons', '쿠폰함'], ['ledger', '포인트 내역']].map(([key, label]) =>
+      <button key={key} type="button" role="tab" aria-selected={view === key} className={view === key ? 'on' : ''} onClick={() => setView(key)}>{label}</button>)}</div>
+    {view === 'ledger' ? <Ledger api={api}/> : !data ? (error ? <p className="error" role="alert">{error}</p> : <p className="muted" role="status">쿠폰함을 불러오고 있어요…</p>) : <>
+      <div className="mall-chips" role="tablist" aria-label="쿠폰 상태">{COUPON_TABS.map(([key, label]) =>
+        <button key={key} type="button" role="tab" aria-selected={state === key} className={state === key ? 'on' : ''} onClick={() => setState(key)}>{label}</button>)}</div>
+      {error && <p className="error" role="alert">{error}</p>}
+      {items.length ? <div className="my-coupons">{items.map(coupon => <CouponCard key={coupon.id} coupon={coupon} onOpen={setOpen} onCancel={cancel} busy={busy === coupon.id}/>)}</div>
+        : <div className="mall-panel coupon-empty"><img src={MOOD_IMAGES.smile} alt=""/><p>{EMPTY[state]}</p><button type="button" className="text-button" onClick={() => onTab('mall', 'goods')}>리워드몰 둘러보기 →</button></div>}
+      <p className="mall-small">발급된 쿠폰은 취소할 수 없어요. 쿠폰 사용 조건은 제휴사 정책을 따라요. 꾸미기 아이템은 지방이 방에서 확인할 수 있어요.</p>
+    </>}
     {open && <CouponDialog api={api} coupon={open} onClose={() => setOpen(null)} onChanged={() => { load(); onChanged(); }}/>}
   </div>;
 }

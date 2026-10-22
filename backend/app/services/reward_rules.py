@@ -15,7 +15,7 @@ MEAL_LABELS = {'breakfast': '아침', 'lunch': '점심', 'dinner': '저녁', 'sn
 # 기획안 5.2 레벨 이름. 시트 문구("예뻐지는", "가벼워진 몸")는 쓰지 않는다.
 LEVEL_NAMES = {1: '시작', 2: '기록하는', 3: '움직이는', 4: '균형 잡힌', 5: '건강 습관'}
 # 레벨업 때 함께 주는 레벨 전용 아이템(§6-4). LV.1 배경은 가입 시 기본 지급.
-LEVEL_ITEMS = {1: ('bg_lv1',), 2: ('bg_lv2',), 3: ('outfit_lv3', 'bg_lv3'), 4: ('costume_lv4', 'bg_lv4'),
+LEVEL_ITEMS = {1: ('bg_lv1',), 2: ('bg_lv2',), 3: ('bg_lv3',), 4: ('bg_lv4',),
                5: ('title_lv5', 'bg_lv5')}
 
 # 지급 출처별 화면 문구. 프런트는 하드코딩하지 않고 API의 label을 쓴다.

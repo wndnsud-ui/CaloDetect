@@ -7,7 +7,7 @@ from fastapi import APIRouter, Query
 from pydantic import Field
 from .api import CurrentUser, Admin, DB
 from .schemas import RequestModel
-from .services import rewards as service, reward_exchange as exchange
+from .services import rewards as service, reward_exchange as exchange, reward_coaching as coaching
 
 router = APIRouter(tags=['rewards'])
 
@@ -37,8 +37,9 @@ def grants(user: CurrentUser, db: DB, meal_id: str = Query(min_length=1, max_len
 
 
 @router.get('/rewards/ledger')
-def ledger(user: CurrentUser, db: DB, cursor: str | None = Query(default=None, max_length=120)):
-    return service.ledger(db, user, cursor)
+def ledger(user: CurrentUser, db: DB, cursor: str | None = Query(default=None, max_length=120),
+           kind: Literal['earn', 'spend'] | None = None):
+    return service.ledger(db, user, cursor, kind=kind)
 
 
 @router.get('/rewards/items')
@@ -127,16 +128,34 @@ def nickname_reset(user_id: int, admin: Admin, db: DB):
 
 class ExchangeRequest(RequestModel):
     product_id: str = Field(min_length=1, max_length=40)
+    # 리워드몰 v1.3: 옵션 있는 상품은 option 필수, quantity는 1~max_qty(서버 검사)
+    option: str | None = Field(default=None, max_length=40)
+    quantity: int = Field(default=1)
 
 
 @router.get('/rewards/products')
-def products(user: CurrentUser, db: DB):
-    return exchange.products(db, user)
+def products(user: CurrentUser, db: DB, listed: bool = True):
+    return exchange.products(db, user, listed)
+
+
+@router.get('/rewards/products/{product_id}')
+def product_detail(product_id: str, user: CurrentUser, db: DB):
+    return exchange.product_detail(db, user, product_id)
+
+
+@router.get('/rewards/promotions')
+def promotions(user: CurrentUser, db: DB):
+    return exchange.promotions(db, user)
+
+
+@router.get('/rewards/collab')
+def collab(user: CurrentUser, db: DB):
+    return exchange.collab(db, user)
 
 
 @router.post('/rewards/exchanges', status_code=201)
 def request_exchange(body: ExchangeRequest, user: CurrentUser, db: DB):
-    return exchange.request_exchange(db, user, body.product_id)
+    return exchange.request_exchange(db, user, body.product_id, body.option, body.quantity)
 
 
 @router.post('/rewards/exchanges/{exchange_id}/cancel')
@@ -152,3 +171,44 @@ def coupons(user: CurrentUser, db: DB, status: Literal['active', 'pending', 'clo
 @router.post('/rewards/coupons/{exchange_id}/used')
 def coupon_used(exchange_id: str, user: CurrentUser, db: DB):
     return exchange.mark_used(db, user, exchange_id)
+
+
+# ---- 리워드몰 v1.3 M4: 전문 코칭 이용권 (REWARD_COACHING_ENABLED=false → 404) ----
+
+class PassRequest(RequestModel):
+    idem_key: str = Field(min_length=8, max_length=120)
+
+
+@router.get('/rewards/coaches')
+def coach_list(user: CurrentUser, db: DB, specialty: str | None = Query(default=None, max_length=20)):
+    return coaching.coaches(db, user, specialty)
+
+
+@router.get('/rewards/coaches/feed')
+def coach_feed(user: CurrentUser, db: DB):
+    return coaching.feed(db, user)
+
+
+@router.get('/rewards/coaches/{coach_id}')
+def coach_detail(coach_id: str, user: CurrentUser, db: DB):
+    return coaching.coach_detail(db, user, coach_id)
+
+
+@router.post('/rewards/coaches/{coach_id}/passes')
+def coach_buy(coach_id: str, body: PassRequest, user: CurrentUser, db: DB):
+    return coaching.buy(db, user, coach_id, body.idem_key)
+
+
+@router.get('/rewards/coach-passes')
+def coach_passes(user: CurrentUser, db: DB):
+    return coaching.my_passes(db, user)
+
+
+@router.get('/admin/rewards/coach-passes')
+def admin_coach_passes(admin: Admin, db: DB):
+    return coaching.admin_list(db)
+
+
+@router.post('/admin/rewards/coach-passes/{pass_id}/refund')
+def admin_coach_refund(pass_id: str, admin: Admin, db: DB):
+    return coaching.admin_refund(db, pass_id)

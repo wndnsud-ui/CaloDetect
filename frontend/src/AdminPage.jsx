@@ -67,7 +67,7 @@ function Exchanges({api}) {
     {!rows ? <p className="muted" role="status">불러오는 중…</p> : !rows.length ? <section className="panel admin-empty"><p className="muted">해당하는 교환 신청이 없어요.</p></section> :
       <div className="admin-list">{rows.map(row => <article key={row.id} className={`panel admin-row status-${row.status}`}>
         <div className="admin-row-main">
-          <p className="admin-row-title"><b>{row.product_name}</b><span>{row.points.toLocaleString()}P</span>{row.first_exchange && <em className="admin-badge first">첫 교환</em>}<em className={`admin-badge s-${row.status}`}>{STATUS[row.status]}</em></p>
+          <p className="admin-row-title"><b>{row.product_name}{row.quantity > 1 ? ` × ${row.quantity}` : ''}</b>{row.option_label && <span>옵션 {row.option_label}</span>}<span>{row.points.toLocaleString()}P</span>{row.first_exchange && <em className="admin-badge first">첫 교환</em>}<em className={`admin-badge s-${row.status}`}>{STATUS[row.status]}</em></p>
           <p className="muted">{row.nickname || '닉네임 없음'} · 회원 {row.user_id} · 가입 {row.signup_days}일 · 신청 {when(row.requested_at)}{row.issued_at ? ` · 발급 ${when(row.issued_at)}` : ''}{row.coupon_expires_at ? ` · ${row.coupon_expires_at.slice(0, 10)}까지` : ''}</p>
           <p className="admin-signal">최근 30일 기록 <b>{row.recorded_days_30}일</b> · 식단 {row.meals_30}건 · 사진 비율 <b>{Math.round(row.photo_ratio_30 * 100)}%</b></p>
         </div>
@@ -110,12 +110,32 @@ function Nicknames({api}) {
   </>;
 }
 
+// 리워드몰 v1.3 M4: 코칭 이용권 목록·수동 환불(코치 연락 불가 같은 예외). 코칭 플래그가 꺼져 404면 안내만.
+function CoachPasses({api}) {
+  const [rows, setRows] = useState(null), [off, setOff] = useState(false), [error, setError] = useState(''), [target, setTarget] = useState(null), [notice, setNotice] = useState('');
+  const load = () => api('/admin/rewards/coach-passes').then(data => setRows(data.items)).catch(e => e.status === 404 ? setOff(true) : setError(e.message));
+  useEffect(() => { load(); }, []);
+  if (off) return <section className="panel admin-empty"><p className="muted">전문 코칭 이용권 기능이 꺼져 있어요(REWARD_COACHING_ENABLED=false).</p></section>;
+  return <>
+    {notice && <p className="notice" role="status">{notice}</p>}
+    {error && <p className="error" role="alert">{error}</p>}
+    {!rows ? <p className="muted" role="status">불러오는 중…</p> : !rows.length ? <section className="panel admin-empty"><p className="muted">구매된 이용권이 없어요.</p></section> :
+      <div className="admin-list">{rows.map(row => <article key={row.id} className="panel admin-row">
+        <div className="admin-row-main"><p className="admin-row-title"><b>{row.coach_id} 코치 · 7회</b><span>{row.points.toLocaleString()}P</span><em className="admin-badge">{{in_use: '사용 중', refunded: '환불됨', completed: '종료'}[row.status]}</em></p>
+          <p className="muted">{row.nickname || '닉네임 없음'} · 회원 {row.user_id} · 구매 {when(row.purchased_at)}{row.closed_at ? ` · 종료 ${when(row.closed_at)}` : ''}</p></div>
+        {row.status === 'in_use' && <div className="admin-row-actions"><button type="button" className="outline" onClick={() => setTarget(row)}>수동 환불</button></div>}
+      </article>)}</div>}
+    {target && <ConfirmDialog title="이용권을 환불할까요?" body={`${target.points.toLocaleString()}P를 회원에게 돌려주고 이용권을 '환불됨'으로 바꿔요. 코치 연락 불가 같은 예외에만 쓰세요.`} action="환불하기"
+      onClose={() => setTarget(null)} onConfirm={async () => { await api(`/admin/rewards/coach-passes/${target.id}/refund`, {}); setTarget(null); setNotice('환불했어요.'); load(); }}/>}
+  </>;
+}
+
 export default function AdminPage({api}) {
   const [tab, setTab] = useState('exchanges');
   return <div className="admin-page">
     <div><p className="eyebrow">ADMIN</p><h1>관리자</h1><p className="muted">건강상품 교환 신청을 처리하고 닉네임을 관리해요. 실제 쿠폰 번호는 제휴처에서 받은 값을 입력하세요.</p></div>
-    <div className="reward-tabs" role="tablist" aria-label="관리자 메뉴">{[['exchanges', '교환 신청 처리'], ['nicknames', '닉네임 관리']].map(([key, label]) =>
+    <div className="reward-tabs" role="tablist" aria-label="관리자 메뉴">{[['exchanges', '교환 신청 처리'], ['passes', '코칭 이용권'], ['nicknames', '닉네임 관리']].map(([key, label]) =>
       <button key={key} role="tab" aria-selected={tab === key} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}>{label}</button>)}</div>
-    {tab === 'exchanges' ? <Exchanges api={api}/> : <Nicknames api={api}/>}
+    {tab === 'exchanges' ? <Exchanges api={api}/> : tab === 'passes' ? <CoachPasses api={api}/> : <Nicknames api={api}/>}
   </div>;
 }

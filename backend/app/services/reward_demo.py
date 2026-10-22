@@ -7,8 +7,10 @@ from datetime import timedelta
 from sqlalchemy import delete, select
 from ..models_rewards import (RewardAccount, RewardGrantBatch, RewardPointLot, RewardPointSpend, RewardPointAllocation,
     RewardDebt, RewardXpEvent, RewardUserItem, RewardEquipment, RewardPhotoHash, RewardLevelEvent, RewardStreakProtection,
-    RewardExchange, RewardExchangeMonthCounter)
-from . import rewards
+    RewardExchange, RewardExchangeMonthCounter, RewardCoachPass)
+from . import rewards, reward_rules as rules
+
+SCENARIOS = ('default', 'v13', 'v13_coaching')
 
 LIMITS = {'points': (0, 5000), 'xp': (0, 10000), 'streak': (0, 60), 'protectors': (0, 10)}
 
@@ -47,6 +49,7 @@ def reset(db, user):
         if counter:
             counter.active_count = max(0, counter.active_count - 1)
     db.execute(delete(RewardExchange).where(RewardExchange.user_id == user.id))
+    db.execute(delete(RewardCoachPass).where(RewardCoachPass.user_id == user.id))
     spends = select(RewardPointSpend.id).where(RewardPointSpend.user_id == user.id)
     lots = select(RewardPointLot.id).where(RewardPointLot.user_id == user.id)
     db.execute(delete(RewardPointAllocation).where(RewardPointAllocation.spend_id.in_(spends)))
@@ -56,6 +59,62 @@ def reset(db, user):
         db.execute(delete(model).where(model.user_id == user.id))
     db.flush()
     rewards.account(db, user.id)
+    return summary(db, user, [])
+
+
+def _spend(db, user, lot_source, amount, kind, ref_type, ref_id, at, idem):
+    """지난 사용 내역 1건: 같은 금액의 적립 lot을 만들고 그 lot에서 바로 차감한다(잔액에는 영향 없음)."""
+    lot = rewards.grant_points(db, user.id, lot_source, amount, idem, 'demo', None)
+    lot.earned_at = at
+    spend = RewardPointSpend(user_id=user.id, kind=kind, amount=amount, ref_type=ref_type, ref_id=ref_id, created_at=at)
+    db.add(spend); db.flush()
+    db.add(RewardPointAllocation(spend_id=spend.id, lot_id=lot.id, amount=amount))
+    lot.remaining = 0
+    db.flush()
+    return spend
+
+
+def seed_v13(db, user, coaching=False):
+    """리워드몰 v1.3 시연 상태(지시서 §10). 교환 가능 포인트 320P(코칭 변형 760P), 이번 달 꾸미기 2건,
+    지난달 교환 2건(used 프로틴바·issued 에너지 드링크), 이번 달 교환 0건, 목표 진한홍삼 프리미엄 30포.
+    날짜는 생성 시점 기준 상대값. 가입일은 바꾸지 않는다. commit은 호출 측."""
+    from fastapi import HTTPException
+    from ..config import settings
+    from . import reward_exchange
+    if not settings.reward_exchange_active:
+        raise HTTPException(409, 'v13 시나리오는 실물 교환 기능(REWARD_EXCHANGE_ENABLED·월 전체 상한)이 켜져 있어야 해요.')
+    reset(db, user)
+    reward_exchange.ensure_products(db)
+    rewards.ensure_items(db)
+    now = rewards.now()
+    for source, amount in (('meal', 200), ('mission', 80), ('bonus', 40)) + ((('bonus', 440),) if coaching else ()):
+        rewards.grant_points(db, user.id, source, amount, f'demo:v13:{source}:{amount}', 'demo', None)
+    this_month = rewards.day_start(rewards.today().replace(day=1))
+    deco_at = this_month + timedelta(days=2, hours=9)   # 이번 달 3일(시안 10.03), 아직 3일 전이면 1시간 전
+    if deco_at > now:
+        deco_at = now - timedelta(hours=1)
+    for item_id, price, minute in (('prop_water', 40, 1), ('prop_heart', 60, 2)):
+        _spend(db, user, 'meal', price, 'item', 'item', item_id, deco_at + timedelta(minutes=minute), f'demo:v13:item:{item_id}')
+        if db.get(RewardUserItem, (user.id, item_id)) is None:
+            db.add(RewardUserItem(user_id=user.id, item_id=item_id, quantity=1, acquired_via='purchase'))
+    last_month = (rewards.today().replace(day=1) - timedelta(days=1)).replace(day=20)
+    for product_id, option, price, status in (('protein_bar', '초코 크런치', 200, 'used'), ('energy_drink', '레몬 라임', 150, 'issued')):
+        at = rewards.day_start(last_month) + timedelta(hours=12 if status == 'used' else 15)
+        spend = _spend(db, user, 'meal', price, 'exchange', 'product', product_id, at, f'demo:v13:exchange:{product_id}')
+        month = rules.month_key(last_month)
+        exchange = RewardExchange(user_id=user.id, product_id=product_id, points=price, status=status, first_exchange=status == 'used',
+                                  requested_at=at, issued_at=at + timedelta(hours=3), month_key=month, spend_id=spend.id,
+                                  quantity=1, option_label=option, coupon_code_enc=reward_exchange.seal(f'DEMO-{product_id[:4].upper()}-0000'),
+                                  coupon_expires_at=now + timedelta(days=40) if status == 'issued' else at + timedelta(days=30),
+                                  used_marked_at=at + timedelta(days=4) if status == 'used' else None)
+        db.add(exchange)
+        counter = db.get(RewardExchangeMonthCounter, month)
+        if counter is None:
+            db.add(RewardExchangeMonthCounter(month_key=month, active_count=1))
+        else:
+            counter.active_count += 1
+    db.flush()
+    rewards.account(db, user.id).goal_ref = 'product:ginseng_premium30'
     return summary(db, user, [])
 
 

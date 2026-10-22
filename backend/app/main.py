@@ -68,6 +68,10 @@ async def validation_error(request: Request, error: RequestValidationError):
 # 명시적으로 발생한 HTTPException의 상태 코드와 안내 문구를 공통 error 구조로 반환한다.
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, error: HTTPException):
+    # 리워드몰 v1.3: detail이 {'code','message'}이면 업무 코드(OPTION_REQUIRED·PASS_IN_USE 등)를 그대로 내려준다.
+    if isinstance(error.detail, dict) and 'message' in error.detail:
+        return JSONResponse(status_code=error.status_code, content={'error': {
+            'code': str(error.detail.get('code', error.status_code)), 'message': str(error.detail['message'])}})
     return JSONResponse(status_code=error.status_code,
                         content={'error': {'code': str(error.status_code), 'message': str(error.detail)}})
 

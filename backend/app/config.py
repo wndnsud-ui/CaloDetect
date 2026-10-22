@@ -119,6 +119,9 @@ class Settings(BaseSettings):
     reward_exchange_monthly_limit: int = Field(default=1, ge=1)
     reward_exchange_first_hold: bool = True
     reward_exchange_global_monthly_cap: int | None = None
+    # 리워드몰 v1.3: 콜라보 기획전(실존 브랜드, 내부 시연용)과 전문 코칭 이용권은 기본 꺼짐.
+    reward_collab_demo_enabled: bool = False
+    reward_coaching_enabled: bool = False
 
     # 교환 기능이 실제로 켜졌는지: 플래그 + 월 전체 상한 + 쿠폰 번호 암호화 키(OAUTH_STATE_SECRET).
     @property

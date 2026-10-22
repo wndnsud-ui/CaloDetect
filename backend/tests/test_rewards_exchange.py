@@ -49,8 +49,15 @@ def one(env, monkeypatch):
     return client, engine, member(client, engine, 'buyer@example.com'), monkeypatch
 
 
+def first_option(product):
+    # 리워드몰 v1.3: 옵션 있는 상품은 option이 필수다. 기존 검사는 첫 옵션으로 신청한다.
+    from backend.app.services.reward_catalog import PRODUCTS
+    options = next(row[8] for row in PRODUCTS if row[0] == product)
+    return options[0] if options else None
+
+
 def ask(client, product='protein_bar'):
-    return client.post('/rewards/exchanges', json={'product_id': product})
+    return client.post('/rewards/exchanges', json={'product_id': product, 'option': first_option(product)})
 
 
 def make_admin(engine, user_id):
@@ -96,7 +103,8 @@ def test_restricted_sources_and_first_hold(env, monkeypatch):
     blocked = ask(client)
     assert blocked.status_code == 422 and blocked.json()['error']['message'] == '가입 보너스와 커뮤니티 포인트는 꾸미기에만 쓸 수 있어요.'
     products = {p['id']: p for p in client.get('/rewards/products').json()['items']}
-    assert products['protein_bar']['reason'] == 'restricted' and products['ai_report']['reason'] == 'unavailable'
+    # 리워드몰 v1.3 §5-2: AI 서비스(ai_report)·기존 코칭(pro_coaching)은 비활성이라 목록에 없다.
+    assert products['protein_bar']['reason'] == 'restricted' and 'ai_report' not in products and 'pro_coaching' not in products
     with Session(engine) as db:
         rewards.grant_points(db, user['id'], 'meal', 250, 'meal:x'); db.commit()
     first = ask(client)

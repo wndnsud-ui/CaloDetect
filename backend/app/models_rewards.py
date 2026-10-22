@@ -2,7 +2,7 @@
 # 포인트는 적립 건(lot) → 차감(spend) → 배분(allocation) 원장으로만 관리한다. 캐시는 원장에서 다시 계산할 수 있다.
 # 모든 지급의 중복은 UNIQUE(user_id, idem_key)로 막는다. FK CASCADE는 쓰지 않는다.
 from datetime import date, datetime
-from sqlalchemy import String, Integer, Boolean, Date, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, Index
+from sqlalchemy import String, Integer, Boolean, Date, DateTime, ForeignKey, UniqueConstraint, CheckConstraint, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from .models import Base, uid, utcnow
 
@@ -210,7 +210,25 @@ class RewardProduct(Base):
     image_key: Mapped[str | None] = mapped_column(String(120))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    __table_args__ = (CheckConstraint('price > 0', name='ck_reward_products_price'),)
+    # ---- 리워드몰 v1.3 (migration 20261022_01) ----
+    # 간편식 · 음료 · 브랜드 콜라보 (상세 경로 표시)
+    subcategory: Mapped[str | None] = mapped_column(String(20))
+    # 참고 정가(취소선). 시연용 자리표시
+    list_price_won: Mapped[int | None] = mapped_column(Integer)
+    # 맛 선택 라벨 목록. 비어 있으면 옵션 없음
+    options: Mapped[list] = mapped_column(JSON, default=list)
+    max_qty: Mapped[int] = mapped_column(Integer, default=1)
+    # 몰 그리드 노출. 콜라보 라인업은 false(상세·신청은 가능)
+    listed: Mapped[bool] = mapped_column(Boolean, default=True)
+    collab_brand: Mapped[str | None] = mapped_column(String(40))
+    # 코칭 이용권 상품과 코치 연결(M4)
+    coach_id: Mapped[str | None] = mapped_column(ForeignKey('reward_coach_profiles.id'))
+    # 화면 표시 데이터(태그·요약·특징·보관방법·시연 평점·이미지 키·related_ids)
+    content: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_mock: Mapped[bool] = mapped_column(Boolean, default=True)
+    __table_args__ = (CheckConstraint('price > 0', name='ck_reward_products_price'),
+                      CheckConstraint('max_qty >= 1 AND max_qty <= 9', name='ck_reward_products_max_qty'),
+                      CheckConstraint('list_price_won IS NULL OR list_price_won > 0', name='ck_reward_products_list_price'))
 
 
 # 교환 신청 1건. 쿠폰 번호는 암호화해 저장하고 본인 응답에만 복호화해 넣는다.
@@ -232,9 +250,13 @@ class RewardExchange(Base):
     # KST yyyy-mm. 월 1회·월 전체 상한 기준.
     month_key: Mapped[str] = mapped_column(String(7), index=True)
     spend_id: Mapped[str] = mapped_column(ForeignKey('reward_point_spends.id'))
+    # 리워드몰 v1.3: 수량(points = 단가 × 수량)과 신청 당시 옵션 라벨
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    option_label: Mapped[str | None] = mapped_column(String(40))
     __table_args__ = (CheckConstraint("status IN ('requested','held','issued','used','canceled','failed')",
                                       name='ck_reward_exchanges_status'),
-                      CheckConstraint('points > 0', name='ck_reward_exchanges_points'))
+                      CheckConstraint('points > 0', name='ck_reward_exchanges_points'),
+                      CheckConstraint('quantity >= 1', name='ck_reward_exchanges_quantity'))
 
 
 # KST 월별 활성 교환 수. 월 전체 상한 검사는 이 행을 FOR UPDATE로 잠가 처리한다.
@@ -243,3 +265,65 @@ class RewardExchangeMonthCounter(Base):
     month_key: Mapped[str] = mapped_column(String(7), primary_key=True)
     active_count: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (CheckConstraint('active_count >= 0', name='ck_reward_exchange_counter'),)
+
+
+# ---- 리워드몰 v1.3 M4: 전문 코칭 이용권 (REWARD_COACHING_ENABLED 플래그 뒤, migration 20261022_02) ----
+
+# 코치 프로필(시드, 시연용). kakao_link·phone은 이용권을 가진 본인 응답에만 넣고 목록·피드·로그에는 넣지 않는다.
+class RewardCoachProfile(Base):
+    __tablename__ = 'reward_coach_profiles'
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name: Mapped[str] = mapped_column(String(40))
+    headline: Mapped[str] = mapped_column(String(80))
+    # nutrition diet exercise lifestyle
+    specialties: Mapped[list] = mapped_column(JSON, default=list)
+    quote: Mapped[str] = mapped_column(String(200), default='')
+    philosophy: Mapped[str] = mapped_column(String(200), default='')
+    career: Mapped[list] = mapped_column(JSON, default=list)
+    introduction: Mapped[str] = mapped_column(String(600), default='')
+    # 이렇게 관리해요 4단계 + 화면 보조 데이터(전문 분야·포함 내용·손글씨 메모·후기 예시)
+    steps: Mapped[dict] = mapped_column(JSON, default=dict)
+    rating_text: Mapped[str] = mapped_column(String(10), default='')
+    coaching_count: Mapped[int] = mapped_column(Integer, default=0)
+    profile_image_key: Mapped[str | None] = mapped_column(String(120))
+    side_image_key: Mapped[str | None] = mapped_column(String(120))
+    kakao_link: Mapped[str] = mapped_column(String(300))
+    phone: Mapped[str] = mapped_column(String(20))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    is_mock: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+# 코치 활동 콘텐츠(칼럼·팁·사례). Coach Feed와 코치 상세에 쓴다.
+class RewardCoachContent(Base):
+    __tablename__ = 'reward_coach_contents'
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    coach_id: Mapped[str] = mapped_column(ForeignKey('reward_coach_profiles.id'), index=True)
+    # column tip case
+    kind: Mapped[str] = mapped_column(String(16))
+    label: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(String(400))
+    image_key: Mapped[str | None] = mapped_column(String(120))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# 코칭 이용권 1건(7회). 차감은 reward_point_spends(kind='coach_pass')로 남기고 환불은 allocation을 거꾸로 따라간다.
+class RewardCoachPass(Base):
+    __tablename__ = 'reward_coach_passes'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    coach_id: Mapped[str] = mapped_column(ForeignKey('reward_coach_profiles.id'))
+    product_id: Mapped[str] = mapped_column(ForeignKey('reward_products.id'))
+    sessions: Mapped[int] = mapped_column(Integer, default=7)
+    points: Mapped[int] = mapped_column(Integer)
+    # in_use completed refunded
+    status: Mapped[str] = mapped_column(String(16), default='in_use')
+    purchased_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    spend_id: Mapped[str] = mapped_column(ForeignKey('reward_point_spends.id'))
+    idem_key: Mapped[str] = mapped_column(String(120))
+    __table_args__ = (UniqueConstraint('user_id', 'idem_key', name='uq_reward_coach_passes_idem'),
+                      CheckConstraint("status IN ('in_use','completed','refunded')", name='ck_reward_coach_passes_status'),
+                      CheckConstraint('points > 0', name='ck_reward_coach_passes_points'),
+                      Index('ix_reward_coach_passes_user_coach_status', 'user_id', 'coach_id', 'status'))

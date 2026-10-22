@@ -32,6 +32,11 @@ export default function DevDemo({api, status, onChanged, onNavigate}) {
         <button type="button" className="outline" disabled={busy} onClick={() => run('/dev/demo/rewards/reset', {})}>리워드 초기화</button>
         <button type="button" className="primary" disabled={busy} onClick={() => run('/dev/demo/rewards', {...form, reset})}>{busy ? '만드는 중…' : '더미 실행'}</button>
       </div>
+      <p className="reward-small">리워드몰 v1.3 시연 상태(교환 기능 켜짐 필요, 기존 리워드 기록은 지우고 새로 만들어요)</p>
+      <div className="reward-actions">
+        <button type="button" className="outline" disabled={busy} onClick={() => run('/dev/demo/rewards', {scenario: 'v13'})}>v13 시연 (320P · 지난 쿠폰 2건)</button>
+        <button type="button" className="outline" disabled={busy} onClick={() => run('/dev/demo/rewards', {scenario: 'v13_coaching'})}>v13 코칭 시연 (760P)</button>
+      </div>
       {error && <p className="error" role="alert">{error}</p>}
     </section>
     {result && <section className="panel dev-demo-result" role="status">

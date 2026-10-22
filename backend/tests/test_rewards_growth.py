@@ -85,7 +85,8 @@ def test_level_up(member):
         events = {e.level: e.seen_at for e in db.scalars(select(LevelEvent).where(LevelEvent.user_id == user['id']))}
         assert events[2] is not None and events[3] is None
         owned = {u.item_id for u in db.scalars(select(UserItem).where(UserItem.user_id == user['id']))}
-        assert {'bg_lv1', 'bg_lv2', 'bg_lv3', 'outfit_lv3'} <= owned
+        assert {'bg_lv1', 'bg_lv2', 'bg_lv3'} <= owned
+        assert 'outfit_lv3' not in owned and 'costume_lv4' not in owned
     assert client.post(f'/rewards/levelups/{data["pending_levelup"]["id"]}/seen').status_code == 200
     with Session(engine) as db:
         service.grant_xp(db, user['id'], 'revoke', -900, 'revoke:seed', NOON.date()); db.commit()

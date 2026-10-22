@@ -58,7 +58,7 @@ def test_reset_clears_exchanges(member, monkeypatch):
     pin_signup(engine, user['id'], NOON - timedelta(days=30))
     client.post('/dev/demo/rewards', json={'points': 300, 'xp': 0, 'streak': 0, 'protectors': 0})
     client.get('/rewards/products')
-    assert client.post('/rewards/exchanges', json={'product_id': 'energy_bar'}).status_code == 201
+    assert client.post('/rewards/exchanges', json={'product_id': 'energy_bar', 'option': '오리지널 견과'}).status_code == 201
     assert client.post('/dev/demo/rewards', json={'points': 300, 'xp': 0, 'streak': 0, 'protectors': 0, 'reset': True}).status_code == 200
     assert client.get('/rewards/coupons').json()['items'] == []
-    assert client.post('/rewards/exchanges', json={'product_id': 'energy_bar'}).status_code == 201
+    assert client.post('/rewards/exchanges', json={'product_id': 'energy_bar', 'option': '오리지널 견과'}).status_code == 201

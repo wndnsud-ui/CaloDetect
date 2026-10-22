@@ -6,7 +6,7 @@ import {Progress, fmt} from './RewardHomeCard';
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLoaded}) {
+export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLoaded, onShare}) {
   const [data, setData] = useState(null), [error, setError] = useState('');
   const closeButton = useRef(null);
   useEffect(() => {
@@ -52,6 +52,7 @@ export default function RewardGrantPanel({api, mealId, onClose, onNavigate, onLo
       <p className="reward-small">{threeLeft.length && threeLeft.length < 3 ? `${threeLeft.map(type => status[type].label).join('·')}까지 기록하면 3끼 완료 +3P` : threeLeft.length === 0 ? '오늘 세 끼를 모두 기록했어요' : '세 끼를 모두 기록하면 +3P'} · 보유 {fmt(data.balance)}P</p>
     </div>
     <p className="reward-small">사진으로 기록하면 +{data.photo_points}P, 사진 없이 기록하면 +{data.text_points}P예요.</p>
+    {onShare && <button type="button" className="primary" onClick={() => onShare(mealId)}>커뮤니티에 남기기</button>}
     <button type="button" className="outline" onClick={() => { onClose(); onNavigate('홈'); }}>홈에서 오늘 기록 보기</button>
   </aside>;
 }

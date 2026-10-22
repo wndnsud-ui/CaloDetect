@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 // JPG/PNG 선택·모바일 카메라 입력·PC 웹캠 촬영과 로컬 미리보기 UI.
 export default function PhotoInput({file, onChange, busy = false}) {
   // DOM input/video와 미디어 스트림은 렌더 상태 대신 ref로 보관한다.
-  const picker = useRef(null), mobileCamera = useRef(null), video = useRef(null);
+  const picker = useRef(null), video = useRef(null);
   // request 세대 번호를 카메라 시작/촬영 시 비교해 취소되거나 화면을 떠난 작업을 무시한다.
   const stream = useRef(null), request = useRef(0);
   const [preview, setPreview] = useState(''), [error, setError] = useState('');
@@ -50,12 +50,9 @@ export default function PhotoInput({file, onChange, busy = false}) {
     selectFile(event.target.files?.[0]);
     event.target.value = '';
   }
-  // 모바일은 capture input을 사용하고 PC는 getUserMedia로 웹캠을 연다. 늦게 반환된 취소 요청의 트랙도 정리한다.
+  // 모바일·PC 모두 실시간 카메라를 연다. 늦게 반환된 취소 요청의 트랙도 정리한다.
   async function openCamera() {
     setError('');
-    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      mobileCamera.current.click(); return;
-    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('카메라 촬영은 HTTPS 또는 localhost에서 지원됩니다. 사진 선택으로 업로드할 수 있습니다.'); return;
     }
@@ -89,7 +86,6 @@ export default function PhotoInput({file, onChange, busy = false}) {
   }
   return <div className="photo-input">
     <input ref={picker} type="file" accept="image/jpeg,image/png" hidden onChange={inputChanged}/>
-    <input ref={mobileCamera} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={inputChanged}/>
     <div className="photo-actions">
       <button type="button" className="outline" disabled={busy || starting || camera} onClick={()=>picker.current.click()}>사진 선택</button>
       <button type="button" className="outline" disabled={busy || starting || camera} onClick={openCamera}>{starting ? '카메라 연결 중…' : '사진 바로 찍기'}</button>

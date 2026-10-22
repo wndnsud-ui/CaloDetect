@@ -975,7 +975,7 @@ def purchase(db, user, item_id):
 
 
 def equip(db, user, slot, item_id):
-    account(db, user.id)
+    account(db, user.id, lock=True)
     if slot not in SLOTS:
         raise HTTPException(422, '입력값을 확인하세요.')
     row = db.get(Equipment, (user.id, slot))
@@ -990,6 +990,13 @@ def equip(db, user, slot, item_id):
     mine = db.get(UserItem, (user.id, item_id))
     if not mine or mine.quantity <= 0:
         raise HTTPException(403, '가지고 있지 않은 아이템이에요.')
+    # 운동복은 기존 prop 슬롯을 유지하되 몸통 의상은 한 벌씩만 착용한다.
+    # 소유권은 보존하고 검증 성공 후 같은 트랜잭션에서 기존 옷만 벗긴다.
+    other_slot = 'outfit' if item_id == 'outfit_workout' else 'prop' if slot == 'outfit' else None
+    if other_slot:
+        other = db.get(Equipment, (user.id, other_slot))
+        if other and other.item_id in {'outfit_workout', 'outfit_lv3', 'costume_lv4'}:
+            db.delete(other)
     if row:
         row.item_id = item_id
     else:

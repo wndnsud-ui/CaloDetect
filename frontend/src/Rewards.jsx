@@ -20,7 +20,9 @@ function ShieldIcon() {
 function ItemPreview({item, equipment, level}) {
   if (item.kind === 'protector') return <span className="mall-item-art"><ShieldIcon/></span>;
   if (item.slot === 'background') return <span className="mall-item-art bg"><JibangBackground id={item.id}/></span>;
-  return <span className="mall-item-art"><JibangFigure equipment={{...equipment, [item.slot]: item.id}} level={level} width={78} motion="none" label={`${item.name} 착용 미리보기`}/></span>;
+  const preview = {...equipment, [item.slot]: item.id};
+  if (item.id === 'outfit_workout') delete preview.outfit;
+  return <span className="mall-item-art"><JibangFigure equipment={preview} level={level} width={78} motion="none" label={`${item.name} 착용 미리보기`}/></span>;
 }
 
 // 구매 창(§11-6): 미리보기·보유/사용/남는 포인트·제한 포인트 우선 사용·환불 불가 → 완료. 부족하면 필요 P·예상 일수·목표 설정.

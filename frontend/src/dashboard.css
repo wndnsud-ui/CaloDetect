@@ -60,3 +60,27 @@
 /* Reuse the reward character animation without a room background. */
 .daily-home .daily-bowl{overflow:visible}
 @media(max-width:760px){.daily-bowl>.jb-figure{zoom:.8}}
+
+/* 홈 헤더는 공통 header의 가로 flex 배치와 분리한다. */
+.daily-home>.daily-header{display:block;min-width:0}
+.daily-home .daily-header-top{gap:12px;flex-wrap:wrap}
+.daily-home .daily-header-top>div{min-width:0}
+.daily-home .daily-date-title,.daily-home .daily-today{white-space:nowrap}
+.daily-home .daily-today{flex-shrink:0;letter-spacing:0}
+.daily-home .daily-auth-button{display:flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;min-height:44px;padding:10px 14px;border:1px solid #ffffff70;border-radius:14px;background:#ffffff18;color:white;font:inherit;font-size:13px;font-weight:700;white-space:nowrap}
+.daily-home .daily-auth-button svg{width:20px;height:20px}
+.daily-home .daily-bowl.daily-jibang{height:300px;margin:20px 0 16px}
+.daily-home .daily-jibang .jb-scene{width:240px;max-width:100%;height:300px;aspect-ratio:auto}
+.daily-home .daily-jibang .jb-scene-figure{bottom:8%}
+.daily-home .daily-week{grid-template-columns:repeat(7,minmax(0,1fr));width:100%;min-width:0}
+.daily-home .daily-week>button{min-width:0;min-height:64px}
+@media(max-width:760px){
+ .daily-home .daily-header{padding:16px 20px 32px}
+ .daily-home .daily-header h1{font-size:27px;gap:10px;flex-wrap:wrap}
+ .daily-home .daily-header-top>div{flex:1 1 145px}
+ .daily-home .daily-auth-button{font-size:12px;padding:10px}
+ .daily-home .daily-week{margin-top:22px}
+ .daily-home .daily-week span{width:32px;height:32px}
+ .daily-home .daily-bowl.daily-jibang{height:300px}
+ .daily-home .daily-jibang .jb-scene{width:240px;height:300px}
+}

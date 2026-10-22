@@ -104,7 +104,7 @@ function Post({post,busy,onReact,onDelete}) {
   </div></article>;
 }
 
-export default function Community({api,onNavigate}) {
+export default function Community({api,onNavigate,initialMealId,onShareOpened}) {
   const [items,setItems]=useState([]),[cursor,setCursor]=useState(null),[mine,setMine]=useState(false),[loading,setLoading]=useState(true);
   const [points,setPoints]=useState(null),[rank,setRank]=useState(null),[error,setError]=useState(''),[toast,setToast]=useState('');
   const [sheet,setSheet]=useState(null),[eligible,setEligible]=useState(null),[meal,setMeal]=useState(''),[comment,setComment]=useState(''),[photo,setPhoto]=useState(false);
@@ -134,7 +134,15 @@ export default function Community({api,onNavigate}) {
     const result=await api(`/community/posts/${post.id}${kind?`/reactions/${kind}`:''}`,{},'DELETE');
     setConfirm(null);setToast(`${kind?'반응을 취소했어요':'게시물을 삭제했어요'} · ${signed(result.deducted.me)} P 감점`);
     if(kind)setItems(old=>old.map(p=>p.id===post.id?result:p));else await loadFeed();await refreshStats();});}
-  async function openShare(){setError('');setSheet('share');setEligible(null);setMeal('');setPhoto(false);setComment('');try{const data=await api('/community/eligible-meals');if(alive.current)setEligible(data.items);}catch(e){setError(e.message);setSheet(null);}}
+  const shareRequest=useRef(null);
+  useEffect(()=>{
+    if(!initialMealId || shareRequest.current===initialMealId)return;
+    shareRequest.current=initialMealId;
+    openShareMeal(initialMealId);
+    onShareOpened?.();
+  },[initialMealId]);
+  function openShare(){return openShareMeal(null);}
+  async function openShareMeal(targetMealId){setError('');setSheet('share');setEligible(null);setMeal('');setPhoto(false);setComment('');try{const data=await api('/community/eligible-meals');if(alive.current){setEligible(data.items);if(targetMealId){const match=data.items.find(item=>String(item.meal_id)===String(targetMealId));if(match)setMeal(String(match.meal_id));else setError('방금 기록한 식단은 이미 공유했거나 공유할 수 없는 상태예요. 다른 식단을 선택해 주세요.');}}}catch(e){if(alive.current){setError(e.message);setSheet(null);}}}
   async function share(e){e.preventDefault();if(!selected)return;const showPhoto=photo===true&&selected.has_photo===true;await action(async()=>{await api('/community/posts',{meal_id:meal,comment,show_photo:showPhoto});setSheet(null);setToast(showPhoto?'사진과 함께 식단을 공유했어요.':'사진 없이 식단 정보만 공유했어요.');await loadFeed();await refreshStats();});}
   const selected=eligible?.find(m=>m.meal_id===meal);
   return <div className="community-page"><div className="community-heading"><div><p className="community-eyebrow">TOGETHER, A BETTER MEAL</p><h1>커뮤니티</h1><p>오늘의 한 끼를 나누고, 함께 건강해져요.</p></div><div className="community-mobile-chips"><button onClick={()=>setSheet('points')}>{number(points?.balance)} P</button><button onClick={()=>{setSheet('ranking');refreshRank();}}>이번 주 {rank?.me.rank?`${rank.me.rank}위`:'집계 전'}</button></div></div>

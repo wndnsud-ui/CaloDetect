@@ -199,6 +199,37 @@ def test_equipment(member):
     assert client.put('/rewards/equipment', json={'slot': 'hat', 'item_id': None}).json()['equipment'] == {'background': 'starter_bg'}
 
 
+def test_clothing_switch_keeps_ownership_and_regular_props(member):
+    from backend.app.models_rewards import RewardUserItem as UserItem
+    client, engine, user, _ = member
+    client.get('/rewards/me')
+    with Session(engine) as db:
+        for item_id in ('outfit_workout', 'outfit_lv3', 'prop_water'):
+            db.add(UserItem(user_id=user['id'], item_id=item_id, quantity=1, acquired_via='level'))
+        db.commit()
+
+    def wear(slot, item_id):
+        result = client.put('/rewards/equipment', json={'slot': slot, 'item_id': item_id})
+        assert result.status_code == 200
+        return result.json()['equipment']
+
+    assert wear('prop', 'outfit_workout')['prop'] == 'outfit_workout'
+    # 미보유 코스튬 착용 실패 시 현재 운동복을 유지한다.
+    assert client.put('/rewards/equipment', json={'slot': 'outfit', 'item_id': 'costume_lv4'}).status_code == 403
+    assert client.get('/rewards/me').json()['equipment']['prop'] == 'outfit_workout'
+    clothes = wear('outfit', 'outfit_lv3')
+    assert clothes['outfit'] == 'outfit_lv3' and 'prop' not in clothes
+    clothes = wear('prop', 'outfit_workout')
+    assert clothes['prop'] == 'outfit_workout' and 'outfit' not in clothes
+    wear('prop', 'prop_water')
+    clothes = wear('outfit', 'outfit_lv3')
+    assert clothes['prop'] == 'prop_water' and clothes['outfit'] == 'outfit_lv3'
+    assert wear('outfit', None)['prop'] == 'prop_water'
+    with Session(engine) as db:
+        for item_id in ('outfit_workout', 'outfit_lv3', 'prop_water'):
+            assert db.get(UserItem, (user['id'], item_id)).quantity == 1
+
+
 # 12. 만료: 유효기간 지난 lot은 잔액에서 빠지고 expire spend 생성, 30일 내 만료 예정 합계.
 def test_expiry(member, monkeypatch):
     client, engine, user, day = member

@@ -170,7 +170,7 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
   const [error, setError] = useState('');
   const [failed, setFailed] = useState(null);
   const [shooting, setShooting] = useState(false);
-  const camera = useRef(null), album = useRef(null), log = useRef(null), input = useRef(null);
+  const album = useRef(null), log = useRef(null), input = useRef(null);
 
   // 서버 메시지를 sequence 기준으로 합친다(중복 제거). 화면은 시간값이 아니라 서버 순서를 따른다.
   const merge = useCallback(list => setMessages(current => {
@@ -223,10 +223,11 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
     await uploadFile(file);
   }
 
-  // 사진 찍기: 휴대폰(터치)은 기기 카메라 앱(capture 입력), PC는 웹캠 촬영 창(getUserMedia, localhost·HTTPS에서만).
+  // 터치 여부와 관계없이 실제 카메라 촬영 창을 연다.
   function takePhoto() {
-    const touch = window.matchMedia?.('(pointer: coarse)').matches;
-    if (touch || !navigator.mediaDevices?.getUserMedia || !window.isSecureContext) { camera.current?.click(); return; }
+    if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
+      setError('카메라 촬영은 HTTPS 또는 localhost에서 지원됩니다. 보안 연결로 접속하거나 앨범에서 사진을 선택해 주세요.'); return;
+    }
     setError(''); setShooting(true);
   }
 
@@ -286,7 +287,6 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
       </ol>
       {error && <div className="chat-alert" role="alert">{error}{failed && <button type="button" onClick={() => send(failed.text, failed.id)}>다시 시도</button>}</div>}
       <form className="chat-input" onSubmit={submit}>
-        <input ref={camera} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={upload}/>
         <input ref={album} type="file" accept="image/jpeg,image/png" hidden onChange={upload}/>
         <button type="button" className="chat-tool" onClick={takePhoto} disabled={!!busy}>📷 사진 찍기</button>
         <button type="button" className="chat-tool" onClick={() => album.current?.click()} disabled={!!busy}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{verticalAlign:'middle',marginRight:6}}><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>앨범에서 선택</button>
@@ -301,7 +301,7 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
     </div>
     {shooting && <WebcamCapture onClose={() => setShooting(false)}
       onCapture={blob => { setShooting(false); uploadFile(blob); }}
-      onUnavailable={message => { setShooting(false); setError(message); album.current?.click(); }}/>}
+      onUnavailable={message => { setShooting(false); setError(message); }}/>}
   </div>;
 }
 
@@ -316,7 +316,7 @@ function WebcamCapture({onCapture, onClose, onUnavailable}) {
 
   useEffect(() => {
     let active = true;
-    const constraints = {audio: false, video: deviceId ? {deviceId: {exact: deviceId}} : {facingMode: 'environment', width: {ideal: 1920}, height: {ideal: 1080}}};
+    const constraints = {audio: false, video: deviceId ? {deviceId: {exact: deviceId}} : {facingMode: {ideal: 'environment'}, width: {ideal: 1920}, height: {ideal: 1080}}};
     setReady(false);
     navigator.mediaDevices.getUserMedia(constraints).then(async media => {
       if (!active) { media.getTracks().forEach(track => track.stop()); return; }

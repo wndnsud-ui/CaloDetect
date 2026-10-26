@@ -156,8 +156,8 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   async function generate(theme){if(busy)return;const exclude_foods=recommendation?.items.map(item=>item.class_id)||[];setRecommendation(null);setRecommendationLoading(true);try{await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,theme,exclude_foods})))}finally{setRecommendationLoading(false)}}
   // 선택한 테마를 다시 눌러도 새 추천을 요청하고 진행 중에는 늦은 응답 경합을 방지한다.
   async function changeRecommendTheme(theme){if(busy)return;setRecommendTheme(theme);setRecommendation(null);await generate(theme);}
-  // 서버 세션을 종료하고 회원·사진·식단·추천 상태와 CSRF를 비운다.
-  async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setRewards(null);setNicknameStep(null);setGrantMeal(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setPage('홈')})}
+  // 서버 세션을 종료하고 회원·사진·식단·추천 상태와 CSRF를 비운 뒤 로그인 화면으로 이동한다(홈은 로그인 후 화면).
+  async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setRewards(null);setNicknameStep(null);setGrantMeal(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setSignup(false);setPage('로그인')})}
   // 비밀번호 변경으로 무효화된 회원 상태를 비우고 새 비밀번호 로그인 화면을 표시한다.
   function passwordChanged(text){csrf='';setResetToken(null);setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setSignup(false);setPage('로그인');setError('');setMessage(text);}
   const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} onSubmit={authenticate} api={api}/>;

@@ -233,3 +233,31 @@ def test_growth_view(member):
     assert [r['level'] for r in data['roadmap']] == [1, 2, 3, 4, 5]
     assert len(data['week']) == 7 and data['week'][2]['state'] == 'recorded'
     assert data['missions'][0]['text'] and data['today_xp'][0]['xp'] == 10
+
+
+# 사용자 결정(2026-10-26): 가입한 날은 연속 기록 1일째. 미션 기록 일수에는 넣지 않는다.
+def test_signup_day_counts_as_streak_day_one(member):
+    client, engine, user, mp = member
+    pin_signup(engine, user['id'], NOON)
+    state = client.get('/rewards/me').json()['streak']
+    assert (state['days'], state['today_recorded'], state['missed_yesterday']) == (1, False, False)
+    week = {row['date']: row['state'] for row in client.get('/rewards/growth').json()['week']}
+    assert week[str(NOON.date())] == 'joined'
+    assert week[str(NOON.date() - timedelta(days=1))] == 'before_join'
+    # 가입 다음 날 기록 → 2일째, 그다음 날 기록 → 3일째 보너스(가입일 포함).
+    save(client, 'lunch', on(mp, 1))
+    assert client.get('/rewards/me').json()['streak']['days'] == 2
+    third = on(mp, 2)
+    save(client, 'lunch', third)
+    assert client.get('/rewards/me').json()['streak']['days'] == 3
+    assert f'streak3:{third}' in lots(engine, user['id'])
+    weekly = next(m for m in client.get('/rewards/growth').json()['missions'] if m['id'].startswith('weekly'))
+    assert weekly['progress'] == 2
+
+
+def test_signup_day_missed_next_day_breaks_streak(member):
+    client, engine, user, mp = member
+    pin_signup(engine, user['id'], NOON)
+    on(mp, 2)
+    state = client.get('/rewards/me').json()['streak']
+    assert state['days'] == 0 and state['missed_yesterday']

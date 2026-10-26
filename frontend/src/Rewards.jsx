@@ -207,7 +207,7 @@ function Growth({api, me, onChanged}) {
         <div className="section-heading"><h2>이번 주 연속 기록</h2><span className="reward-small">보호권 {data.streak.protectors}장</span></div>
         <p className="growth-streak"><Flame/> <b>{data.streak.days}일째</b></p>
         <div className="growth-week">{data.week.map(day => <div key={day.date}><small>{day.weekday}</small>
-          <span className={`day ${day.state}${day.date === today ? ' is-today' : ''}`} aria-label={`${day.weekday}요일 ${{recorded: '기록함', protected: '보호됨', missed: '쉬어 감', today: '오늘', future: '예정'}[day.state]}${day.bonus_points ? ` · 보너스 +${day.bonus_points}P` : ''}`}>{day.bonus_points ? `+${day.bonus_points}P` : ''}</span></div>)}</div>
+          <span className={`day ${day.state}${day.date === today ? ' is-today' : ''}`} aria-label={`${day.weekday}요일 ${{recorded: '기록함', protected: '보호됨', joined: '가입한 날', before_join: '가입 전', missed: '쉬어 감', today: '오늘', future: '예정'}[day.state]}${day.bonus_points ? ` · 보너스 +${day.bonus_points}P` : ''}`}>{day.bonus_points ? `+${day.bonus_points}P` : ''}</span></div>)}</div>
         <p className="reward-soft-note">{nextBonus ? `${nextBonus}일 더 기록하면 연속 보너스 +${data.streak.next_bonus_points}P` : ''}{data.streak.protectors ? ' · 하루 놓쳐도 보호권으로 이어갈 수 있어요.' : ' · 하루 놓쳐도 보호권(리워드 몰)으로 이어갈 수 있어요.'}</p>
         <StreakNotice api={api} streak={data.streak} onChanged={() => { onChanged(); load(); }}/>
         <p className="jb-bubble static">끊겨도 괜찮아, 다시 시작하면 돼!</p>

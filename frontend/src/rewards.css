@@ -233,6 +233,8 @@
 .growth-week .day{display:flex;height:34px;border-radius:10px;align-items:center;justify-content:center;font-size:11px;font-weight:800}
 .growth-week .recorded{background:#178366;color:#fff}
 .growth-week .protected{background:#9FD3B0;color:#193C32}
+.growth-week .joined{background:#178366;color:#fff}
+.growth-week .before_join{border:2px dashed #E3EBE6}
 .growth-week .missed{background:#EEF1E9}
 .growth-week .today,.growth-week .future{border:2px dashed #B9D3C5;color:#8A6420}
 .growth-week .is-today{outline:3px solid #CDE8D9}

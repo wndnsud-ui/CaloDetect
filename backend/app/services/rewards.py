@@ -407,8 +407,15 @@ def protected_days(db, user_id, start, end):
 
 
 def active_days(db, user_id, end, span=400):
+    """연속 기록에 쓰는 날: 기록한 날 + 보호된 날 + 가입한 날(사용자 결정 2026-10-26, 가입일 = 1일째).
+    미션·주간 기록 수에는 가입일을 넣지 않는다(recorded_days를 따로 쓴다)."""
     start = end - timedelta(days=span)
-    return recorded_days(db, user_id, start, end) | protected_days(db, user_id, start, end)
+    days = recorded_days(db, user_id, start, end) | protected_days(db, user_id, start, end)
+    owner = db.get(User, user_id)
+    joined = signup_day(owner) if owner else None
+    if joined and start <= joined <= end:
+        days.add(joined)
+    return days
 
 
 def grant_for_meal(db, user, meal):
@@ -798,7 +805,10 @@ def streak_info(db, user, row=None):
                    and bool(protectors) and used < settings.reward_protector_monthly_limit)
     resumed = rules.streak_days(days | {yesterday}, day if day in days else yesterday) if can_protect else None
     step, kind = rules.next_streak_bonus(streak)
-    return {'days': streak, 'today_recorded': day in days, 'missed_yesterday': yesterday not in days,
+    joined = signup_day(user)
+    # 오늘 기록 여부는 실제 끼니 기록만 본다. 가입 전 날짜(어제가 가입 전)는 '놓친 날'이 아니다.
+    return {'days': streak, 'today_recorded': bool(recorded_days(db, user.id, day, day)),
+            'missed_yesterday': yesterday not in days and not (joined and yesterday < joined),
             'protectors': protectors.quantity if protectors else 0, 'protect_available': can_protect,
             'protected_this_month': used, 'protect_monthly_limit': settings.reward_protector_monthly_limit,
             'streak_if_protected': resumed, 'next_bonus_in_days': step,
@@ -1136,6 +1146,7 @@ def growth(db, user):
     recorded = recorded_days(db, user.id, monday - timedelta(days=30), sunday)
     protected = protected_days(db, user.id, monday - timedelta(days=30), sunday)
     days = active_days(db, user.id, day)
+    joined = signup_day(user)
     base = day if day in days else day - timedelta(days=1)
     streak = rules.streak_days(days, base)
     xp_by_day = dict(db.execute(select(Xp.event_date, func.sum(Xp.amount)).where(
@@ -1147,6 +1158,10 @@ def growth(db, user):
             state = 'recorded'
         elif d in protected:
             state = 'protected'
+        elif d == joined:
+            state = 'joined'
+        elif joined and d < joined:
+            state = 'before_join'
         elif d < day:
             state = 'missed'
         elif d == day:

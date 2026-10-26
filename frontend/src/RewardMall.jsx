@@ -62,10 +62,11 @@ function MallHeader({me, figure, figureLabel, onTab, onOpenGoal}) {
   </section>;
 }
 
-// 프로모션 슬라이더(M3): 5초 자동 넘김, 마우스 올림·포커스 시 멈춤, 일시정지·이전·다음·점, 스와이프. 움직임 줄이기면 자동 넘김 끔.
+// 프로모션 슬라이더(M3): 5초 자동 넘김, 마우스 올림·키보드 포커스 시 멈춤, 일시정지·이전·다음·점, 터치·마우스 끌어 넘기기.
+// 움직임 줄이기면 자동 넘김 끔. 마우스 클릭으로 생긴 포커스는 자동 넘김을 멈추지 않는다(눌러 본 뒤 계속 멈춰 있지 않게).
 export function PromoSlider({items, onOpen}) {
   const [index, setIndex] = useState(0), [paused, setPaused] = useState(false), [hovering, setHovering] = useState(false), [focused, setFocused] = useState(false);
-  const touch = useRef(null);
+  const drag = useRef(null), dragged = useRef(false);
   const count = items.length;
   const auto = shouldAutoplay({reducedMotion: reducedMotion(), paused, hovering, focused, count});
   useEffect(() => {
@@ -77,11 +78,15 @@ export function PromoSlider({items, onOpen}) {
   const go = step => setIndex(i => nextSlide(i, step, count));
   return <section className="mall-slider" aria-roledescription="carousel" aria-label="리워드 프로모션">
     <div className="mall-slider-frame" onMouseEnter={() => setHovering(true)} onMouseLeave={() => setHovering(false)}
-      onFocus={() => setFocused(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
-      <div className="mall-slider-track" style={{transform: `translateX(-${index * 100}%)`}}
-        onTouchStart={event => { touch.current = event.touches[0]?.clientX ?? null; }}
-        onTouchEnd={event => { const start = touch.current; touch.current = null; const end = event.changedTouches[0]?.clientX;
-          if (start == null || end == null) return; if (end - start < -40) go(1); else if (end - start > 40) go(-1); }}>
+      onFocus={event => setFocused(event.target.matches?.(':focus-visible') ?? true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false); }}>
+      <div className="mall-slider-track" style={{transform: `translateX(-${index * 100}%)`, touchAction: 'pan-y'}}
+        onPointerDown={event => { if (event.button === 0) drag.current = {x: event.clientX, moved: false}; }}
+        onPointerMove={event => { if (drag.current && Math.abs(event.clientX - drag.current.x) > 8) drag.current.moved = true; }}
+        onPointerUp={event => { const start = drag.current; drag.current = null; if (!start) return;
+          dragged.current = start.moved; const dx = event.clientX - start.x; if (dx < -40) go(1); else if (dx > 40) go(-1); }}
+        onPointerCancel={() => { drag.current = null; }}
+        onDragStart={event => event.preventDefault()}
+        onClickCapture={event => { if (dragged.current) { dragged.current = false; event.preventDefault(); event.stopPropagation(); } }}>
         {items.map((slide, i) => <div key={slide.id} className={`mall-slide theme-${slide.theme}`} role="group" aria-roledescription="slide"
           aria-label={`${i + 1} / ${count}`} aria-hidden={i !== index}>
           <div className="mall-slide-copy">

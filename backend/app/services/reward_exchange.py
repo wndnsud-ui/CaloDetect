@@ -227,17 +227,21 @@ def promotions(db, user):
 
 
 def public_promotions(db):
-    """공개 홈페이지 슬라이더(사용자 결정 2026-10-26). 로그인 없이 보이므로 실존 브랜드 콜라보 카드·상품은
-    기획전 플래그와 무관하게 항상 뺀다. 가격은 회원별 잔액 없이 고정 문구. 교환 기능이 꺼져 있으면 빈 목록(홈은 기존 안내 표시).
+    """공개 홈페이지 슬라이더(사용자 결정 2026-10-26). 회원 슬라이더와 같은 카드(콜라보는 기획전 플래그가 켜졌을 때만),
+    가격은 회원별 잔액 없이 고정 문구. 교환 기능이 꺼져 있으면 빈 목록(홈은 기존 안내 표시).
     익명 요청이라 DB를 쓰지 않는다(ensure_products 미호출)."""
     if not settings.reward_exchange_active:
         return {'items': []}
+    collab_items = [p for p in db.scalars(select(Product).where(Product.active.is_(True), Product.collab_brand.is_not(None)))
+                    if visible(p)]
     slides = []
     for promo in catalog.PROMOTIONS:
         if promo['target'] == 'collab':
+            if collab_items:
+                slides.append({**promo, 'product_id': None, 'chip': f'{min(p.price for p in collab_items):,}P부터 교환'})
             continue
         product = db.get(Product, promo['target'])
-        if not visible(product) or product.collab_brand:
+        if not visible(product):
             continue
         slides.append({**promo, 'product_id': product.id, 'image': (product.content or {}).get('hero'),
                        'chip': f'{product.price:,}P로 교환'})

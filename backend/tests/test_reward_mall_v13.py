@@ -221,14 +221,16 @@ def test_demo_scenario_v13(env, monkeypatch):
     assert client.get('/rewards/me').json()['exchangeable'] == 760
 
 
-# 공개 홈페이지 슬라이더: 로그인 없이, 기획전 플래그가 켜져 있어도 콜라보·실존 브랜드 상품 제외, 고정 가격 문구, 교환 off면 빈 목록.
-def test_public_promotions_exclude_collab_without_login(buyer):
+# 공개 홈페이지 슬라이더: 로그인 없이, 회원과 같은 카드(콜라보는 기획전 플래그 on일 때만), 고정 가격 문구, 교환 off면 빈 목록.
+def test_public_promotions_without_login(buyer):
     client, _, _, mp = buyer
     assert client.get('/rewards/promotions').status_code == 200  # 상품 카탈로그 준비
     from fastapi.testclient import TestClient
     with TestClient(app) as guest:
         slides = guest.get('/rewards/promotions/public').json()['items']
-        assert [s['id'] for s in slides] == ['pita', 'salad', 'drink']
-        assert all(s['chip'].endswith('P로 교환') for s in slides)
+        assert [s['id'] for s in slides] == ['collab', 'pita', 'salad', 'drink', 'premium30']
+        assert slides[0]['chip'].endswith('P부터 교환') and all(s['chip'].endswith('P로 교환') for s in slides[1:])
+        mp.setattr(settings, 'reward_collab_demo_enabled', False)
+        assert [s['id'] for s in guest.get('/rewards/promotions/public').json()['items']] == ['pita', 'salad', 'drink']
         mp.setattr(settings, 'reward_exchange_enabled', False)
         assert guest.get('/rewards/promotions/public').json() == {'items': []}

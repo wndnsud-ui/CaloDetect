@@ -61,6 +61,28 @@ RUN_MIGRATIONS_ON_START=false
 - 같은 결정으로 관리자 계정 `admin@calodetect.local`도 Docker와 동일하게 만들었습니다(쿠폰 발급·교환 처리·닉네임 관리). 두 계정의 비밀번호는 저장소에 공개된 개발용 값이므로, 공유 DB 접속 정보가 외부로 나가지 않게 관리하고 운영 환경에서는 사용하지 않습니다.
 - 공유 DB에서는 `scripts/setup_local.ps1`을 실행하지 않습니다(로컬 Docker DB 전용). Backend는 uvicorn만 실행합니다.
 
-## 5. 현재 제약: 사진
+## 5. 사진: Supabase Storage 비공개 버킷
 
-사진 파일은 DB가 아니라 **올린 사람 PC의 `IMAGE_STORAGE_DIR`(예: `.private-uploads`)** 에 저장됩니다. DB 기록은 공유되지만 다른 PC에서는 그 사진 파일이 없어 식단·커뮤니티 이미지가 보이지 않을 수 있습니다. Supabase Storage 이전은 남은 과제입니다.
+공유 DB를 쓸 때는 사진도 Supabase Storage 비공개 버킷 `calodetect-images`에 저장해 모든 PC에서 같은 사진을 봅니다.
+
+```dotenv
+IMAGE_STORAGE_BACKEND=supabase
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<sb_secret_… 또는 service_role 키>
+SUPABASE_STORAGE_BUCKET=calodetect-images
+```
+
+- 저장 키는 기존 파일 이름 그대로입니다. 식단·채팅 원본은 `<uuid>.jpg`, 커뮤니티 공개 사본은 `community/<uuid>.jpg|png`입니다. DB 구조는 바뀌지 않습니다.
+- 버킷은 **Public을 끈 상태**로 둡니다. 사진은 Backend가 소유자·공개 동의를 확인한 뒤 `private, no-store`로 전달합니다. 브라우저가 버킷에 직접 접근하지 않습니다.
+- `SUPABASE_SERVICE_ROLE_KEY`는 RLS를 우회하는 서버 전용 키입니다. DB 비밀번호와 같은 수준으로 1:1로만 공유하고 `VITE_` 변수에 넣지 않습니다.
+- YOLO 분석은 사진을 임시 파일로 받아 분석한 뒤 바로 지웁니다.
+- 기본값 `IMAGE_STORAGE_BACKEND=local`은 기존처럼 `IMAGE_STORAGE_DIR` 폴더를 씁니다(로컬 Docker DB용). 테스트는 개인 `.env`와 상관없이 항상 local 임시 폴더만 씁니다.
+
+**이전에 올린 사진 옮기기:** Storage 전환 전에 공유 DB에 올린 사진은 올린 사람 PC에만 있습니다. 각자 한 번 실행합니다. 공유 DB가 참조하는 사진만 올리며, 로컬 Docker DB에서만 쓰던 사진은 올리지 않습니다. 로컬 파일은 지우지 않습니다.
+
+```powershell
+.\.venv-backend\Scripts\python.exe -m backend.scripts.upload_local_images --dry-run
+.\.venv-backend\Scripts\python.exe -m backend.scripts.upload_local_images
+```
+
+보관 기간·탈퇴 시 삭제 정책은 아직 정해지지 않았습니다(PENDING_DECISIONS).

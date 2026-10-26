@@ -13,11 +13,10 @@ import threading
 import time
 from collections import defaultdict, deque
 from datetime import date, datetime, time as dtime, timedelta, timezone
-from pathlib import Path
 from fastapi import HTTPException
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
-from ..config import settings, ROOT
+from ..config import settings
 from ..models import Meal, Detection, Profile, User, PointTransaction
 from ..models_chat import ChatAttachment
 from ..models_rewards import (RewardAccount as Account, RewardGrantBatch as Batch, RewardPointLot as Lot,
@@ -25,6 +24,7 @@ from ..models_rewards import (RewardAccount as Account, RewardGrantBatch as Batc
     RewardItem as Item, RewardUserItem as UserItem, RewardEquipment as Equipment, RewardPhotoHash as PhotoHash,
     RewardNickname as Nickname, RewardLevelEvent as LevelEvent, RewardStreakProtection as Protection)
 from . import reward_rules as rules
+from .. import storage
 from .timezone import KST, korean_date
 
 log = logging.getLogger('calodetect')
@@ -357,17 +357,11 @@ def is_photo_meal(meal):
     return bool(meal.chat_attachment_id) or any(item.detection_log_id for item in meal.items)
 
 
-def storage_folder():
-    if not settings.image_storage_dir:
-        return None
-    folder = Path(settings.image_storage_dir)
-    return folder if folder.is_absolute() else ROOT / folder
 
 
 def photo_hashes(db, meal):
     """식단 사진 원본의 SHA-256. 저장 비활성·파일 없음이면 검사를 건너뛴다(C6, 지급은 정상)."""
-    folder = storage_folder()
-    if folder is None:
+    if not storage.configured():
         log.info('photo_hash_unavailable')
         return []
     names = set(db.scalars(select(Detection.image_path).where(
@@ -378,9 +372,9 @@ def photo_hashes(db, meal):
             names.add(attachment.storage_key)
     digests = []
     for name in sorted(names):
-        path = folder / name
-        if path.is_file():
-            digests.append(hashlib.sha256(path.read_bytes()).hexdigest())
+        data = storage.get(name)
+        if data is not None:
+            digests.append(hashlib.sha256(data).hexdigest())
         else:
             log.info('photo_hash_unavailable')
     return digests

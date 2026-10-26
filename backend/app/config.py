@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     age_min: int | None = Field(default=18, ge=18, le=120)
     # 서버 사진 저장 폴더. 상대 경로면 프로젝트 루트 기준으로 해석한다.
     image_storage_dir: str | None = None
+    # 사진 저장 위치: local(IMAGE_STORAGE_DIR 폴더) 또는 supabase(공유 DB용 Storage 비공개 버킷).
+    image_storage_backend: Literal['local', 'supabase'] = 'local'
+    supabase_url: str | None = None
+    # Storage 서버 전용 비밀키(sb_secret 또는 service_role). 프런트엔드·응답에 노출하지 않는다.
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str = 'calodetect-images'
     # 개발 추천 사용 여부. 최근 식사 window 설정도 함께 필요하다.
     recommendation_enabled: bool = False
     # 최근 중복 판정에 조회할 식단 수. 운영 정책을 새로 확정하는 값은 아니다.

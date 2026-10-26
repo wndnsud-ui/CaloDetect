@@ -12,13 +12,14 @@
 
 ## 0. 담당자에게 받을 값 (1:1로만)
 
-아래 3개는 비밀값입니다. 단톡방·GitHub·문서에 올리지 말고 **1:1로** 받으세요.
+아래 4개는 비밀값입니다. 단톡방·GitHub·문서에 올리지 말고 **1:1로** 받으세요.
 
 | 값 | 설명 |
 |---|---|
 | `DATABASE_URL` | Supabase 접속 주소 (`postgresql+psycopg://postgres.…pooler.supabase.com:5432/postgres?sslmode=require`) |
 | `OAUTH_STATE_SECRET` | 소셜 로그인·쿠폰 암호화 키. 팀 전원이 같은 값을 써야 함 |
 | `PASSWORD_RESET_SECRET` | 비밀번호 재설정 링크 서명 키. 팀 전원이 같은 값을 써야 함 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 사진 저장소(Storage) 서버 키 `sb_secret_…`. DB 비밀번호와 같은 수준으로 관리 |
 
 ---
 
@@ -98,6 +99,12 @@ LOCAL_TEST_SIGNUP=true
 LOCAL_TEST_IMAGE_ANALYSIS=true
 FRONTEND_ORIGIN=http://localhost:5174
 IMAGE_STORAGE_DIR=.private-uploads
+
+# ── 사진 저장소 (공유 버킷). URL의 <ref>는 DATABASE_URL의 postgres. 뒤 문자열 ──
+IMAGE_STORAGE_BACKEND=supabase
+SUPABASE_URL=https://<ref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=받은_값
+SUPABASE_STORAGE_BUCKET=calodetect-images
 
 # ── 팀 공통 기능 설정 (개발 기준값, 운영값 아님) ──
 RECOMMENDATION_ENABLED=true
@@ -187,9 +194,18 @@ npm.cmd run dev -- --host localhost --port 5174
 
 ---
 
-## 7. 알아 둘 제약: 사진
+## 7. 사진
 
-사진 파일은 아직 **올린 사람 PC의 `.private-uploads` 폴더**에만 저장됩니다. 다른 팀원이 올린 식단이나 커뮤니티 사진은 내 PC에서 보이지 않을 수 있습니다. 정상이며, Supabase Storage로 옮기는 작업이 예정되어 있습니다.
+사진은 Supabase Storage 공유 버킷에 저장되어 **누가 올렸든 모든 PC에서 보입니다.** 3-2의 사진 저장소 4줄이 있어야 합니다.
+
+**Storage 적용 전(2026-10-26 이전 코드)에 공유 DB로 사진을 올린 적이 있다면** 한 번만 실행하세요. 내 PC에만 있던 사진을 버킷으로 옮깁니다. 공유 DB가 쓰는 사진만 올리고 로컬 파일은 지우지 않습니다.
+
+```powershell
+Set-Location 'C:\projects\CaloDetect'
+.\.venv-backend\Scripts\python.exe -m backend.scripts.upload_local_images
+```
+
+결과의 `not on this PC`는 다른 팀원이 올린 사진이라 정상입니다.
 
 ---
 
@@ -202,7 +218,8 @@ npm.cmd run dev -- --host localhost --port 5174
 | `DATABASE_URL is not configured` | `.env`가 프로젝트 루트(`C:\projects\CaloDetect\.env`)에 있는지 확인하세요 |
 | 그래프가 안 보임 | 터미널 B가 켜져 있는지, http://localhost:8502/_stcore/health 에서 `ok`가 나오는지 확인하세요 |
 | `Port 5174 is already in use` | 이전에 켠 웹 서버 창에서 `Ctrl+C`로 끄고 다시 실행하세요 |
-| 다른 사람이 올린 사진만 안 보임 | 7번 제약입니다. 오류가 아닙니다 |
+| 다른 사람이 올린 사진만 안 보임 | 그 팀원이 7번의 사진 옮기기 명령을 실행해야 보입니다 |
+| 사진 업로드 시 `사진을 저장하지 못했습니다` | `SUPABASE_URL`·`SUPABASE_SERVICE_ROLE_KEY` 값을 확인하세요 (`anon`·`publishable` 키는 안 됨) |
 
 서버를 끌 때는 각 터미널에서 `Ctrl + C`를 누릅니다.
 

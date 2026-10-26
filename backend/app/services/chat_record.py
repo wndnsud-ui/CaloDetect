@@ -6,11 +6,9 @@ import io
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from ..config import settings, ROOT
 from ..models import Detection, Food, ImageUpload, Meal, MealItem
 from ..models_chat import ChatAttachment, ChatMessage, Conversation, DraftItem, MealDraft, MutationRequest
 from .chat_interpret import MEAL_LABELS, chips_for_meal_types, interpret_chat
@@ -20,6 +18,7 @@ from .nutrition import calculate_nutrition
 from .timezone import KST, korean_date
 from .vision import detect_image
 from . import rewards
+from .. import storage
 
 logger = logging.getLogger('calodetect')
 NUTRIENTS = ['cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium']
@@ -85,11 +84,9 @@ def fmt(value):
     return f'{value:,.2f}'.rstrip('0').rstrip('.')
 
 
-def storage_folder():
-    if not settings.image_storage_dir:
+def require_storage():
+    if not storage.configured():
         raise ChatRecordError(503, '503', '업로드 이미지 저장 정책을 설정해 주세요.')
-    folder = Path(settings.image_storage_dir)
-    return folder if folder.is_absolute() else ROOT / folder
 
 
 def food_rows(db):
@@ -226,19 +223,20 @@ def upload_photo(db, user, conversation_id, upload_request_id, content):
             raise ChatRecordError(409, 'request_id_conflict', '같은 업로드 ID로 다른 사진을 보낼 수 없어요.')
         return attachment_state(db, existing)
     image = decode_image(content)
-    folder = storage_folder()
-    folder.mkdir(parents=True, exist_ok=True)
+    require_storage()
     upload_id = str(uuid.uuid4())
     filename = upload_id + '.jpg'
-    temporary = folder / (upload_id + '.part')
-    path = folder / filename
-    # 임시 파일 → 완결 파일 → DB 기록 순서. DB 실패 시 이 요청이 만든 파일만 지운다(참조되지 않음).
-    image.save(temporary, format='JPEG', quality=90)
-    temporary.replace(path)
+    buffer = io.BytesIO(); image.save(buffer, format='JPEG', quality=90); data = buffer.getvalue()
+    # 저장소 기록 → DB 기록 순서. DB 실패 시 이 요청이 만든 사진만 지운다(참조되지 않음).
+    try:
+        storage.put(filename, data)
+    except OSError:
+        logger.exception('chat photo storage failed')
+        raise ChatRecordError(503, 'upload_failed', '사진을 저장하지 못했어요. 다시 시도해 주세요.')
     try:
         db.add(ImageUpload(id=upload_id, user_id=user.id, image_path=filename))
         attachment = ChatAttachment(user_id=user.id, conversation_id=conversation.id, image_upload_id=upload_id,
-                                    mime='image/jpeg', size=path.stat().st_size, checksum=checksum, status='uploaded',
+                                    mime='image/jpeg', size=len(data), checksum=checksum, status='uploaded',
                                     upload_request_id=upload_request_id, storage_key=filename)
         db.add(attachment); db.flush()
         message = add_message(db, conversation, 'user', 'photo', '사진', {'image_url': f'/api/meals/images/{upload_id}',
@@ -255,14 +253,14 @@ def upload_photo(db, user, conversation_id, upload_request_id, content):
         bot(db, conversation, '사진 속 음식을 확인하고 있어요.', message.id, kind='status')
         db.commit()
     except IntegrityError:
-        db.rollback(); path.unlink(missing_ok=True)
+        db.rollback(); storage.delete(filename)
         existing = db.scalar(select(ChatAttachment).where(ChatAttachment.user_id == user.id,
                                                           ChatAttachment.upload_request_id == upload_request_id))
         if existing and existing.checksum == checksum:
             return attachment_state(db, existing)
         raise ChatRecordError(409, 'request_id_conflict', '같은 업로드 ID로 다른 사진을 보낼 수 없어요.')
     except Exception:
-        db.rollback(); path.unlink(missing_ok=True)
+        db.rollback(); storage.delete(filename)
         logger.exception('chat photo upload failed')
         raise ChatRecordError(503, 'upload_failed', '사진을 저장하지 못했어요. 다시 시도해 주세요.')
     logger.info('chat photo uploaded')
@@ -292,9 +290,10 @@ def analyze_attachment(db, user, attachment_id):
     # 분석 결과는 DB에 남기고 새로고침마다 재분석하지 않는다.
     if not draft or draft.status != 'analyzing':
         return attachment_state(db, attachment)
-    path = storage_folder() / attachment.storage_key
+    require_storage()
     try:
-        result = detect_image(path)
+        with storage.local_file(attachment.storage_key) as path:
+            result = detect_image(path)
     except Exception:
         logger.exception('chat photo analysis failed')
         result = None

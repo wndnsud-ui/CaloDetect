@@ -1,14 +1,15 @@
 """원본 식단 조회 및 포인트 원장. 잠금 순서는 게시물 → 반응으로 고정한다."""
 import logging
-from pathlib import Path
+from uuid import uuid4
 from sqlalchemy import select, func, or_, and_, delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from ..models import (CommunityPost as Post, CommunityPostImage as Photo,
     CommunityReaction as Reaction, PointTransaction as Tx, Meal, Food, User, Detection, ImageUpload, utcnow)
-from ..config import settings, ROOT
-from .community_images import save_sanitized_copy
+from ..config import settings
+from .community_images import MAX_BYTES, sanitize_image
+from .. import storage
 from . import rewards
 from .community_rules import week_start, encode_cursor, decode_cursor, RECEIVED_REASONS, KST
 
@@ -16,11 +17,14 @@ log = logging.getLogger(__name__)
 NUTRIENTS = ('cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium')
 
 
-def storage_folder():
-    if not settings.image_storage_dir:
+def require_storage():
+    if not storage.configured():
         raise HTTPException(503, '사진 저장 설정이 필요합니다.')
-    path = Path(settings.image_storage_dir)
-    return path if path.is_absolute() else ROOT / path
+
+
+# 커뮤니티 사본은 원본과 같은 저장소의 community/ 아래에 둔다. DB에는 파일 이름만 저장한다.
+def community_key(name):
+    return f'community/{name}'
 
 
 def source_images(db, meals):
@@ -120,19 +124,22 @@ def create_post(db, user, body):
         db.add(post)
         db.flush()
         for position, source in enumerate(sources):
-            folder = storage_folder()
-            path = (folder / source.image_path).resolve()
-            if not path.is_relative_to(folder.resolve()):
+            require_storage()
+            content = storage.get(source.image_path)
+            if content is None or len(content) > MAX_BYTES:
                 raise ValueError('Invalid source')
-            copied = save_sanitized_copy(path, folder / 'community')
-            files.append(copied)
-            db.add(Photo(post_id=post.id, source_image_id=source.id, storage_key=copied.name, position=position))
+            # 원본은 그대로 두고 메타데이터를 지운 공개용 사본을 새 키로 저장한다.
+            sanitized, suffix = sanitize_image(content)
+            name = f'{uuid4()}{suffix}'
+            storage.put(community_key(name), sanitized, 'image/png' if suffix == '.png' else 'image/jpeg')
+            files.append(community_key(name))
+            db.add(Photo(post_id=post.id, source_image_id=source.id, storage_key=name, position=position))
         rewards.community_share(db, user.id, post.id)  # 리워드 식단 공유(XP 모드에서만)
         db.commit()
     except Exception as error:
         db.rollback()
-        for path in files:
-            path.unlink(missing_ok=True)
+        for key in files:
+            storage.delete(key)
         if isinstance(error, IntegrityError):
             old = db.scalar(select(Post).where(Post.meal_id == meal.id))
             raise HTTPException(409, '삭제한 게시물의 식단은 다시 공유할 수 없어요.' if old and old.deleted_at

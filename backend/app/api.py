@@ -4,16 +4,14 @@ import io
 import logging
 import secrets
 from datetime import date, datetime, timezone
-from pathlib import Path
 from uuid import uuid4
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, Query
-from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from .config import settings, ROOT
+from .config import settings
 from .db import get_db
 from .models import User, AuthSession, Profile, Food, Meal, MealItem, Detection, ImageUpload, RecommendationLog, utcnow
 from .schemas import SignupRequest, LoginRequest, CalorieRequest, MealRequest, CorrectionRequest, RecommendationRequest
@@ -27,6 +25,7 @@ from .services.recommendation import recommend_meals
 from .services.vision import detect_image
 from .accounts import local_development_environment, local_test_request
 from .services import rewards
+from . import storage
 
 # 라우터를 main.py에 등록하면 아래 경로가 앱에 연결된다. DB/회원/관리자 타입 별칭은 FastAPI Depends를 포함한다.
 router = APIRouter()
@@ -48,7 +47,7 @@ def require_image_environment(request):
 @router.post('/meals/detect')
 def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
     require_image_environment(request)
-    if not settings.image_storage_dir:
+    if not storage.configured():
         raise HTTPException(503, '업로드 이미지 저장 정책을 설정해 주세요.')
     # 최대 허용량보다 1바이트 더 읽어 큰 파일을 전부 메모리에 올리지 않고 10MB 초과를 감지한다.
     content = file.file.read(10 * 1024 * 1024 + 1)
@@ -66,15 +65,17 @@ def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
             image = ImageOps.exif_transpose(source).convert('RGB')
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
         raise HTTPException(422, '정상 JPG/PNG 이미지를 선택해 주세요. 최대 2500만 화소입니다.')
-    folder = Path(settings.image_storage_dir)
-    if not folder.is_absolute():
-        folder = ROOT / folder
-    folder.mkdir(parents=True, exist_ok=True)
-    # 서버 UUID를 사진 그룹과 파일명에 함께 사용한다. 같은 사진의 여러 탐지는 같은 group_id를 공유한다.
-    group_id = str(uuid4()); filename = group_id + '.jpg'; path = folder / filename
-    image.save(path, format='JPEG', quality=90)
+    # 서버 UUID를 사진 그룹과 파일명(저장소 키)에 함께 사용한다. 같은 사진의 여러 탐지는 같은 group_id를 공유한다.
+    group_id = str(uuid4()); filename = group_id + '.jpg'
+    buffer = io.BytesIO(); image.save(buffer, format='JPEG', quality=90); data = buffer.getvalue()
     try:
-        result = detect_image(path)
+        storage.put(filename, data)
+    except OSError:
+        logger.warning('meal photo storage failed')
+        raise HTTPException(503, '사진을 저장하지 못했습니다. 다시 시도해 주세요.')
+    try:
+        with storage.local_file(filename, data) as path:
+            result = detect_image(path)
         db.add(ImageUpload(id=group_id, user_id=user.id, image_path=filename))
         detections = []
         # 모델이 반환한 각 음식 박스를 별도 탐지 행으로 저장해 나중에 개별 음식 수정/식단 연결이 가능하게 한다.
@@ -89,7 +90,7 @@ def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
         db.commit(); logger.info('YOLO inference complete')
     except Exception:
         # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
-        db.rollback(); path.unlink(missing_ok=True)
+        db.rollback(); storage.delete(filename)
         raise HTTPException(503, '사진 분석에 실패했습니다. 직접 음식을 선택하거나 다시 시도해 주세요.')
     return {'image_group_id': group_id, 'image_url': f'/api/meals/images/{group_id}',
             'detections': detections, 'detection_ids': [d['id'] for d in detections],
@@ -105,13 +106,10 @@ def meal_image(image_id: str, request: Request, user: CurrentUser, db: DB):
     # 인증된 회원과 리소스 소유자를 대조해 다른 회원의 기록 접근을 차단한다.
     if not image or image.user_id != user.id:
         raise HTTPException(404, '이미지를 찾을 수 없습니다.')
-    folder = Path(settings.image_storage_dir or '')
-    if not folder.is_absolute():
-        folder = ROOT / folder
-    path = folder / image.image_path
-    if not path.is_file():
+    data = storage.get(image.image_path) if storage.configured() else None
+    if data is None:
         raise HTTPException(404, '이미지를 찾을 수 없습니다.')
-    return FileResponse(path, media_type='image/jpeg', headers={'Cache-Control': 'private, no-store'})
+    return Response(data, media_type='image/jpeg', headers={'Cache-Control': 'private, no-store'})
 
 
 # 회원·음식·탐지·추천의 소유권과 중복 사용을 검사하고 서버 계산 영양값으로 식단을 저장한다.

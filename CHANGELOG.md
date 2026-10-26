@@ -8,6 +8,9 @@
 - 사용자 결정: 공유 DB에 리워드 테스트용 `test@calodetect.local` 계정 생성(팀 공용, 더미 실행·초기화가 전원에게 반영). 리워드 테스트 페이지 활성(`/api/dev/demo/status` enabled·test_account 확인). 사용자 요청으로 관리자 `admin@calodetect.local`도 Docker와 동일하게 생성(role admin, 로그인 확인). 두 계정 비밀번호는 공개 개발값이므로 공유 DB 접속 정보 관리 필요. 공유 DB에서는 `setup_local.ps1`을 실행하지 않고 uvicorn만 실행.
 - 사용자 요청: develop 직접 반영(이번 업로드 한정 승인)과 팀원용 `CaloDetect_Supabase_팀원_실행가이드.md` 추가. Docker 없이 `.env` 설정·서버 3개 실행·공용 테스트/관리자 계정·금지 규칙·사진 제약·로컬 DB 복귀 절차 안내. 가이드의 기능 설정 값은 현재 담당자 `.env` 기준 개발값이며 운영값이 아님. 비밀값은 1:1 전달.
 - 남은 과제: 사진은 업로드한 PC에만 저장되어 다른 PC에서 보이지 않음(Supabase Storage 이전 미정).
+- 사용자 요청: 공유 DB 사진이 다른 PC에서 보이지 않는 문제 해결. `backend/app/storage.py`로 사진 저장·조회·삭제를 통합하고 `IMAGE_STORAGE_BACKEND=local|supabase`(기본 local) 추가. supabase는 비공개 버킷 `calodetect-images`에 서버 키로 저장하고 기존과 같이 Backend가 권한 확인 후 `private, no-store`로 전달. 키는 기존 파일 이름 그대로(커뮤니티 사본은 `community/` 접두), DB·migration 변경 없음. YOLO는 임시 파일로 분석 후 삭제. 이전 사진 이전용 `backend.scripts.upload_local_images`(공유 DB 참조 사진만, 덮어쓰기·로컬 삭제 없음) 추가, 이 PC 사진 3장 이전.
+- 테스트 격리: 개인 `.env`가 supabase여도 테스트는 local만 쓰도록 `backend/tests/conftest.py` 추가. 격리 전 1회 실행에서 테스트 더미 사진 21장이 공유 버킷에 올라감(공유 DB 미참조, 앱 영향 없음). 삭제는 사용자 확인 대기.
+- 검증: 저장소 테스트 5통과(supabase는 MockTransport). 전체 Backend 281통과·10제외·7실패(기존 `.env` 설정 차이 동일). 실행 앱에서 버킷 경유 커뮤니티 사진 200 확인.
 
 - 후속 확인: v13/v13 코칭 더미는 물병 소품·하트 쿠션의 예시 구매·소유권을 생성하므로 직접 구매하지 않아도 '바로 적용하기'가 표시될 수 있음을 팀원 테스트 가이드에 명시. 코드·DB 변경 없음. 팀원별 로컬 DB는 독립이며 랭킹은 이번 주 양수 기록 XP만 집계한다는 기존 동작 확인. 로컬 소셜 인증 ConnectError는 Backend 실행 환경의 외부 통신 권한 조정으로 해결했으며 키·개인 설정은 업로드하지 않음.
 

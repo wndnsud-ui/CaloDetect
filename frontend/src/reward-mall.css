@@ -3,7 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@700&display=swap');
 
 .mall-page{--m-ink:#193C32;--m-sub:#60776F;--m-main:#1C4B3A;--m-gold:#8A6420;--m-gold-bg:#FBF1DC;--m-ok:#178366;--m-short:#E9B949;--m-line:#E3E8DE;--m-soft:#F3F7F4;
-  width:100%;max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:22px;color:var(--m-ink)}
+  width:100%;max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:22px;color:var(--m-ink)}
 .mall-page h1,.mall-page h2,.mall-page h3,.mall-page p{margin:0}
 .mall-page button{font-family:inherit}
 .mall-eyebrow{margin:0;font-size:10px;font-weight:700;letter-spacing:2.5px;color:#4E6E44}

@@ -80,8 +80,8 @@ def goal(body: GoalRequest, user: CurrentUser, db: DB):
 
 
 @router.get('/rewards/ranking')
-def ranking(user: CurrentUser, db: DB):
-    return service.ranking(db, user)
+def ranking(user: CurrentUser, db: DB, metric: Literal['points', 'xp'] = 'points'):
+    return service.ranking(db, user, metric=metric)
 
 
 # ---- 닉네임 (Stage A) ----

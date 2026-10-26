@@ -1,7 +1,7 @@
 // 리워드 캐릭터 "지방이": 레벨별 몸 이미지 + 장착 아이템 SVG 오버레이 + 배경 장면.
 // 2026-10-20 사용자 결정: 지시서 v3 §11-0의 "레벨별 체형 이미지 미사용"을 해제하고 시트의 LV.1~5 몸을 그대로 쓴다.
 // 움직임은 CSS keyframes(숨쉬기·한숨·콩콩·반짝임)로만 하고 prefers-reduced-motion에서 멈춘다.
-import React from 'react';
+import React, {useLayoutEffect, useRef, useState} from 'react';
 import JibangBackground from './JibangBackgrounds';
 import {CLOTHING_SPRITES, dressedSprite} from './jibangClothing';
 
@@ -115,11 +115,32 @@ export function JibangFigure({equipment = {}, level, width = 176, motion = 'brea
 // 배경 장면 + 캐릭터 + 말풍선(손글씨). 배경은 background slot 아이템.
 export default function Jibang({equipment = {}, level = 1, background, bubble, figureWidth = 150, className = '', motion = 'breathe', badge, children}) {
   const scene = background || equipment.background || 'bg_lv1';
-  return <div className={`jb-scene ${className}`}>
+  const sceneRef = useRef(null), figureRef = useRef(null);
+  const [placement, setPlacement] = useState({bottom:'12.5%', transform:'translateX(-50%)'});
+  useLayoutEffect(() => {
+    const update = () => {
+      const box = sceneRef.current, figure = figureRef.current?.firstElementChild;
+      if (!box || !figure || !box.clientWidth || !box.clientHeight) return;
+      // 배경 SVG의 xMidYMax slice와 같은 좌표계로 카펫 중심에 발을 맞춘다.
+      const scale = Math.max(box.clientWidth / 360, box.clientHeight / 480);
+      const floor = scene === 'bg_lv2' ? 430 : scene === 'bg_lv4' ? 440 : 420;
+      const bottom = (480 - floor) * scale;
+      const rugWidth = (scene === 'bg_lv2' ? 192 : scene === 'bg_lv4' ? 240 : 256) * scale;
+      const fit = Math.max(0, Math.min(1, Math.min(box.clientWidth * .8, rugWidth * .85) / figure.offsetWidth,
+        (box.clientHeight - bottom - 45) / figure.offsetHeight));
+      setPlacement({bottom:`${bottom}px`, transform:`translateX(-50%) scale(${fit})`});
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(sceneRef.current);
+    if (figureRef.current?.firstElementChild) observer.observe(figureRef.current.firstElementChild);
+    return () => observer.disconnect();
+  }, [scene, level, figureWidth, equipment.outfit, equipment.prop]);
+  return <div ref={sceneRef} className={`jb-scene ${className}`}>
     <JibangBackground id={scene}/>
     {badge && <span className="jb-scene-badge">{badge}</span>}
     {bubble && <p className="jb-bubble">{bubble}</p>}
-    <div className="jb-scene-figure"><JibangFigure equipment={equipment} level={level} width={figureWidth} motion={motion}/></div>
+    <div ref={figureRef} className="jb-scene-figure" style={{...placement,left:'50%',transformOrigin:'50% 100%'}}><JibangFigure equipment={equipment} level={level} width={figureWidth} motion={motion}/></div>
     {children}
   </div>;
 }

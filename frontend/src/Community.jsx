@@ -37,9 +37,9 @@ function Modal({title, children, onClose, alert=false, error='', wide=false}) {
 
 function RankingList({data}) {
   if(!data)return <p>랭킹을 불러오는 중이에요.</p>;
-  return <><p className="community-eyebrow">이번 주</p><ol className="community-rank-list">{data.items.map((item,index)=><li className={item.is_me?'is-me':''} key={`${item.rank}-${index}`}><span>{item.rank<=3?['🥇','🥈','🥉'][item.rank-1]:item.rank}</span><strong>{item.nickname}{item.is_me?' · 나':''}</strong><span>{number(item.points)} P</span></li>)}</ol>
+  return <><p className="community-eyebrow">이번 주</p><ol className="community-rank-list">{data.items.map((item,index)=><li className={item.is_me?'is-me':''} key={`${item.rank}-${index}`}><span>{item.rank<=3?['🥇','🥈','🥉'][item.rank-1]:item.rank}</span><strong>{item.nickname}{item.is_me?' · 나':''}</strong><span>{number(item.xp)} XP</span></li>)}</ol>
     {!data.items.length&&<p className="community-muted">이번 주 첫 기록으로 랭킹을 시작해 보세요.</p>}
-    {!data.items.some(i=>i.is_me)&&<p className="community-my-rank">내 순위 {data.me.rank?`${data.me.rank}위`:'집계 전'} · {data.me.nickname} · {number(data.me.points)} P</p>}
+    {!data.items.some(i=>i.is_me)&&<p className="community-my-rank">내 순위 {data.me.rank?`${data.me.rank}위`:'집계 전'} · {data.me.nickname} · {number(data.me.xp)} XP</p>}
     <small className="community-muted">{new Date(data.week_start).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'short'})}부터 집계 · {data.notice}</small></>;
 }
 
@@ -54,7 +54,7 @@ function Ranking({data,onRefresh}) {
   return <section className="community-ranking" onMouseEnter={()=>hover('hovered',150)} onMouseLeave={()=>hover('closed',300)}
     onFocus={()=>setFocus(true)} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setFocus(false);}}
     onKeyDown={e=>{if(e.key==='Escape'){clear();setState('closed');setFocus(false);e.currentTarget.querySelector('button')?.blur();}}}>
-    <button className="community-rank-toggle" aria-controls={id} aria-expanded={open} aria-pressed={state==='pinned'} onClick={()=>{clear();setFocus(false);setState(s=>s==='pinned'?'closed':'pinned');}}><strong>🏆 주간 랭킹</strong><span>{data?.me.rank?`내 순위 ${data.me.rank}위`:'집계 전'} · {number(data?.me.points)} P</span><span>{state==='pinned'?'📌':'⌄'}</span></button>
+    <button className="community-rank-toggle" aria-controls={id} aria-expanded={open} aria-pressed={state==='pinned'} onClick={()=>{clear();setFocus(false);setState(s=>s==='pinned'?'closed':'pinned');}}><strong>🏆 주간 랭킹</strong><span>{data?.me.rank?`내 순위 ${data.me.rank}위`:'집계 전'} · {number(data?.me.xp)} XP</span><span>{state==='pinned'?'📌':'⌄'}</span></button>
     <span className="community-sr" role="status">주간 랭킹 {open?'펼침':'접힘'}</span>
     <div id={id} hidden={!open} className="community-rank-panel"><RankingList data={data}/></div>
   </section>;

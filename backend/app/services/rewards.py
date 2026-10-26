@@ -1214,27 +1214,36 @@ def missions_view(db, user, day):
     ]
 
 
-def ranking(db, user):
-    """§6-10 주간 랭킹: 이번 주 랭킹 대상 XP 합계, 동점 동순위. 응답은 rank·nickname·xp·is_me만."""
+def ranking(db, user, metric='points'):
+    """metric=xp는 성장 화면의 이번 주 받은 XP와 같은 합계(사용자 결정 2026-10-26: 반응·공유 XP 포함). points는 적립 포인트."""
     monday = rules.week_monday(today())
-    score = func.sum(Xp.amount)
-    rows = db.execute(select(Xp.user_id, score.label('xp')).where(Xp.counts_for_ranking.is_(True),
-        Xp.event_date >= monday).group_by(Xp.user_id).having(score > 0).order_by(score.desc(), Xp.user_id)).all()
+    end = monday + timedelta(days=7)
+    if metric == 'xp':
+        score = func.sum(Xp.amount)
+        query = select(Xp.user_id, score.label('score')).where(
+            Xp.event_date >= monday, Xp.event_date < end).group_by(Xp.user_id).having(score > 0).order_by(score.desc(), Xp.user_id)
+    else:
+        score = func.sum(Lot.amount)
+        query = select(Lot.user_id, score.label('score')).where(
+            Lot.earned_at >= day_start(monday), Lot.earned_at < day_start(end),
+            Lot.source.notin_(('refund', 'adjust')), ~Lot.idem_key.like('demo:%')
+        ).group_by(Lot.user_id).having(score > 0).order_by(score.desc(), Lot.user_id)
+    rows = db.execute(query).all()
     items, mine, previous, rank = [], None, None, 0
     shown = {}
     for index, row in enumerate(rows):
-        if row.xp != previous:
+        if row.score != previous:
             rank = index + 1
-        previous = row.xp
+        previous = row.score
         if index < settings.reward_ranking_size or row.user_id == user.id:
-            shown[row.user_id] = (rank, int(row.xp))
+            shown[row.user_id] = (rank, int(row.score))
     nicknames = {n.user_id: n.nickname for n in db.scalars(select(Nickname).where(Nickname.user_id.in_(list(shown))))}
     for user_id in shown:
         if user_id not in nicknames:
             owner = db.get(User, user_id)
             nicknames[user_id] = create_generated(db, owner).nickname
-    for index, (user_id, (rank, xp)) in enumerate(shown.items()):
-        entry = {'rank': rank, 'nickname': nicknames[user_id], 'xp': xp, 'is_me': user_id == user.id}
+    for index, (user_id, (rank, points)) in enumerate(shown.items()):
+        entry = {'rank': rank, 'nickname': nicknames[user_id], metric: points, 'is_me': user_id == user.id}
         if index < settings.reward_ranking_size:
             items.append(entry)
         if user_id == user.id:
@@ -1242,8 +1251,9 @@ def ranking(db, user):
     own = db.get(Nickname, user.id) or create_generated(db, user)
     db.commit()
     return {'timezone': 'Asia/Seoul', 'week_start': monday.isoformat(), 'items': items,
-            'me': mine or {'rank': None, 'nickname': own.nickname, 'xp': 0, 'is_me': True},
-            'notice': '이번 주 기록 XP 기준 · 반응·공유 XP 제외 · 닉네임으로만 표시돼요'}
+            'me': mine or {'rank': None, 'nickname': own.nickname, metric: 0, 'is_me': True},
+            'notice': ('이번 주 받은 XP 기준(성장 화면과 같음) · 닉네임으로만 표시돼요' if metric == 'xp' else
+                       '이번 주 적립 포인트 기준 · 사용 전 적립 합계 · 환불·조정·더미 제외 · 닉네임으로만 표시돼요')}
 
 
 # ---- 닉네임 (§6-13) ----

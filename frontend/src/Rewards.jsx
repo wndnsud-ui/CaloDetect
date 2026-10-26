@@ -184,7 +184,7 @@ function Room({api, me, catalog, onChanged}) {
 function Growth({api, me, onChanged}) {
   const [data, setData] = useState(null), [rank, setRank] = useState(null), [nickname, setNickname] = useState(null), [editing, setEditing] = useState(false), [error, setError] = useState('');
   const load = useCallback(async () => {
-    try { const [growth, ranking, nick] = await Promise.all([api('/rewards/growth'), api('/rewards/ranking'), api('/rewards/nickname')]); setData(growth); setRank(ranking); setNickname(nick); }
+    try { const [growth, ranking, nick] = await Promise.all([api('/rewards/growth'), api('/rewards/ranking?metric=xp'), api('/rewards/nickname')]); setData(growth); setRank(ranking); setNickname(nick); }
     catch (e) { setError(e.message); }
   }, [api]);
   useEffect(() => { load(); }, [load, me]);
@@ -219,7 +219,7 @@ function Growth({api, me, onChanged}) {
         <div className="section-heading"><h2>이번 주 받은 XP</h2><span className="reward-small">합계 {fmt(data.week.reduce((sum, day) => sum + day.xp, 0))} XP</span></div>
         <StreamlitChart kind="xp_week" height={178} title="요일별 받은 XP" data={{items: data.week.map(day => ({label: day.weekday, value: Math.max(0, day.xp), today: day.date === today}))}}/>
         <h3 className="reward-section-title">오늘 받은 XP · {fmt(data.today_xp.reduce((sum, row) => sum + row.xp, 0))}</h3>
-        <ul className="growth-xp">{data.today_xp.map(row => <li key={row.key} className={row.counts_for_ranking ? '' : 'muted'}><span>{row.label}{row.counts_for_ranking ? '' : ' (레벨에만 반영)'}</span><b>{row.xp > 0 ? '+' : ''}{row.xp}</b></li>)}</ul>
+        <ul className="growth-xp">{data.today_xp.map(row => <li key={row.key}><span>{row.label}</span><b>{row.xp > 0 ? '+' : ''}{row.xp}</b></li>)}</ul>
         {!data.today_xp.length && <p className="muted">오늘 첫 기록을 남기면 XP가 쌓여요.</p>}
       </section>
       <section className="panel">

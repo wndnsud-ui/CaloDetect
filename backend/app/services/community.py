@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 from ..models import (CommunityPost as Post, CommunityPostImage as Photo,
-    CommunityReaction as Reaction, PointTransaction as Tx, Meal, Food, User, Detection, ImageUpload, utcnow)
+    CommunityReaction as Reaction, CommunityComment as Comment, PointTransaction as Tx, Meal, Food, User, Detection, ImageUpload, utcnow)
 from ..config import settings
 from .community_images import MAX_BYTES, sanitize_image
 from .. import storage
@@ -68,12 +68,58 @@ def serialize(db, posts, user):
     names = rewards.display_names(db, [p.user_id for p in posts])
     reactions = list(db.scalars(select(Reaction).where(Reaction.post_id.in_([p.id for p in posts]))))
     photos = list(db.scalars(select(Photo).where(Photo.post_id.in_([p.id for p in posts])).order_by(Photo.position)))
+    comment_counts = dict(db.execute(select(Comment.post_id, func.count()).where(
+        Comment.post_id.in_([p.id for p in posts]), Comment.deleted_at.is_(None)).group_by(Comment.post_id)).all())
     return [{'id': p.id, 'created_at': p.created_at, 'author': {'name': names[p.user_id], 'is_me': p.user_id == user.id},
         'is_mine': p.user_id == user.id, 'meal_id': p.meal_id if p.user_id == user.id else None,
         'comment': p.comment, 'show_photo': p.show_photo, 'meal': meal_data(meals[p.meal_id], foods),
         'image_urls': [f'/api/community/posts/{p.id}/images/{i.id}' for i in photos if i.post_id == p.id] if p.show_photo else [],
         'counts': {k: sum(r.post_id == p.id and r.kind == k for r in reactions) for k in ('like', 'recommend')},
-        'my_reactions': [r.kind for r in reactions if r.post_id == p.id and r.user_id == user.id]} for p in posts]
+        'my_reactions': [r.kind for r in reactions if r.post_id == p.id and r.user_id == user.id],
+        'comment_count': comment_counts.get(p.id, 0)} for p in posts]
+
+
+# ---- 댓글: 보상 없음. 삭제는 댓글 작성자·게시물 주인·관리자(사용자 결정 2026-10-26) ----
+COMMENT_LIMIT = 200
+
+
+def comment_json(comment, post, user, names):
+    return {'id': comment.id, 'author': {'name': names[comment.user_id]}, 'body': comment.body,
+            'created_at': comment.created_at, 'is_mine': comment.user_id == user.id,
+            'can_delete': user.id in (comment.user_id, post.user_id) or user.role == 'admin'}
+
+
+def comments(db, user, post_id):
+    post = active_post(db, post_id)
+    rows = list(db.scalars(select(Comment).where(Comment.post_id == post.id, Comment.deleted_at.is_(None))
+                           .order_by(Comment.created_at, Comment.id).limit(COMMENT_LIMIT)))
+    names = rewards.display_names(db, [c.user_id for c in rows])
+    return {'items': [comment_json(c, post, user, names) for c in rows]}
+
+
+def add_comment(db, user, post_id, body):
+    post = active_post(db, post_id)
+    text_ = body.strip()
+    if not text_:
+        raise HTTPException(422, '댓글 내용을 입력해 주세요.')
+    comment = Comment(post_id=post.id, user_id=user.id, body=text_)
+    db.add(comment)
+    db.commit()
+    log.info('community comment created')
+    return comment_json(comment, post, user, rewards.display_names(db, [user.id]))
+
+
+def delete_comment(db, user, post_id, comment_id):
+    post = active_post(db, post_id)
+    comment = db.get(Comment, comment_id)
+    if not comment or comment.post_id != post.id or comment.deleted_at is not None:
+        raise HTTPException(404, '댓글을 찾을 수 없습니다.')
+    if user.id not in (comment.user_id, post.user_id) and user.role != 'admin':
+        raise HTTPException(403, '이 댓글을 삭제할 권한이 없어요.')
+    comment.deleted_at = utcnow()
+    db.commit()
+    log.info('community comment deleted')
+    return {'deleted': True}
 
 
 def feed(db, user, limit, cursor=None, mine=False):

@@ -3,7 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, Request, Response, HTTPException
 from .api import CurrentUser, DB, require_image_environment
 from .models import CommunityPostImage
-from .schemas import CommunityPostRequest
+from .schemas import CommunityCommentRequest, CommunityPostRequest
 from .services import community as service
 from . import storage
 
@@ -66,6 +66,21 @@ def photo(post_id: str, image_id: str, request: Request, user: CurrentUser, db: 
         raise HTTPException(404, '사진을 찾을 수 없습니다.')
     media_type = 'image/png' if image.storage_key.endswith('.png') else 'image/jpeg'
     return Response(data, media_type=media_type, headers={'Cache-Control': 'private, no-store'})
+
+
+@router.get('/posts/{post_id}/comments')
+def comments(post_id: str, user: CurrentUser, db: DB):
+    return service.comments(db, user, post_id)
+
+
+@router.post('/posts/{post_id}/comments', status_code=201)
+def add_comment(post_id: str, body: CommunityCommentRequest, user: CurrentUser, db: DB):
+    return service.add_comment(db, user, post_id, body.body)
+
+
+@router.delete('/posts/{post_id}/comments/{comment_id}')
+def delete_comment(post_id: str, comment_id: str, user: CurrentUser, db: DB):
+    return service.delete_comment(db, user, post_id, comment_id)
 
 
 @router.get('/points/me')

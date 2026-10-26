@@ -14,7 +14,7 @@
 | 식단·사진·영양 | 기존 YOLO 모델과 CSV로 인식·계산·저장. 직접 음식 선택·음식명 수정·섭취량 지원 | backend/app/api.py, services/correction.py, frontend/src/PhotoInput.jsx |
 | 분석·추천 | 목표·기록에 따른 수치 계산. Streamlit 그래프 서버 유지 | services/recommendation.py, streamlit/charts.py |
 | 챗 기록 | CHAT_RECORD_ENABLED 기본 false. 활성화 환경에서 챗 식사기록·섭취량 수정 제공. LLM 서비스 없음 | backend/app/main.py, services/chat_record.py, services/consumption_record.py |
-| 커뮤니티 | 식단 공유·좋아요·추천·포인트. 사진 공개는 게시물별 선택 동의. 화면 랭킹은 리워드 랭킹 | frontend/src/Community.jsx, backend/app/services/community.py |
+| 커뮤니티 | 식단 공유·좋아요·추천·댓글·포인트. 피드는 카드 격자. 사진 공개는 게시물별 선택 동의. 화면 랭킹은 리워드 랭킹 | frontend/src/Community.jsx, backend/app/services/community.py |
 | 리워드 A/B | 포인트 원장·XP·미션·연속 기록·보호권·꾸미기·성장·닉네임·주간 랭킹 | backend/app/services/rewards.py, frontend/src/Rewards.jsx |
 | 교환·쿠폰 C | 건강상품 신청·첫 교환 보류·관리자 발급·취소/실패 환불·쿠폰함·바코드 | services/reward_exchange.py, frontend/src/RewardExchange.jsx, CouponBarcode.jsx |
 | 관리자 | React 관리자 메뉴. 교환 상태·발급·보류·실패·닉네임 검색/초기화. 서버 admin 검사 | frontend/src/AdminPage.jsx, backend/app/admin_rewards.py |

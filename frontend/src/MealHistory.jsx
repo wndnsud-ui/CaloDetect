@@ -33,7 +33,7 @@ export default function MealHistory({history, onAdd, api, onChanged}) {
 
   return <div className="meal-history">
     <p className="eyebrow">MEAL HISTORY</p>
-    <div className="history-heading"><div><h1>한 끼씩 쌓이는 나의 기록.</h1><p className="muted">날짜별 음식과 영양 정보를 한눈에 확인하세요.</p></div><button className="primary" onClick={onAdd}>+ 식단 추가하기</button></div>
+    <div className="history-heading"><div><h1>한 끼씩 쌓이는 나의 기록</h1><p className="muted">날짜별 음식과 영양 정보를 한눈에 확인하세요.</p></div><button className="primary" onClick={onAdd}>+ 식단 추가하기</button></div>
     <section className="history-database" aria-label="식단 기록 데이터베이스">
       <div className="history-toolbar">
         <label className="history-search">음식 검색<input type="search" placeholder="음식 이름으로 검색" value={query} onChange={e => {setQuery(e.target.value); setPage(1);}}/></label>

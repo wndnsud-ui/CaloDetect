@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- CaloDetect 나뭇잎 로고(Visuals.jsx Brand와 같은 도형). 정사각형 탭 아이콘용으로 세로 2px 내려 가운데 맞춤. -->
+  <defs>
+    <linearGradient id="left" x1="3" y1="14" x2="25" y2="42" gradientUnits="userSpaceOnUse"><stop stop-color="#16aa7d"/><stop offset="1" stop-color="#086447"/></linearGradient>
+    <linearGradient id="right" x1="44" y1="5" x2="24" y2="42" gradientUnits="userSpaceOnUse"><stop stop-color="#149b72"/><stop offset="1" stop-color="#07563e"/></linearGradient>
+  </defs>
+  <g transform="translate(0 2)">
+    <path d="M24 40C10 39 3 30 3 14c12-1 23 8 21 26Z" fill="url(#left)"/>
+    <path d="M25 40C20 31 20 20 28 12 33 7 39 4 45 3c2 17-5 32-20 37Z" fill="url(#right)"/>
+    <path d="M23.5 40C23 29 28 19 38 12 30 21 26 30 25.5 40Z" fill="#f0fff8"/>
+    <path d="M23.5 40C21 31 16 24 9 19 17 24 23 30 25 40Z" fill="#f0fff8"/>
+  </g>
+</svg>

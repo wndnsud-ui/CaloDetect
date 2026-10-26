@@ -1,7 +1,8 @@
 // 서비스 소개 페이지. 브랜드·기능·가입 안내를 표시하고 선택한 메뉴를 회원 앱 진입 콜백으로 전달한다.
-import React from 'react';
+import React, {useEffect, useState} from 'react';
+import {PromoSlider} from './RewardMall';
 import {Brand} from './Visuals';
-import LandingAccount from './LandingAccount';
+import LandingAccount, {useLandingSession} from './LandingAccount';
 import FeatureSection from './FeatureSection';
 const steps = [
   ['01','회원가입','기본 정보를 설정해요.','회원가입','phone'],
@@ -18,14 +19,26 @@ function StepIcon({type}) {
     {type==='meal'&&<><path d="M7 4v9M11 4v9M15 4v9M7 10v3a4 4 0 0 0 8 0v-3M11 17v11M25 4c-4 3-5 8-5 13h5M25 4v24"/></>}
   </svg>;
 }
-// 서비스 소개 페이지. 브랜드·기능·가입 안내를 표시하고 선택한 메뉴를 회원 앱 진입 콜백으로 전달한다.
-export default function Landing({onOpen}) {return <div className="landing"><header className="landing-header"><Brand onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}/><nav aria-label="홈페이지 메뉴"><a href="#service">서비스 소개</a><a href="#features">주요 기능</a><a href="#how">이용 방법</a><a href="#faq">FAQ</a></nav><LandingAccount onOpen={onOpen}/></header><main className="landing-main"><section className="landing-hero hero-with-background" id="service"><div className="hero-copy"><span className="pill">매일의 식사를 위한 파트너</span><h1>오늘 뭐 먹지?<br/>데이터로 해결하다<span>.</span></h1><p>사진 한 장으로 시작하는 식단 기록,<br/>나의 영양 상태에 맞는 다음 한 끼.<br/>건강한 식사 습관을 CaloDetect와 함께하세요.</p><div className="hero-actions"><button className="primary" onClick={()=>onOpen('음식 추가')}>내 식단 기록 시작하기 →</button><button className="outline" onClick={()=>onOpen('홈')}>웹앱 둘러보기</button></div><small>음식 조회와 목표 계산부터 경험해보세요.</small></div></section><FeatureSection onOpen={onOpen}/>
-<section className="landing-section" id="how" aria-labelledby="how-title"><div className="service-flow">
+// 이용 방법 영역: 리워드몰 공개 슬라이드(콜라보·실존 브랜드 제외)가 있으면 그것을, 없으면(교환 기능 꺼짐·오류) 4단계 이용 흐름을 보여 준다.
+function HowSection({onOpen}) {
+  const [promos, setPromos] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/rewards/promotions/public', {credentials: 'include'}).then(r => r.ok ? r.json() : {items: []})
+      .then(data => { if (alive) setPromos(data.items || []); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (promos.length) return <section className="landing-section landing-promos" id="how" aria-label="리워드몰 소개"><PromoSlider items={promos} onOpen={() => onOpen('리워드')}/></section>;
+  return <section className="landing-section" id="how" aria-labelledby="how-title"><div className="service-flow">
   <div className="service-flow-intro"><p className="service-flow-label"><svg className="section-flow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="6" rx="1.5"/><rect x="14" y="15" width="7" height="6" rx="1.5"/><path d="M10 6h7a2 2 0 0 1 2 2v3M16 9l3 3 3-3M14 18H7a2 2 0 0 1-2-2v-3M2 15l3-3 3 3"/></svg>서비스 이용 흐름</p><h2 id="how-title">이렇게 시작해요.<br/>4단계로 간편하게.</h2></div>
   <ol className="service-flow-steps">{steps.map(([n,title,description,page,icon])=><li key={n}>
     <button onClick={()=>onOpen(page)}><span className={`service-step-icon service-step-${icon}`}><StepIcon type={icon}/></span><strong>{title}</strong><small>{description}</small></button>
   </li>)}</ol>
-</div></section><button className="landing-cta landing-cta-link" onClick={()=>onOpen('회원가입')}>
+</div></section>;
+}
+// 서비스 소개 페이지. 브랜드·기능·가입 안내를 표시하고 선택한 메뉴를 회원 앱 진입 콜백으로 전달한다.
+export default function Landing({onOpen}) {const session=useLandingSession();const member=!!session.user;return <div className="landing"><header className="landing-header"><Brand onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}/><nav aria-label="홈페이지 메뉴"><a href="#service">서비스 소개</a><a href="#features">주요 기능</a><a href="#how">이용 방법</a><a href="#faq">FAQ</a></nav><LandingAccount onOpen={onOpen} session={session}/></header><main className="landing-main"><section className="landing-hero hero-with-background" id="service"><div className="hero-copy"><span className="pill">매일의 식사를 위한 파트너</span><h1>오늘 뭐 먹지?<br/>데이터로 해결하다<span>.</span></h1><p>사진 한 장으로 시작하는 식단 기록,<br/>나의 영양 상태에 맞는 다음 한 끼.<br/>건강한 식사 습관을 CaloDetect와 함께하세요.</p><div className="hero-actions">{/* 비회원은 가입으로, 로그인 회원은 식단 기록으로 유도한다. 세션 확인 중에는 기존 문구를 둔다. */}{session.loading?<button className="primary" onClick={()=>onOpen('음식 추가')}>내 식단 기록 시작하기 →</button>:member?<button className="primary" onClick={()=>onOpen('음식 추가')}>내 식단 기록하기 →</button>:<button className="primary" onClick={()=>onOpen('회원가입')}>회원가입하고 시작하기 →</button>}<button className="outline" onClick={()=>onOpen('홈')}>웹앱 둘러보기</button></div><small>{member?'오늘의 식사를 사진 한 장으로 기록해 보세요.':'음식 조회와 목표 계산부터 경험해보세요.'}</small></div></section><FeatureSection onOpen={onOpen}/>
+<HowSection onOpen={onOpen}/><button className="landing-cta landing-cta-link" onClick={()=>onOpen('회원가입')}>
   <span className="cta-copy"><span className="cta-caption">맛있는 식사가<br/>건강한 하루를 만듭니다.</span>
     <span className="cta-title">지금, CaloDetect와 함께<br/>시작해 보세요.</span>
     <span className="cta-action">회원가입 후 시작해 보기 <span aria-hidden="true">→</span></span>

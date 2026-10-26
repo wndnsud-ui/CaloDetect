@@ -57,6 +57,18 @@ class CommunityReaction(Base):
                       CheckConstraint("kind IN ('like', 'recommend')"),)
 
 
+# 게시물 댓글. 보상 없음(사용자 결정 2026-10-26). 삭제는 deleted_at으로 숨긴다.
+class CommunityComment(Base):
+    __tablename__ = 'community_comments'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    post_id: Mapped[str] = mapped_column(ForeignKey('community_posts.id'))
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    body: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (Index('ix_community_comments_post_created', 'post_id', 'created_at'),)
+
+
 class PointTransaction(Base):
     __tablename__ = 'point_transactions'
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)

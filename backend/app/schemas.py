@@ -17,6 +17,11 @@ class CommunityPostRequest(RequestModel):
     show_photo: bool = Field(default=False, strict=True)
 
 
+# 커뮤니티 댓글. 앞뒤 공백 제거 후 1~300자는 서비스가 확인한다.
+class CommunityCommentRequest(RequestModel):
+    body: str = Field(min_length=1, max_length=300)
+
+
 # NutritionRequest: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
 class NutritionRequest(RequestModel):
     # 기존 0~149 음식 클래스 번호. 모델·YAML·CSV에서 같은 음식 연결을 유지한다.

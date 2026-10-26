@@ -363,3 +363,6 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
 
 /* 공개 홈페이지 슬라이드(Landing): 리워드몰 밖에서도 같은 색 변수를 쓴다. */
 .landing-promos{--m-ink:#193C32;--m-sub:#60776F;--m-main:#1C4B3A;--m-gold:#8A6420;--m-gold-bg:#FBF1DC;--m-ok:#178366;--m-short:#E9B949;--m-line:#E3E8DE;--m-soft:#F3F7F4}
+/* 홈페이지 슬라이더는 리워드몰보다 넓어 그림 칸이 가로로 길어지고 4:3 상품 사진 위아래가 잘린다. 그림 칸을 사진 비율(4:3)로 고정한다. */
+.landing-promos .mall-slide-art{flex:0 0 min(48%,560px);aspect-ratio:4/3;min-height:0;align-self:center}
+@media(max-width:760px){.landing-promos .mall-slide-art{flex-basis:auto;width:100%}}

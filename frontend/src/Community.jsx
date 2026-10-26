@@ -8,7 +8,7 @@ const number = value => Number(value || 0).toLocaleString('ko-KR');
 const signed = value => `${value > 0 ? '+' : ''}${number(value)}`;
 
 // 모달의 포커스를 가두고 닫을 때 호출 버튼으로 돌려준다.
-function Modal({title, children, onClose, alert=false, error=''}) {
+function Modal({title, children, onClose, alert=false, error='', wide=false}) {
   const ref = useRef(null), startY = useRef(null), id = useId();
   const closeRef = useRef(onClose); closeRef.current = onClose;
   useEffect(()=>{
@@ -28,7 +28,7 @@ function Modal({title, children, onClose, alert=false, error=''}) {
     }
   }
   return createPortal(<div className="community-backdrop" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div className="community-modal" ref={ref} role={alert?'alertdialog':'dialog'} aria-modal="true" aria-labelledby={id} aria-describedby={`${id}-body`} onKeyDown={keyboard}>
+    <div className={`community-modal${wide?' is-wide':''}`} ref={ref} role={alert?'alertdialog':'dialog'} aria-modal="true" aria-labelledby={id} aria-describedby={`${id}-body`} onKeyDown={keyboard}>
       <div className="community-sheet-handle" onTouchStart={e=>{startY.current=e.touches[0].clientY;}} onTouchEnd={e=>{if(startY.current!==null&&e.changedTouches[0].clientY-startY.current>70)onClose();startY.current=null;}}/>
       <div className="community-modal-heading"><h2 id={id}>{title}</h2><button type="button" aria-label="닫기" onClick={onClose}>×</button></div>
       <div id={`${id}-body`}>{error&&<p className="community-error" role="alert">{error}</p>}{children}</div>
@@ -82,7 +82,13 @@ function Points({data}) {
     <details><summary>최근 포인트 내역</summary><ul className="community-transactions">{data.recent.map(row=><li key={row.id}><span>{row.reason.endsWith('_revoked')?(row.reason==='post_deleted_revoked'?'게시물 삭제로 감점':'반응 취소로 감점'):labels[row.reason]}<small>{relativeTime(row.created_at)}</small></span><strong className={row.amount<0?'community-negative':''}>{signed(row.amount)} P</strong></li>)}</ul>{!data.recent.length&&<p>아직 적립 내역이 없어요.</p>}</details></section>;
 }
 
-function Post({post,busy,onReact,onDelete,onComments}) {
+// 좋아요·추천·댓글·삭제 버튼 줄. 카드와 상세 창이 같이 쓴다.
+function Reactions({post,busy,onReact,onDelete,onComments}) {
+  return <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}<button type="button" className="community-reaction comment" aria-label={`댓글 ${post.comment_count||0}개`} onClick={onComments}><span aria-hidden="true">💬</span>{post.comment_count||0}</button>{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>;
+}
+
+// 카드를 누르면(안쪽 버튼 제외) 상세 창이 열린다. 키보드는 사진 영역 버튼으로 연다.
+function Post({post,busy,onReact,onDelete,onOpen}) {
   const [expanded,setExpanded]=useState(false),[full,setFull]=useState(false);
   const commentRef=useRef(null),[overflow,setOverflow]=useState(false);
   useLayoutEffect(()=>{
@@ -96,13 +102,13 @@ function Post({post,busy,onReact,onDelete,onComments}) {
   const totals=post.meal.totals, mealName=mealNames[post.meal.meal_type];
   // 카드 상단: 공개 사진(첫 장) 또는 사진이 없거나 불러오지 못하면 끼니·칼로리 색 블록.
   const photo=post.show_photo===true&&!photoFailed?post.image_urls[0]:null;
-  return <article className={`community-card meal-${post.meal.meal_type}`}>
-    <div className="community-card-media">
+  return <article className={`community-card meal-${post.meal.meal_type}`} onClick={e=>{if(!e.target.closest('button,a,input,textarea,select'))onOpen(post,false);}}>
+    <button type="button" className="community-card-media" aria-label={`${post.author.name}님의 ${mealName} 게시물 자세히 보기`} onClick={()=>onOpen(post,false)}>
       {photo?<img src={photo} alt="공개한 식단 사진" loading="lazy" onError={()=>setPhotoFailed(true)}/>
         :<div className="community-card-placeholder" aria-hidden="true"><strong>{number(totals.cal)}<small> kcal</small></strong></div>}
       <span className="community-meal-tag">{mealName}</span>
       {photo&&post.image_urls.length>1&&<span className="community-card-count">+{post.image_urls.length-1}</span>}
-    </div>
+    </button>
     <div className="community-card-body">
       <div className="community-post-meta"><span className="community-avatar" aria-hidden="true">{post.author.name.slice(0,1)}</span><strong>{post.author.name}</strong>{post.is_mine&&<small className="community-me">나</small>}<time dateTime={post.created_at}>{relativeTime(post.created_at)}</time></div>
       {post.comment&&<div><p ref={commentRef} className={`community-comment ${full?'':'is-clamped'}`}>{post.comment}</p>{(overflow||full)&&<button className="community-text" onClick={()=>setFull(v=>!v)}>{full?'접기':'더보기'}</button>}</div>}
@@ -111,8 +117,25 @@ function Post({post,busy,onReact,onDelete,onComments}) {
         <button type="button" className="community-meal-line" aria-expanded={expanded} title={expanded?'구성 접기':'구성 보기'} onClick={()=>setExpanded(v=>!v)}>
           <strong>{mealSummary(post.meal.items)}</strong><span className="community-nutrition"><b>{number(totals.cal)} kcal</b> · 탄 {number(totals.carbs)} · 단 {number(totals.protein)} · 지 {number(totals.fat)}g</span><span aria-hidden="true">{expanded?'⌃':'⌄'}</span></button>
         {expanded&&<ul className="community-food-list">{post.meal.items.map((item,index)=><li key={`${item.class_id}-${index}`}><span>{displayFoodName(item.food_name)}</span><span>{item.unit} × {number(item.serving_multiplier)}</span></li>)}</ul>}</div>
-      <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}<button type="button" className="community-reaction comment" aria-label={`댓글 ${post.comment_count||0}개 보기`} onClick={()=>onComments(post)}><span aria-hidden="true">💬</span>{post.comment_count||0}</button>{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>
+      <Reactions post={post} busy={busy} onReact={onReact} onDelete={onDelete} onComments={()=>onOpen(post,true)}/>
     </div></article>;
+}
+
+// 상세 창 본문: 공개 사진 전부, 작성자, 이야기 전체, 식단 영양과 구성(펼침), 반응 버튼.
+function PostDetail({post,busy,onReact,onDelete,onComments}) {
+  const [failed,setFailed]=useState([]);
+  const totals=post.meal.totals, mealName=mealNames[post.meal.meal_type];
+  const photos=post.show_photo===true?post.image_urls.filter(url=>!failed.includes(url)):[];
+  return <div className={`community-detail meal-${post.meal.meal_type}`}>
+    {photos.length?<div className="community-detail-photos">{photos.map(url=><img key={url} src={url} alt="공개한 식단 사진" onError={()=>setFailed(old=>[...old,url])}/>)}</div>
+      :<div className="community-card-media community-detail-placeholder"><div className="community-card-placeholder" aria-hidden="true"><strong>{number(totals.cal)}<small> kcal</small></strong></div><span className="community-meal-tag">{mealName}</span></div>}
+    <div className="community-post-meta"><span className="community-avatar" aria-hidden="true">{post.author.name.slice(0,1)}</span><strong>{post.author.name}</strong>{post.is_mine&&<small className="community-me">나</small>}<span className="community-detail-tag">{mealName}</span><time dateTime={post.created_at}>{relativeTime(post.created_at)}</time></div>
+    {post.comment&&<p className="community-comment">{post.comment}</p>}
+    <div className="community-meal community-detail-meal"><strong>{mealSummary(post.meal.items)}</strong>
+      <p className="community-nutrition"><b>{number(totals.cal)} kcal</b><span>탄 {number(totals.carbs)}g</span><span>단 {number(totals.protein)}g</span><span>지 {number(totals.fat)}g</span></p>
+      <ul className="community-food-list">{post.meal.items.map((item,index)=><li key={`${item.class_id}-${index}`}><span>{displayFoodName(item.food_name)}</span><span>{item.unit} × {number(item.serving_multiplier)}</span></li>)}</ul></div>
+    <Reactions post={post} busy={busy} onReact={onReact} onDelete={onDelete} onComments={onComments}/>
+  </div>;
 }
 
 export default function Community({api,onNavigate,initialMealId,onShareOpened,onRewardsChanged}) {
@@ -144,13 +167,14 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
   async function remove(){if(!confirm)return;await action(async()=>{const {post,kind}=confirm;setPending(post.id);
     const result=await api(`/community/posts/${post.id}${kind?`/reactions/${kind}`:''}`,{},'DELETE');
     setConfirm(null);setToast(`${kind?'반응을 취소했어요':'게시물을 삭제했어요'} · ${signed(result.deducted.me)} P 감점`);
-    if(kind)setItems(old=>old.map(p=>p.id===post.id?result:p));else await loadFeed();await refreshStats();});}
-  // 댓글 창: 열 때 목록을 불러오고, 작성·삭제 후 카드의 댓글 수를 맞춘다. 보상은 없다.
-  const [thread,setThread]=useState(null),[threadItems,setThreadItems]=useState(null),[draft,setDraft]=useState(''),[threadError,setThreadError]=useState('');
+    if(kind)setItems(old=>old.map(p=>p.id===post.id?result:p));else{setDetail(null);await loadFeed();}await refreshStats();});}
+  // 상세 창: 카드를 누르면 열리고 댓글 목록을 불러온다. 💬로 열면 댓글 입력란에 바로 포커스. 댓글 보상은 없다.
+  const [detail,setDetail]=useState(null),[threadItems,setThreadItems]=useState(null),[draft,setDraft]=useState(''),[threadError,setThreadError]=useState('');
+  const thread=detail&&(items.find(p=>p.id===detail.id)||detail.post);
   const setCount=(postId,count)=>setItems(old=>old.map(p=>p.id===postId?{...p,comment_count:count}:p));
-  async function openComments(post){setThread(post);setThreadItems(null);setDraft('');setThreadError('');
+  async function openDetail(post,focusComments){setDetail({id:post.id,post,focusComments});setThreadItems(null);setDraft('');setThreadError('');
     try{const data=await api(`/community/posts/${post.id}/comments`);if(alive.current){setThreadItems(data.items);setCount(post.id,data.items.length);}}
-    catch(e){if(!alive.current)return;if(e.status===404){setThread(null);await loadFeed();}else setThreadError(e.message);}}
+    catch(e){if(!alive.current)return;if(e.status===404){setDetail(null);await loadFeed();}else setThreadError(e.message);}}
   async function addComment(e){e.preventDefault();const body=draft.trim();if(!body||!thread||lock.current)return;lock.current=true;setBusy(true);setThreadError('');
     try{const made=await api(`/community/posts/${thread.id}/comments`,{body});const next=[...(threadItems||[]),made];setThreadItems(next);setCount(thread.id,next.length);setDraft('');}
     catch(e){setThreadError(e.message);}finally{lock.current=false;setBusy(false);}}
@@ -173,7 +197,7 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
     {/* 탭을 격자·사이드바 위 별도 줄에 두어 카드 윗변과 포인트 패널 윗변을 맞춘다. */}
     <div className="community-tabs" role="group" aria-label="피드 선택"><button aria-pressed={!mine} className={!mine?'selected':''} onClick={()=>setMine(false)}>전체</button><button aria-pressed={mine} className={mine?'selected':''} onClick={()=>setMine(true)}>내 게시물</button></div>
     <div className="community-layout"><section className="community-feed" aria-label="식단 공유 피드">
-      {items.length>0&&<div className="community-grid">{items.map(post=><Post key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)} onComments={openComments}/>)}</div>}
+      {items.length>0&&<div className="community-grid">{items.map(post=><Post key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)} onOpen={openDetail}/>)}</div>}
       {loading&&<p className="community-empty" role="status">식단을 불러오는 중이에요.</p>}{!loading&&!items.length&&<div className="community-empty"><span>♧</span><h2>{mine?'아직 공유한 식단이 없어요':'첫 번째 한 끼를 나눠 주세요'}</h2><p>나의 식단이 누군가에게 좋은 영감이 될 수 있어요.</p><button onClick={openShare}>식단 공유하기</button></div>}
       {!loading&&cursor&&<button className="community-more" onClick={()=>loadFeed(true)}>더 보기</button>}</section>
       <aside className="community-sidebar"><Points data={points}/><Ranking data={rank} onRefresh={refreshRank}/></aside></div>
@@ -183,15 +207,18 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
         onMeal={value=>{setMeal(value);setPhoto(false);}} onComment={setComment} onPhoto={setPhoto} onSubmit={share}
         onRecord={()=>{setSheet(null);onNavigate('음식 추가');}}/>
     </Modal>}
-    {thread&&<Modal error={threadError} title={`댓글 ${threadItems?threadItems.length:''}`} onClose={()=>{if(!busy)setThread(null);}}>
-      <p className="community-thread-target">{thread.author.name} · {mealSummary(thread.meal.items)}</p>
+    {thread&&<Modal wide error={threadError} title={`${thread.author.name}님의 한 끼`} onClose={()=>{if(!busy)setDetail(null);}}>
+      <PostDetail post={thread} busy={busy||pending===thread.id||confirm?.post.id===thread.id} onReact={react} onDelete={post=>preview(post,null)}
+        onComments={()=>document.getElementById('community-comment-input')?.focus()}/>
+      <section className="community-thread" aria-label="댓글"><h3>댓글 {threadItems?threadItems.length:''}</h3>
       {threadItems===null?<p role="status">댓글을 불러오는 중이에요.</p>:!threadItems.length?<p className="community-muted">첫 댓글을 남겨 보세요.</p>:
         <ul className="community-comments">{threadItems.map(c=><li key={c.id}><span className="community-avatar" aria-hidden="true">{c.author.name.slice(0,1)}</span>
           <div><p><strong>{c.author.name}</strong>{c.is_mine&&<small className="community-me">나</small>}<time dateTime={c.created_at}>{relativeTime(c.created_at)}</time></p><p className="community-comment-body">{c.body}</p></div>
           {c.can_delete&&<button type="button" className="community-delete" disabled={busy} onClick={()=>removeComment(c)}>삭제</button>}</li>)}</ul>}
       <form className="community-comment-form" onSubmit={addComment}><label className="community-sr" htmlFor="community-comment-input">댓글 입력</label>
-        <textarea id="community-comment-input" data-initial-focus value={draft} maxLength={300} disabled={busy} placeholder="따뜻한 한마디를 남겨 주세요" onChange={e=>setDraft(e.target.value)}/>
+        <textarea id="community-comment-input" {...(detail.focusComments?{'data-initial-focus':true}:{})} value={draft} maxLength={300} disabled={busy} placeholder="따뜻한 한마디를 남겨 주세요" onChange={e=>setDraft(e.target.value)}/>
         <div><span className="community-counter">{draft.length} / 300</span><button className="community-primary" disabled={busy||!draft.trim()}>{busy?'등록 중…':'댓글 등록'}</button></div></form>
+      </section>
     </Modal>}
     {(sheet==='points'||sheet==='ranking')&&<Modal error={error} title={sheet==='points'?'내 포인트':'주간 랭킹'} onClose={()=>setSheet(null)}>{sheet==='points'?<Points data={points}/>:<RankingList data={rank}/>}</Modal>}
     {confirm&&<Modal error={error} alert title={confirm.kind?'반응을 취소하면 포인트가 감점돼요':'게시물을 삭제하면 받은 포인트가 감점돼요'} onClose={()=>{if(!busy)setConfirm(null);}}>

@@ -44,3 +44,18 @@
 .community-comments .community-comment-body{display:block;margin-top:4px;font-size:13px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
 .community-comment-form{margin-top:14px}.community-comment-form textarea{min-height:70px!important}
 .community-comment-form>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.community-comment-form .community-primary{width:auto;margin-top:8px}
+/* 카드 → 상세 창 */
+.community-card{cursor:pointer}
+button.community-card-media{display:block;width:100%;border:0;padding:0;margin:0;cursor:pointer;font:inherit;text-align:left}
+.community-modal.is-wide{width:min(760px,100%)}
+.community-detail{display:flex;flex-direction:column;gap:14px}
+.community-detail-photos{display:flex;flex-direction:column;gap:8px}
+.community-detail-photos img{display:block;width:100%;max-height:60dvh;object-fit:contain;background:#f3f6f2;border-radius:14px}
+.community-detail-placeholder{border-radius:14px}
+.community-detail .community-post-meta{font-size:13px}.community-detail .community-avatar{flex:0 0 30px;height:30px}
+.community-detail-tag{background:#f2f5f0;font-size:11px;padding:3px 9px;border-radius:7px}
+.community-detail .community-comment{font-size:14px;line-height:1.75}
+.community-detail-meal>strong{font-size:14px}
+.community-detail .community-reactions{padding-top:12px}
+.community-thread{margin-top:18px;border-top:1px solid #eef2ee;padding-top:16px}.community-thread h3{font-size:15px;margin:0 0 6px}
+@media(max-width:700px){.community-modal.is-wide{width:100%}}

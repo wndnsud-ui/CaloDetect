@@ -4,11 +4,12 @@ main.py가 local_test_account_enabled()(APP_ENV=development, LOCAL_TEST_SIGNUP=t
 Docker에서는 요청이 프록시를 거쳐 loopback 검사를 할 수 없으므로, 등록 조건 + 로그인 + 테스트 계정 본인만 허용한다.
 """
 from typing import Literal
+from datetime import timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import Field
 from .api import CurrentUser, DB
 from .schemas import RequestModel
-from .services import reward_demo
+from .services import reward_demo, rewards
 
 router = APIRouter(prefix='/dev/demo', tags=['dev'])
 TEST_ACCOUNT_EMAIL = 'test@calodetect.local'
@@ -20,6 +21,7 @@ class DemoRequest(RequestModel):
     streak: int = Field(default=5, ge=0, le=60)
     protectors: int = Field(default=1, ge=0, le=10)
     reset: bool = False
+    account_days: int | None = Field(default=None, ge=0, le=3650)
     # 리워드몰 v1.3 시연 시나리오(지시서 §10): v13 = 교환 가능 320P·지난 쿠폰 2건, v13_coaching = 760P
     scenario: Literal['default', 'v13', 'v13_coaching'] = 'default'
 
@@ -37,6 +39,9 @@ def status(user: CurrentUser):
 @router.post('/rewards')
 def seed_rewards(body: DemoRequest, user: CurrentUser, db: DB):
     test_account_only(user)
+    # 테스트 계정 본인의 가입일만 조정한다. 교환 정책·관리자 발급 절차는 유지한다.
+    if body.account_days is not None:
+        user.created_at = rewards.now() - timedelta(days=body.account_days)
     if body.scenario != 'default':
         result = reward_demo.seed_v13(db, user, coaching=body.scenario == 'v13_coaching')
         db.commit()

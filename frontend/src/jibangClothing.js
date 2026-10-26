@@ -8,6 +8,7 @@ export const CLOTHING_SPRITES = {
   },
   outfit_lv3: {3: `${BASE}sailor-lv3.png`, 4: `${BASE}sailor-lv4.png`, 5: `${BASE}sailor-lv5.png`},
   costume_lv4: {4: `${BASE}garden-lv4.png`, 5: `${BASE}garden-lv5.png`},
+  costume_explorer: {5: `${BASE}explorer-lv5-concept.png`},
 };
 
 // 착용 이미지의 실제 눈 중심을 원본 몸 좌표계로 환산한 값(왼눈 x/y, 오른눈 x/y).
@@ -19,6 +20,7 @@ const CLOTHING_EYES = {
   },
   outfit_lv3: {3: [73, 78, 139, 67], 4: [48, 81, 112, 68], 5: [59, 93, 127, 110]},
   costume_lv4: {4: [49, 82, 112, 68], 5: [59, 89, 126, 105]},
+  costume_explorer: {5: [59, 94, 131, 115]},
 };
 
 // 모자 띠가 닿는 이마 윗부분 중심(이미지 너비/높이 비율).
@@ -26,6 +28,7 @@ const CLOTHING_CROWNS = {
   outfit_workout: {front: [0.51, 0.13], 1: [0.53, 0.11], 2: [0.48, 0.14], 3: [0.45, 0.13], 4: [0.43, 0.13], 5: [0.48, 0.17]},
   outfit_lv3: {3: [0.45, 0.13], 4: [0.43, 0.13], 5: [0.48, 0.17]},
   costume_lv4: {4: [0.43, 0.13], 5: [0.48, 0.17]},
+  costume_explorer: {5: [0.47, 0.13]},
 };
 
 export function dressedSprite(equipment, level) {

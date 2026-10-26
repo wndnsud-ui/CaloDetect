@@ -190,17 +190,18 @@ def test_purchase_rules(member):
     client, engine, user, day = member
     with Session(engine) as db:
         service.account(db, user['id'])
-        for idem, source, amount, days in (('a', 'meal', 35, 10), ('b', 'community', 4, 300), ('c', 'onboarding', 3, 365)):
+        db.get(service.Item, 'prop_water').price = 40  # 기존 DB의 변경 전 가격도 동기화한다.
+        for idem, source, amount, days in (('a', 'meal', 2, 10), ('b', 'community', 2, 300), ('c', 'onboarding', 2, 365)):
             lot = service.grant_points(db, user['id'], source, amount, idem)
             lot.expires_at = NOON + timedelta(days=days)
         db.commit()
     bought = client.post('/rewards/items/prop_water/purchase')
     assert bought.status_code == 200, bought.text
-    assert bought.json()['restricted_used'] == 7 and bought.json()['balance'] == 2
+    assert bought.json()['restricted_used'] == 4 and bought.json()['balance'] == 2
     assert lots(engine, user['id'])['a'][2] == 2
     assert client.post('/rewards/items/prop_water/purchase').status_code == 409
     short = client.post('/rewards/items/prop_salad/purchase')
-    assert short.status_code == 422 and short.json()['error']['message'] == '포인트가 부족해요. 48P 더 모으면 돼요.'
+    assert short.status_code == 422 and short.json()['error']['message'] == '포인트가 부족해요. 3P 더 모으면 돼요.'
     assert client.post('/rewards/items/bg_lv3/purchase').status_code == 403
 
 
@@ -224,12 +225,12 @@ def test_costumes_are_purchasable_at_level_one(member):
     client, engine, user, day = member
     client.get('/rewards/me')
     with Session(engine) as db:
-        service.grant_points(db, user['id'], 'adjust', 500, 'costume-budget', 'test', 'costume-budget')
+        service.grant_points(db, user['id'], 'adjust', 700, 'costume-budget', 'test', 'costume-budget')
         db.commit()
     assert client.get('/rewards/me').json()['level'] == 1
     catalog = {item['id']: item for item in client.get('/rewards/items').json()['items']}
     before = client.get('/rewards/me').json()['balance']
-    for item_id, price in [('outfit_lv3', 150), ('costume_lv4', 250)]:
+    for item_id, price in [('outfit_lv3', 15), ('costume_explorer', 20), ('costume_lv4', 25)]:
         assert catalog[item_id]['sellable'] and catalog[item_id]['level_required'] is None
         assert catalog[item_id]['price'] == price
         bought = client.post(f'/rewards/items/{item_id}/purchase')
@@ -237,7 +238,7 @@ def test_costumes_are_purchasable_at_level_one(member):
         assert bought.json()['spent'] == price
         assert client.put('/rewards/equipment', json={'slot': 'outfit', 'item_id': item_id}).status_code == 200
         assert client.post(f'/rewards/items/{item_id}/purchase').status_code == 409
-    assert client.get('/rewards/me').json()['balance'] == before - 400
+    assert client.get('/rewards/me').json()['balance'] == before - 60
 
 
 def test_clothing_switch_keeps_ownership_and_regular_props(member):
@@ -361,13 +362,13 @@ def test_revoke_debt(member):
 def test_goal_and_eta(member):
     client, engine, user, day = member
     goal = client.get('/rewards/me').json()['goal']
-    assert goal['item_id'] == 'prop_water' and goal['remaining'] == 40 and goal['eta_days'] is None
+    assert goal['item_id'] == 'prop_water' and goal['remaining'] == 4 and goal['eta_days'] is None
     save(client, 'lunch', day)  # +1 끼니, +10 온보딩(예상 일수에서 제외)
     goal = client.get('/rewards/me').json()['goal']
-    assert goal['base_points'] == 11 and goal['remaining'] == 29
+    assert goal['base_points'] == 11 and goal['remaining'] == 0
     assert client.put('/rewards/goal', json={'ref': 'item:prop_salad'}).status_code == 200
     goal = client.get('/rewards/me').json()['goal']
-    assert goal['chosen'] and goal['remaining'] == 39 and goal['eta_days'] == 39
+    assert goal['chosen'] and goal['remaining'] == 0 and goal['eta_days'] == 0
     assert client.put('/rewards/goal', json={'ref': 'product:protein'}).status_code == 404
 
 
@@ -386,7 +387,7 @@ def test_concurrency_postgres(member):
     client, engine, user, day = member
     with Session(engine) as db:
         service.account(db, user['id'])
-        service.grant_points(db, user['id'], 'meal', 50, 'only'); db.commit()
+        service.grant_points(db, user['id'], 'meal', 5, 'only'); db.commit()
     results = []
 
     def buy(item):
@@ -400,7 +401,7 @@ def test_concurrency_postgres(member):
     [t.start() for t in threads]; [t.join() for t in threads]
     assert sorted(results) == [200, 422]
     with Session(engine) as db:
-        assert service.balance_info(db, user['id'])['balance'] in (0, 10)
+        assert service.balance_info(db, user['id'])['balance'] in (0, 1)
         assert db.scalar(select(func.min(Lot.remaining)).where(Lot.user_id == user['id'])) >= 0
 
     def meal():

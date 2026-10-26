@@ -115,7 +115,7 @@ function statusLine(item) {
   return {text: item.message, ok: false};
 }
 
-function ProductCard({item, exchangeable, onOpen, onGoal, busy}) {
+function ProductCard({item, exchangeable, onOpen}) {
   const status = statusLine(item);
   const ratio = item.price ? Math.min(1, exchangeable / item.price) : 0;
   return <article className={`mall-card${item.is_goal ? ' is-goal' : ''}`}>
@@ -124,9 +124,9 @@ function ProductCard({item, exchangeable, onOpen, onGoal, busy}) {
       <span className="mall-card-title"><span>{item.name}</span><b>{fmt(item.price)}P</b></span>
     </button>
     <span className={`mall-bar ${status.ok ? 'ok' : 'short'}`} aria-hidden="true"><span style={{width: `${Math.round(ratio * 100)}%`}}/></span>
-    <span className={`mall-card-status${status.ok ? ' ok' : ''}`}>{status.text}</span>
-    {item.available && <button type="button" className={`mall-goal-button${item.is_goal ? ' on' : ''}`} aria-pressed={item.is_goal} disabled={busy}
-      onClick={() => item.is_goal ? onOpen(item) : onGoal(item)}>{item.is_goal ? '나의 목표' : '목표로 정하기'}</button>}
+    <span id={`product-status-${item.id}`} className={`mall-card-status${status.ok ? ' ok' : ''}`}>{status.text}</span>
+    <button type="button" className="primary mall-exchange-button" disabled={!item.can_exchange}
+      aria-describedby={`product-status-${item.id}`} onClick={() => onOpen(item)}>{item.can_exchange ? '교환하기' : '교환 불가'}</button>
   </article>;
 }
 
@@ -341,7 +341,7 @@ function CollabPage({api, onBack, onOpen}) {
 export default function RewardMall({api, me, onChanged, onTab, initialCategory, figure, figureLabel, deco, proPreview, ledger}) {
   const [category, setCategory] = useState(initialCategory || (me.exchange ? 'goods' : 'deco'));
   const [view, setView] = useState({kind: 'list'});
-  const [data, setData] = useState(null), [promos, setPromos] = useState([]), [error, setError] = useState(''), [busy, setBusy] = useState(false);
+  const [data, setData] = useState(null), [promos, setPromos] = useState([]), [error, setError] = useState('');
   const scroll = useRef(0);
   const load = useCallback(() => {
     if (!me.exchange) return;
@@ -366,10 +366,6 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
   const changed = () => { onChanged(); load(); };
   const openProduct = item => open(item.coach_id ? {kind: 'coach', id: item.coach_id} : {kind: 'product', id: item.id});
   const showCollab = promos.some(p => p.target === 'collab');
-  async function setGoal(item) {
-    setBusy(true); setError('');
-    try { await api('/rewards/goal', {ref: `product:${item.id}`}, 'PUT'); changed(); } catch (e) { setError(e.message); } finally { setBusy(false); }
-  }
   function openGoal(goal) {
     if (goal.product_id) openProduct({id: goal.product_id, coach_id: goal.coach_id});
     else setCategory('deco');
@@ -380,8 +376,8 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
   const items = (data?.items || []).filter(item => item.category === category);
   const tabs = [['deco', '꾸미기'], ['goods', '건강상품'], ['pro', '전문 코칭']];
   return <div className="mall-page">
-    <MallHeader me={me} figure={figure} figureLabel={figureLabel} onTab={onTab} onOpenGoal={openGoal}/>
     {me.exchange && <PromoSlider items={promos} onOpen={slide => slide.target === 'collab' ? open({kind: 'collab'}) : openProduct({id: slide.product_id})}/>}
+    <MallHeader me={me} figure={figure} figureLabel={figureLabel} onTab={onTab} onOpenGoal={openGoal}/>
     <div className="mall-layout">
       <section className="mall-main" aria-label="리워드 상품">
         <div className="mall-tabs" role="tablist" aria-label="리워드 종류">{tabs.map(([key, label]) =>
@@ -393,8 +389,8 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
           : !me.exchange ? <section className="mall-panel mall-soon"><h3>건강상품</h3><p>준비 중이에요. 제휴와 운영 기준이 확정되면 열려요.</p>
               <p className="mall-small">실물 교환은 가입 14일 이후, 한 달에 한 번 신청할 수 있게 준비하고 있어요. 가입 보너스·커뮤니티 포인트는 꾸미기에만 쓸 수 있어요.</p></section>
           : !data ? <p className="muted" role="status">상품을 불러오고 있어요…</p>
-          : <div className="mall-grid-v5">{items.map(item => <ProductCard key={item.id} item={item} exchangeable={data.conditions.exchangeable} busy={busy}
-              onOpen={openProduct} onGoal={setGoal}/>)}</div>}
+          : <div className="mall-grid-v5">{items.map(item => <ProductCard key={item.id} item={item} exchangeable={data.conditions.exchangeable}
+              onOpen={openProduct}/>)}</div>}
       </section>
       <MallSide me={me} conditions={category === 'goods' ? data?.conditions : null} showCollab={category === 'goods' && showCollab} onCollab={() => open({kind: 'collab'})}/>
     </div>

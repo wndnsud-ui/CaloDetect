@@ -1,5 +1,11 @@
 # 지방이 착용 이미지 제작 기록
 
+## 2026-10-26 탐험가 코스튬 시안
+
+- 사용자 선택: 탐험가 — 사파리 의상과 가방. 내장 `image_gen` 편집 모드, `transparent_background=true` 사용.
+- 입력: `frontend/public/jibang/lv5.png`. 출력: `frontend/public/jibang/clothing/explorer-lv5-concept.png`. 사용자 승인 가격 200P로 `costume_explorer`에 연결. 현재 LV.5 착용 이미지를 모든 레벨에서 공통 사용하며 기존 의상 이미지 fallback 방식으로 표시한다.
+- 프롬프트: Use case: identity-preserve. Transparent full-body CaloDetect Jibang explorer sprite. Preserve exact cream bean mascot, happy closed eyes, smiling mouth, pink cheeks, leaf sprout, raised right arm, feet, proportions and warm watercolor style with dark brown outlines. Dress in fitted sandy khaki short-sleeved safari shirt with two chest pockets, matching shorts, brown belt and small brown crossbody expedition satchel, sage accents. No hat; keep sprout clear. Bare hands and feet, curved seams and watercolor fabric folds. Remove background, hearts and sparkles. One centered full-body character, minimal transparent margins, genuinely transparent background, no text.
+
 2026-10-22 사용자 요청으로 제작. 내장 `image_gen`의 이미지 편집 모드와 `transparent_background=true`를 사용했다. 원본 몸 이미지는 보존하고 `frontend/public/jibang/clothing/`에 투명 PNG 11개를 추가했다.
 
 운동복은 정면·LV.1~5, 전용 의상은 착용 가능한 LV.3~5, 코스튬은 LV.4~5에 대응한다. `frontend/src/jibangClothing.js`가 이미지 경로를 관리한다. 옷을 벗기면 기존 레벨 이미지를 사용한다. 모자·안경·운동화·장식은 기존 SVG 오버레이를 재사용한다. 의상 미리보기에서 해당 레벨 변형이 없으면 최초 착용 가능한 레벨의 변형을 보여준다.

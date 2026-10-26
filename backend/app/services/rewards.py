@@ -37,19 +37,20 @@ ITEMS = (
     ('starter_hat', '기본 모자', 'deco', 'hat', 20, None, True, 'A', True),
     ('starter_shoes', '운동화', 'deco', 'shoes', 20, None, True, 'A', True),
     ('starter_bg', '기본 배경', 'background', 'background', 30, None, True, 'A', True),
-    ('prop_water', '물병 소품', 'deco', 'prop', 40, None, True, 'B', True),
-    ('prop_salad', '샐러드 볼 소품', 'deco', 'prop', 50, None, True, 'B', True),
-    ('prop_heart', '하트 쿠션', 'deco', 'prop', 60, None, True, 'B', True),
-    ('outfit_workout', '운동복 세트', 'deco', 'prop', 80, None, True, 'B', True),
-    ('season_set', '한정판 시즌 세트', 'deco', 'prop', 150, None, True, 'B', False),
-    ('protector', '연속 기록 보호권', 'protector', 'none', 30, None, True, 'B', True),
+    ('prop_water', '물병 소품', 'deco', 'prop', 4, None, True, 'B', True),
+    ('prop_salad', '샐러드 볼 소품', 'deco', 'prop', 5, None, True, 'B', True),
+    ('prop_heart', '하트 쿠션', 'deco', 'prop', 6, None, True, 'B', True),
+    ('outfit_workout', '운동복 세트', 'deco', 'prop', 8, None, True, 'B', True),
+    ('season_set', '한정판 시즌 세트', 'deco', 'prop', 15, None, True, 'B', False),
+    ('protector', '연속 기록 보호권', 'protector', 'none', 3, None, True, 'B', True),
     ('bg_lv1', '포근한 아침 방', 'background', 'background', None, 1, False, 'B', True),
     ('bg_lv2', '새싹 정원', 'background', 'background', None, 2, False, 'B', True),
     ('bg_lv3', '산책 공원', 'background', 'background', None, 3, False, 'B', True),
     ('bg_lv4', '텃밭 피크닉', 'background', 'background', None, 4, False, 'B', True),
     ('bg_lv5', '햇살 언덕', 'background', 'background', None, 5, False, 'B', True),
-    ('outfit_lv3', '전용 의상', 'deco', 'outfit', 150, None, True, 'B', True),
-    ('costume_lv4', '전용 코스튬', 'deco', 'outfit', 250, None, True, 'B', True),
+    ('outfit_lv3', '전용 의상', 'deco', 'outfit', 15, None, True, 'B', True),
+    ('costume_lv4', '전용 코스튬', 'deco', 'outfit', 25, None, True, 'B', True),
+    ('costume_explorer', '탐험가 코스튬', 'deco', 'outfit', 20, None, True, 'B', True),
     ('title_lv5', '건강 습관 칭호', 'deco', 'title', None, 5, False, 'B', True),
 )
 SLOTS = frozenset({'hat', 'glasses', 'ribbon', 'shoes', 'sticker', 'background', 'prop', 'outfit', 'title'})
@@ -114,9 +115,13 @@ def ensure_items(db):
                 level_required=level, sellable=sellable, stage=stage, asset_key=item_id, active=active,
                 sort_order=order)), db.flush()))
     # 코스튬 판매 전환을 기존 DB에도 반영하되 기존 소유권·구매 원장은 유지한다.
-    for item_id, name, price in [('outfit_lv3', '전용 의상', 150), ('costume_lv4', '전용 코스튬', 250)]:
+    for item_id, name, price in [('outfit_lv3', '전용 의상', 15), ('costume_lv4', '전용 코스튬', 25)]:
         item = db.get(Item, item_id)
         item.name, item.price, item.level_required, item.sellable = name, price, None, True
+    # 기존 DB에도 승인된 가격을 동기화하며 과거 구매 원장은 보존한다.
+    for item_id, _, kind, _, price, _, sellable, _, _ in ITEMS:
+        if sellable and kind in {'deco', 'protector'} and item_id not in DEFAULT_ITEMS:
+            db.get(Item, item_id).price = price
     # 기존 DB에도 기본 제공 정책을 적용하며 구매·포인트 원장은 보존한다.
     for item_id in DEFAULT_ITEMS:
         item = db.get(Item, item_id)
@@ -452,10 +457,8 @@ def grant_for_meal(db, user, meal):
 
 
 def first_meal_onboarding(db, user, meal, batch):
-    """첫 식단 기록 +10. 출시 전에 기록한 식단이 있는 기존 회원은 소급하지 않는다."""
-    start = settings.reward_onboarding_start_at
-    if start is not None and db.scalar(select(func.count()).select_from(Meal).where(
-            Meal.user_id == user.id, Meal.id != meal.id, Meal.created_at < start)):
+    """입력 경로·보상 이력과 무관하게 실제 첫 식단에만 지급한다."""
+    if db.scalar(select(Meal.id).where(Meal.user_id == user.id, Meal.id != meal.id).limit(1)):
         return
     grant_points(db, user.id, 'onboarding', settings.reward_onboarding_first_meal, 'onboarding:first_meal',
                  'meal', meal.id, batch)
@@ -1061,7 +1064,7 @@ def equip(db, user, slot, item_id):
     other_slot = 'outfit' if item_id == 'outfit_workout' else 'prop' if slot == 'outfit' else None
     if other_slot:
         other = db.get(Equipment, (user.id, other_slot))
-        if other and other.item_id in {'outfit_workout', 'outfit_lv3', 'costume_lv4'}:
+        if other and other.item_id in {'outfit_workout', 'outfit_lv3', 'costume_lv4', 'costume_explorer'}:
             db.delete(other)
     if row:
         row.item_id = item_id

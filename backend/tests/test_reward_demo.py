@@ -47,6 +47,32 @@ def test_guards(member, env):
         assert other.post('/dev/demo/rewards/reset', json={}).status_code == 403
 
 
+def test_streak_changes_without_reset(member):
+    client, engine, user = member
+    for days in (5, 14, 2, 0):
+        result = client.post('/dev/demo/rewards', json={'streak': days, 'xp': 1200, 'points': 200})
+        assert result.status_code == 200, result.text
+        assert result.json()['streak_days'] == days
+        assert result.json()['xp_total'] == 1200
+        assert client.get('/rewards/me').json()['streak']['days'] == days
+
+
+def test_demo_account_days_allows_exchange(member, monkeypatch):
+    client, engine, user = member
+    monkeypatch.setattr(settings, 'reward_exchange_enabled', True)
+    monkeypatch.setattr(settings, 'reward_exchange_global_monthly_cap', 5)
+    monkeypatch.setattr(settings, 'reward_exchange_min_account_days', 14)
+    monkeypatch.setattr(settings, 'oauth_state_secret', 'test-secret-for-coupon-encryption-0123456789')
+    data = client.post('/dev/demo/rewards', json={'points': 300, 'streak': 30, 'account_days': 0}).json()
+    assert data['exchange']['account_days_left'] == 14
+    payload = {'product_id': 'energy_bar', 'option': '오리지널 견과'}
+    assert client.post('/rewards/exchanges', json=payload).status_code == 403
+    data = client.post('/dev/demo/rewards', json={'points': 300, 'streak': 2, 'account_days': 14}).json()
+    assert data['streak_days'] == 2
+    assert data['exchange']['account_days_left'] == 0
+    assert client.post('/rewards/exchanges', json=payload).status_code == 201
+
+
 # 초기화는 교환 신청도 지우고 월 카운터를 되돌린다(교환을 다시 시험할 수 있게).
 def test_reset_clears_exchanges(member, monkeypatch):
     from datetime import timedelta

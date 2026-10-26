@@ -92,6 +92,25 @@ def test_t42_one_sentence_saves(env):
     assert history['image_urls'] and history['items'][0]['consumption_ratio'] == 0.5
 
 
+def test_chat_after_existing_meal_does_not_receive_first_meal_bonus(env, monkeypatch):
+    from backend.app.config import settings
+    client, engine, _ = env
+    account(client)
+    monkeypatch.setattr(settings, 'reward_onboarding_start_at', None)
+    monkeypatch.setattr(settings, 'reward_enabled', False)
+    direct = client.post('/meals', json={'meal_type': 'breakfast',
+        'items': [{'class_id': 0, 'serving_multiplier': 1}]})
+    assert direct.status_code == 201, direct.text
+    monkeypatch.setattr(settings, 'reward_enabled', True)
+    conversation = start(client)
+    photo(client, conversation)
+    say(client, conversation, '다 먹었어 올려줘')
+    saved = next(m for m in meals(engine) if m.chat_attachment_id)
+    grant = client.get(f'/rewards/grants?meal_id={saved.id}').json()
+    assert grant['first_meal'] is False
+    assert all(row['key'] != 'onboarding:first_meal' for row in grant['items'])
+
+
 # T43: 비율만 → 저장 안 됨, 이어서 "올려줘" / "맞아 올려줘"는 100%.
 def test_t43_ratio_then_confirm(env):
     client, engine, _ = env

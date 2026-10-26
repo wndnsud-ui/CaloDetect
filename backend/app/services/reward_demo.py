@@ -24,6 +24,12 @@ def seed(db, user, points=200, xp=1200, streak=5, protectors=1):
     rewards.ensure_items(db)
     rewards.account(db, user.id)
     today = rewards.today()
+    # 이전 더미 날짜만 교체한다. 실제 식단·XP 기록은 보존한다.
+    db.execute(delete(RewardXpEvent).where(RewardXpEvent.user_id == user.id,
+        RewardXpEvent.idem_key.like('demo:meal:%')))
+    db.execute(delete(RewardXpEvent).where(RewardXpEvent.user_id == user.id,
+        RewardXpEvent.idem_key.like('demo:xp:%')))
+    db.flush()
     for offset in range(1, streak + 1):
         day = today - timedelta(days=offset)
         rewards.grant_xp(db, user.id, 'meal', 10, f'demo:meal:{day.isoformat()}', day, 'demo', None)
@@ -119,9 +125,12 @@ def seed_v13(db, user, coaching=False):
 
 
 def summary(db, user, reached):
+    from ..config import settings
+    from . import reward_exchange
     row = rewards.refresh_cache(db, user.id)
     info = rewards.balance_info(db, user.id)
     protector = db.get(RewardUserItem, (user.id, 'protector'))
     return {'balance': info['balance'], 'deco_only': info['deco_only'], 'xp_total': row.xp_total_cache, 'level': row.level,
             'new_levels': reached, 'streak_days': rewards.streak_info(db, user)['days'],
-            'protectors': protector.quantity if protector else 0}
+            'protectors': protector.quantity if protector else 0,
+            'exchange': reward_exchange.conditions(db, user) if settings.reward_exchange_active else None}

@@ -85,8 +85,10 @@ function CoachingPreview() {
 function Mall({api, me, catalog, onChanged, onTab, initialCategory}) {
   const [buying, setBuying] = useState(null), [ledger, setLedger] = useState(null);
   // 방 배경은 레벨(XP) 보상이라 몰에서 팔지 않는다. 적용은 지방이 성장 > 내 방 꾸미기에서 한다.
-  const items = catalog.items.filter(item => item.slot !== 'background' &&
-    (item.sellable || item.default_provided || item.slot === 'outfit'));
+  const items = catalog.items.filter(item => !['starter_sticker', 'starter_hat'].includes(item.id) && item.slot !== 'background' &&
+    (item.sellable || item.default_provided || item.slot === 'outfit'))
+    .sort((a, b) => (a.default_provided ? 0 : a.price ?? Infinity) -
+      (b.default_provided ? 0 : b.price ?? Infinity));
   const [equipping, setEquipping] = useState(false), [equipError, setEquipError] = useState('');
   // 미리 입어보기: 카드 그림을 누르면 위쪽 '내 지방이'에만 잠깐 입혀 본다. 저장하지 않는다.
   const [trying, setTrying] = useState(null);
@@ -112,7 +114,7 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory}) {
   const figureLabel = trying ? <><b>{trying.name} 미리보기</b><button type="button" className="text-button" onClick={() => setTrying(null)}>되돌리기</button></>
     : <><b>내 {CHARACTER_NAME}</b><small>바로 적용하면 여기 보여요</small></>;
   const deco = <>
-    <div className="mall-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
+    <div className="mall-grid mall-deco-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
       {tryable(item) ? <button type="button" className={`mall-try${trying?.id === item.id ? ' is-trying' : ''}`} aria-pressed={trying?.id === item.id}
         aria-label={`${item.name} 내 ${CHARACTER_NAME}에게 미리 입어보기`} onClick={() => setTrying(current => current?.id === item.id ? null : item)}>
         <ItemPreview item={item} equipment={{}} level={me.level}/></button>

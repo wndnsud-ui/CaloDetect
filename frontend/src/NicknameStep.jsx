@@ -22,7 +22,6 @@ export default function NicknameStep({api, onDone, allowClose = false}) {
   }
   return <div className="reward-overlay" role="dialog" aria-modal="true" aria-labelledby="nickname-step-title">
     <form className="nickname-step" onSubmit={save}>
-      <p className="nickname-progress">2/2 · 닉네임</p>
       <h2 id="nickname-step-title">랭킹에서 불릴 닉네임을 정해 주세요</h2>
       <p className="muted">나중에 마이페이지에서 바꿀 수 있어요</p>
       <div className="nickname-hello"><JibangFigure width={96} label={CHARACTER_NAME}/><p className="jb-bubble static">반가워, {value.trim() || '…'}!</p></div>

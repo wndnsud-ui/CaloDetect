@@ -102,6 +102,7 @@
 .mall-card-status{font-size:12px;font-weight:700;color:var(--m-sub)}.mall-card-status.ok{color:#16805C}
 .mall-goal-button{min-height:44px;border-radius:12px;font-size:13px;font-weight:700;border:1px solid #DCE3D8;background:#fff;color:var(--m-ink);cursor:pointer}
 .mall-goal-button.on{border-color:var(--m-main);background:var(--m-main);color:#fff}
+.mall-exchange-button:disabled{background:#E6EBE7;color:#78877D;box-shadow:none;cursor:not-allowed;opacity:1}
 .mall-collab-banner{display:flex;flex-direction:column;gap:6px;text-align:left;border:0;border-radius:20px;padding:16px 18px;background:linear-gradient(120deg,#3F2D24,#6B4A32);color:#F7EBD2;cursor:pointer;font:inherit}
 .mall-collab-banner b{font-size:15px;line-height:1.4}.mall-collab-banner span:last-child{font-size:12px}
 .mall-cheer{display:flex;align-items:center;gap:10px;background:var(--m-soft);border-radius:14px;padding:8px 10px}

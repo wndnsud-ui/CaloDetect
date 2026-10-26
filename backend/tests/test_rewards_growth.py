@@ -127,6 +127,27 @@ def test_weekly_mission(member):
         assert 'weekly:2026-W43' in lots(engine, late['id'])
 
 
+def test_late_signup_and_demo_streak_explain_62_points(member):
+    from backend.app.models import User
+    from backend.app.services import reward_demo, reward_rules as rules
+    client, engine, user, mp = member
+    sunday = NOON.replace(month=11, day=29)
+    day = clock(mp, sunday)
+    pin_signup(engine, user['id'], sunday)
+    with Session(engine) as db:
+        reward_demo.seed(db, db.get(User, user['id']), points=0, xp=20, streak=2, protectors=0)
+        db.commit()
+    assert rules.weekly_required_days(day, rules.week_monday(day)) == 1
+    assert rules.monthly_required_days(day, day) == 1
+    meal = save(client, 'lunch', day, photo(engine, user['id']))
+    grant = client.get(f'/rewards/grants?meal_id={meal["id"]}').json()
+    assert (grant['total_points'], grant['total_xp']) == (62, 30)
+    assert {row['key']: row['points'] for row in grant['items']} == {
+        f'meal:{day}:lunch': 2, 'onboarding:first_meal': 10,
+        f'streak3:{day}': 5, f'weekly:{rules.iso_week_key(day)}': 15,
+        f'monthly:{rules.month_key(day)}': 30}
+
+
 # 23. XP 모드: 반응 XP(추천 10·누르기 2), 받기 일 상한, 공유 +1P·+10XP 하루 1회, 랭킹 제외.
 def test_community_xp_mode(member):
     client, engine, user, mp = member

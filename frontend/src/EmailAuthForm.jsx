@@ -1,6 +1,6 @@
 // 로그인/회원가입 이메일 폼. 서버 가입 정책에 맞춰 이름·만 나이·필수 동의 항목을 표시한다.
 // 요청 처리는 상위 onSubmit에 맡기고 비밀번호 찾기 화면을 함께 제공한다.
-import React, {useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {ForgotPassword} from './PasswordTools';
 import {readRememberedEmail, saveRememberedEmail} from './rememberedEmail';
 
@@ -9,6 +9,13 @@ export default function EmailAuthForm({signup, policy, busy, onSubmit, api}) {
   const [loginEmail, setLoginEmail] = useState(readRememberedEmail);
   const [signupEmail, setSignupEmail] = useState('');
   const [rememberEmail, setRememberEmail] = useState(() => !!readRememberedEmail());
+  // 가입 때만 비밀번호 확인 칸을 두고, 다르면 브라우저 검증으로 제출을 막는다. 확인 값은 서버로 보내지 않는다.
+  const [password, setPassword] = useState(''), [passwordConfirm, setPasswordConfirm] = useState('');
+  const confirmRef = useRef(null);
+  // 로그인↔가입 탭을 바꾸면 이전처럼 비밀번호 입력을 비운다.
+  useEffect(() => { setPassword(''); setPasswordConfirm(''); }, [signup]);
+  const mismatch = signup && passwordConfirm !== '' && password !== passwordConfirm;
+  useEffect(() => { confirmRef.current?.setCustomValidity(mismatch ? '비밀번호가 일치하지 않아요.' : ''); }, [mismatch, signup]);
   return <><form key={signup ? 'signup' : 'login'} className="panel auth-panel" onSubmit={onSubmit}>
     <h3>{signup ? '이메일로 회원가입' : '이메일로 로그인'}</h3>
     {signup && policy?.local_test_mode && <p className="notice" role="status">로컬 테스트 가입이 활성화되었습니다. 테스트용 이름과 이메일로 가입해 주세요.</p>}
@@ -21,7 +28,12 @@ export default function EmailAuthForm({signup, policy, busy, onSubmit, api}) {
         value={signup ? signupEmail : loginEmail}
         onChange={e => signup ? setSignupEmail(e.target.value) : setLoginEmail(e.target.value)}/></label>
       <label>비밀번호<input name="password" type="password" required minLength="8" maxLength="128"
-        autoComplete={signup ? 'new-password' : 'current-password'}/></label>
+        autoComplete={signup ? 'new-password' : 'current-password'} value={password} onChange={e => setPassword(e.target.value)}/></label>
+      {signup && <><label>비밀번호 확인<input ref={confirmRef} name="password_confirm" type="password" required minLength="8" maxLength="128"
+        autoComplete="new-password" aria-invalid={mismatch} aria-describedby="password-confirm-status"
+        value={passwordConfirm} onChange={e => setPasswordConfirm(e.target.value)}/></label>
+        <p id="password-confirm-status" className={mismatch ? 'error' : 'muted'} role="status">
+          {mismatch ? '비밀번호가 일치하지 않아요.' : passwordConfirm && password === passwordConfirm ? '비밀번호가 일치해요.' : ''}</p></>}
       {!signup && <label className="check"><input name="remember_email" type="checkbox"
         checked={rememberEmail} onChange={e => {
           setRememberEmail(e.target.checked);

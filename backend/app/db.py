@@ -3,11 +3,12 @@
 from functools import lru_cache
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import NullPool
 from fastapi import HTTPException
 from .config import settings
 
 
-# PostgreSQL psycopg URL을 검사하고 연결 확인·3초 연결 제한을 설정한 재사용 엔진을 만든다.
+# PostgreSQL psycopg URL을 검사하고 pooler 방식에 맞는 연결 설정으로 재사용 엔진을 만든다.
 # 엔진과 연결 풀을 요청마다 새로 만들지 않도록 최초 생성 결과를 재사용한다.
 @lru_cache
 def get_engine():
@@ -15,9 +16,14 @@ def get_engine():
         raise RuntimeError('DATABASE_URL is not configured')
     if not settings.database_url.startswith('postgresql+psycopg://'):
         raise RuntimeError('PostgreSQL psycopg URL is required')
-    # pool_pre_ping으로 재사용 연결의 생존을 확인하며 실제 연결 대기는 3초로 제한한다.
-    return create_engine(settings.database_url, pool_pre_ping=True,
-                         connect_args={'connect_timeout': 3})
+    connect_args = {'connect_timeout': settings.db_connect_timeout}
+    # transaction pooler(6543)는 연결을 트랜잭션마다 바꾸므로 앱 풀과 prepared statement를 쓰지 않는다.
+    if settings.db_pool_mode == 'transaction':
+        return create_engine(settings.database_url, poolclass=NullPool,
+                             connect_args={**connect_args, 'prepare_threshold': None})
+    # session pooler(5432)·로컬 DB는 작은 풀을 재사용하고 pool_pre_ping으로 끊긴 연결을 걸러낸다.
+    return create_engine(settings.database_url, pool_pre_ping=True, pool_size=2, max_overflow=3,
+                         connect_args=connect_args)
 
 
 # DB 연결을 열어 SELECT 1로 실제 응답 여부를 확인한 뒤 연결을 닫는다.

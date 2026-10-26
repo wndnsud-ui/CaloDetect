@@ -2,6 +2,8 @@
 
 리워드몰 구현 업데이트(`7f47570`)를 받은 경우 [리워드몰 DB 마이그레이션 실행 가이드](REWARD_MALL_MIGRATION_GUIDE.md)를 먼저 확인하세요. Docker/로컬 Python 방식별 적용·백업·revision 확인 절차를 안내합니다.
 
+팀 공유 Supabase DB를 쓰는 경우 이 문서 대신 [Supabase 공유 DB 가이드](SUPABASE_SHARED_DB_GUIDE.md)를 따릅니다. 고정 테스트·관리자 계정 자동 생성과 migration은 공유 DB에서 실행하지 않습니다.
+
 각 팀원은 자기 PC의 Docker PostgreSQL에 개발용 계정을 만들어 테스트합니다. 혜영님 PC나 로그인 상태에 의존하지 않습니다. 이메일과 비밀번호가 같아도 계정·식단·포인트·쿠폰은 PC별로 별개입니다. Git pull은 코드만 받으며 다른 사람의 DB 데이터를 가져오지 않습니다.
 
 Windows PowerShell 기준입니다. 명령은 자신의 **CaloDetect 프로젝트 루트**에서 실행합니다. 최초 설치는 [README](../../README.md#새-웹-환경-실행--팀원용-간편-설치), 서버 재실행은 [로컬 실행 가이드](../../CaloDetect_로컬_실행가이드.md)를 참고하세요.

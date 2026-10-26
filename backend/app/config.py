@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ROOT / '.env', extra='ignore')
     # 서버 전용 PostgreSQL URL. 비공개 .env에서 읽으며 클라이언트 응답에 노출하지 않는다.
     database_url: str | None = None
+    # Supabase pooler 방식. session(5432)은 연결 풀 재사용, transaction(6543)은 NullPool·prepared statement 비활성.
+    db_pool_mode: Literal['session', 'transaction'] = 'session'
+    # 원격 DB 연결 대기 초. 로컬 3초는 원격 pooler에 짧다.
+    db_connect_timeout: int = Field(default=10, ge=1, le=120)
+    # 시작 시 migration·seed 실행 여부. 공유 DB를 쓰는 팀원은 false로 두고 담당자 1명만 migration을 실행한다.
+    run_migrations_on_start: bool = True
     # development/production 구분. 테스트 플래그만으로 운영 환경의 제한을 해제하지 않는다.
     app_env: Literal['development', 'production'] = 'production'
     # 명시적인 로컬 가입 테스트 허용 플래그. loopback 환경/요청 검사도 통과해야 한다.

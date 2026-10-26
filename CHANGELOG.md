@@ -2,6 +2,13 @@
 
 ## 2026-10-26
 
+- 사용자 요청: Supabase 공유 DB 전환 지시서에 따라 Backend를 공유 Supabase PostgreSQL(서울, Session pooler 5432) 대응으로 수정. `DB_POOL_MODE`(session: pre_ping·pool 2+3 / transaction: NullPool·prepare_threshold=None), `DB_CONNECT_TIMEOUT`(기본 10초, 기존 3초), `RUN_MIGRATIONS_ON_START`(false면 start.py가 migration·seed·고정 테스트 계정 생성을 건너뜀) 추가. migration `20261026_01`로 PostgreSQL public 스키마 전 테이블 RLS 활성화(정책 없음, Data API 노출 차단, SQLite 미실행). 공유 DB migration은 담당자 1명이 develop merge 후에만 실행. 로컬 Docker DB volume·데이터는 삭제하지 않음.
+- Supabase 적용: 연결 확인 → current 비어 있음 → upgrade head → 음식 150·리워드 아이템 seed → 40개 테이블 전부 RLS 켜짐, current `20261026_01 (head)` 확인. 고정 테스트·관리자 계정은 공유 DB에 생성하지 않음.
+- 검증: SQLite Backend 테스트 276통과·10제외·7실패. 7실패(커뮤니티 3·추천 3·community_mirror 1)는 변경 전 코드에서도 동일하게 실패하며 개인 `.env`의 커뮤니티 포인트·추천·XP 모드 설정 차이에 따른 기존 현상. `RUN_POSTGRES_TESTS`는 공유 DB에서 실행하지 않음.
+- 사용자 결정: 공유 DB에 리워드 테스트용 `test@calodetect.local` 계정 생성(팀 공용, 더미 실행·초기화가 전원에게 반영). 리워드 테스트 페이지 활성(`/api/dev/demo/status` enabled·test_account 확인). 사용자 요청으로 관리자 `admin@calodetect.local`도 Docker와 동일하게 생성(role admin, 로그인 확인). 두 계정 비밀번호는 공개 개발값이므로 공유 DB 접속 정보 관리 필요. 공유 DB에서는 `setup_local.ps1`을 실행하지 않고 uvicorn만 실행.
+- 사용자 요청: develop 직접 반영(이번 업로드 한정 승인)과 팀원용 `CaloDetect_Supabase_팀원_실행가이드.md` 추가. Docker 없이 `.env` 설정·서버 3개 실행·공용 테스트/관리자 계정·금지 규칙·사진 제약·로컬 DB 복귀 절차 안내. 가이드의 기능 설정 값은 현재 담당자 `.env` 기준 개발값이며 운영값이 아님. 비밀값은 1:1 전달.
+- 남은 과제: 사진은 업로드한 PC에만 저장되어 다른 PC에서 보이지 않음(Supabase Storage 이전 미정).
+
 - 후속 확인: v13/v13 코칭 더미는 물병 소품·하트 쿠션의 예시 구매·소유권을 생성하므로 직접 구매하지 않아도 '바로 적용하기'가 표시될 수 있음을 팀원 테스트 가이드에 명시. 코드·DB 변경 없음. 팀원별 로컬 DB는 독립이며 랭킹은 이번 주 양수 기록 XP만 집계한다는 기존 동작 확인. 로컬 소셜 인증 ConnectError는 Backend 실행 환경의 외부 통신 권한 조정으로 해결했으며 키·개인 설정은 업로드하지 않음.
 
 - 업로드 묶음: 사용자 요청 제목 '검토사항1023 1번~10번'으로 develop 반영. 주요 기능 소개·리워드몰 DB 안내 문서 포함 승인. 소개의 꾸미기 예시도 인하된 최저 유료 가격 3P에 맞춤. 개인 환경·DB·로그·원본 ZIP 제외.

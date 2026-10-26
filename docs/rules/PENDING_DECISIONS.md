@@ -50,6 +50,7 @@
 | 가입 동의 | SERVICE_CONSENT_DRAFT는 미승인 초안. SERVICE_CONSENT_TEXT 운영 확정 필요 |
 | 사진·계정·닉네임·해시·백업 보관 | 운영 저장 위치·기간·탈퇴·삭제·권리 행사 절차 TBD |
 | 배포 | 대상·비밀키 관리·운영 OAuth/SMTP·공통 요청 제한·모니터링 최종 결정 필요 |
+| 공유 DB 사진 저장 | Supabase 공유 DB 전환 후에도 사진 파일은 업로드한 PC에만 저장. Supabase Storage 이전 여부·버킷 권한·보관기간 TBD |
 | 외부 LLM | 현재 미사용. 추후 도입은 별도 범위·승인 |
 
 ## 미결에서 제외된 결정

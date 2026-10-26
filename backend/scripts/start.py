@@ -2,18 +2,21 @@
 import subprocess
 import sys
 
+from backend.app.config import settings
 from backend.scripts.seed_local_test_account import local_test_account_enabled
 
-# 같은 Python으로 migration 후 음식 seed를 순서대로 실행한다. check=True라 준비 실패 시 서버를 시작하지 않는다.
-for command in [
-    [sys.executable, '-m', 'alembic', '-c', 'backend/alembic.ini', 'upgrade', 'head'],
-    [sys.executable, '-m', 'backend.scripts.seed_foods'],
-    [sys.executable, '-m', 'backend.scripts.seed_reward_items'],
-]:
-    subprocess.run(command, check=True)
-if local_test_account_enabled():
-    subprocess.run([sys.executable, '-m', 'backend.scripts.seed_local_test_account'], check=True)
-    subprocess.run([sys.executable, '-m', 'backend.scripts.seed_local_admin'], check=True)
+# 공유 DB(RUN_MIGRATIONS_ON_START=false)는 담당자가 migration·seed를 따로 실행하므로 서버만 띄운다.
+if settings.run_migrations_on_start:
+    # 같은 Python으로 migration 후 음식 seed를 순서대로 실행한다. check=True라 준비 실패 시 서버를 시작하지 않는다.
+    for command in [
+        [sys.executable, '-m', 'alembic', '-c', 'backend/alembic.ini', 'upgrade', 'head'],
+        [sys.executable, '-m', 'backend.scripts.seed_foods'],
+        [sys.executable, '-m', 'backend.scripts.seed_reward_items'],
+    ]:
+        subprocess.run(command, check=True)
+    if local_test_account_enabled():
+        subprocess.run([sys.executable, '-m', 'backend.scripts.seed_local_test_account'], check=True)
+        subprocess.run([sys.executable, '-m', 'backend.scripts.seed_local_admin'], check=True)
 
 # 모든 준비가 성공한 후 컨테이너 외부 연결을 받을 0.0.0.0:8000에서 API를 실행한다.
 subprocess.run([sys.executable, '-m', 'uvicorn', 'backend.app.main:app',

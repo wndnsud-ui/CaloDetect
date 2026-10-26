@@ -1,5 +1,7 @@
 # CaloDetect · 칼로디텍트
 
+> **팀 공유 DB(Supabase)로 실행하기:** [Supabase 팀원 실행 가이드](CaloDetect_Supabase_팀원_실행가이드.md). Docker 없이 `.env` 설정과 서버 3개 실행으로 바로 테스트합니다.
+
 ## 커뮤니티 서비스 개발 · 전체 소스와 구현지시서
 
 커뮤니티 및 챗봇을 포함한 전체 프로젝트 소스는 `develop` 브랜치에 있습니다. GitHub 기본 `main` 화면과 개발 브랜치의 내용은 다를 수 있으므로 `develop`을 선택해 확인하세요.
@@ -516,7 +518,7 @@ PASSWORD_RESET_SECRET=32자이상의무작위서버비밀키
 docker compose up --build -d
 ```
 
-이 구성은 PostgreSQL과 Backend만 실행합니다. Frontend는 위 npm 개발 명령으로 별도 실행합니다. `GET /health/database`로 DB 연결을 확인할 수 있습니다. `docker compose down`은 컨테이너만 중지하며 고정 저장 volume은 유지합니다. 다른 PC와 데이터를 공유하려면 별도 운영 PostgreSQL이 필요하며 로컬 Docker DB는 GitHub에 업로드되지 않습니다. 운영 배포 구성은 [DEPLOYMENT.md](docs/operations/DEPLOYMENT.md)를 참고하세요.
+이 구성은 PostgreSQL과 Backend만 실행합니다. Frontend는 위 npm 개발 명령으로 별도 실행합니다. `GET /health/database`로 DB 연결을 확인할 수 있습니다. `docker compose down`은 컨테이너만 중지하며 고정 저장 volume은 유지합니다. 다른 PC와 데이터를 공유하려면 별도 운영 PostgreSQL이 필요하며 로컬 Docker DB는 GitHub에 업로드되지 않습니다. 팀 공유 Supabase DB 접속·migration 담당 규칙은 [Supabase 공유 DB 가이드](docs/operations/SUPABASE_SHARED_DB_GUIDE.md)를 따릅니다(공유 DB 팀원은 `RUN_MIGRATIONS_ON_START=false`). 운영 배포 구성은 [DEPLOYMENT.md](docs/operations/DEPLOYMENT.md)를 참고하세요.
 
 ## 검사
 

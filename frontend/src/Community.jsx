@@ -158,7 +158,9 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
   const selected=eligible?.find(m=>m.meal_id===meal);
   return <div className="community-page"><div className="community-heading"><div><p className="community-eyebrow">TOGETHER, A BETTER MEAL</p><h1>커뮤니티</h1><p>오늘의 한 끼를 나누고, 함께 건강해져요.</p></div><div className="community-mobile-chips"><button onClick={()=>setSheet('points')}>{number(points?.balance)} P</button><button onClick={()=>{setSheet('ranking');refreshRank();}}>이번 주 {rank?.me.rank?`${rank.me.rank}위`:'집계 전'}</button></div></div>
     {error&&<p className="community-error" role="alert">{error}</p>}{toast&&<p className="community-toast" role="status">{toast}</p>}
-    <div className="community-layout"><section className="community-feed" aria-label="식단 공유 피드"><div className="community-tabs" role="group" aria-label="피드 선택"><button aria-pressed={!mine} className={!mine?'selected':''} onClick={()=>setMine(false)}>전체</button><button aria-pressed={mine} className={mine?'selected':''} onClick={()=>setMine(true)}>내 게시물</button></div>
+    {/* 탭을 격자·사이드바 위 별도 줄에 두어 카드 윗변과 포인트 패널 윗변을 맞춘다. */}
+    <div className="community-tabs" role="group" aria-label="피드 선택"><button aria-pressed={!mine} className={!mine?'selected':''} onClick={()=>setMine(false)}>전체</button><button aria-pressed={mine} className={mine?'selected':''} onClick={()=>setMine(true)}>내 게시물</button></div>
+    <div className="community-layout"><section className="community-feed" aria-label="식단 공유 피드">
       {items.length>0&&<div className="community-grid">{items.map(post=><Post key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)}/>)}</div>}
       {loading&&<p className="community-empty" role="status">식단을 불러오는 중이에요.</p>}{!loading&&!items.length&&<div className="community-empty"><span>♧</span><h2>{mine?'아직 공유한 식단이 없어요':'첫 번째 한 끼를 나눠 주세요'}</h2><p>나의 식단이 누군가에게 좋은 영감이 될 수 있어요.</p><button onClick={openShare}>식단 공유하기</button></div>}
       {!loading&&cursor&&<button className="community-more" onClick={()=>loadFeed(true)}>더 보기</button>}</section>

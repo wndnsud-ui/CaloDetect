@@ -31,3 +31,4 @@
 .community-meal-line .community-nutrition b{color:#38734f}.community-meal-line>span:last-child{flex:none;color:#8a968e}
 .community-card .community-food-list{padding:6px 8px 0;font-size:11px}.community-card .community-food-list li{padding:3px 0}
 .community-card .community-reactions{gap:14px;padding-top:6px}.community-card .community-reaction>span{font-size:17px}
+@media(max-width:700px){.community-page>.community-tabs{padding:0 12px}}

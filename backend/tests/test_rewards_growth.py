@@ -173,10 +173,10 @@ def test_community_xp_mode(member):
         assert sorted(v for k, v in xps(engine, fan['id']).items() if k.endswith(':given')) == [2, 2]
         assert not any(k.startswith('reaction:') for k in lots(engine, user['id']))
         ranking = other.get('/rewards/ranking').json()
-        assert ranking['me']['rank'] is None and ranking['me']['xp'] == 0
+        assert ranking['me']['rank'] is None and ranking['me']['points'] == 0
 
 
-# 24·26-5. 랭킹: 반응·공유 XP 제외, 동점 동순위, 주 경계(KST 월요일), 응답 필드는 rank·nickname·xp·is_me뿐.
+# 주간 적립 포인트 랭킹: 동점 동순위, KST 주 경계, 환불·조정·더미와 XP 제외.
 @pytest.mark.parametrize('spent', [False, True])
 def test_delete_post_reclaims_share_points_once(member, spent):
     from backend.app.models_rewards import RewardPointLot as Lot, RewardDebt as Debt
@@ -214,13 +214,28 @@ def test_ranking(member):
             for uid in (user['id'], rival['id']):
                 service.grant_xp(db, uid, 'meal', 30, 'w', day)
                 service.grant_xp(db, uid, 'meal', 99, 'old', date(2026, 10, 18))
+                service.grant_points(db, uid, 'meal', 12, 'ranking-meal')
+                service.grant_points(db, uid, 'community', 1, 'ranking-share')
+                old = service.grant_points(db, uid, 'meal', 99, 'ranking-old')
+                old.earned_at = service.day_start(date(2026, 10, 18))
+                service.grant_points(db, uid, 'adjust', 500, 'ranking-adjust')
+                service.grant_points(db, uid, 'refund', 200, 'ranking-refund')
+                service.grant_points(db, uid, 'meal', 300, 'demo:ranking')
             service.grant_xp(db, rival['id'], 'reaction_received', 50, 'r', day, ranking=False)
             db.commit()
         data = client.get('/rewards/ranking').json()
-    assert [i['rank'] for i in data['items']] == [1, 1] and {i['xp'] for i in data['items']} == {30}
+    assert [i['rank'] for i in data['items']] == [1, 1] and {i['points'] for i in data['items']} == {13}
     for item in data['items']:
-        assert set(item) == {'rank', 'nickname', 'xp', 'is_me'} and item['nickname']
+        assert set(item) == {'rank', 'nickname', 'points', 'is_me'} and item['nickname']
     assert data['me']['is_me'] and data['week_start'] == '2026-10-19'
+    # 사용자 결정(2026-10-26): XP 랭킹은 성장 화면의 이번 주 XP와 같다 — 반응 XP(ranking=False로 기록된 것)도 포함.
+    xp_rank = client.get('/rewards/ranking?metric=xp').json()
+    assert [i['rank'] for i in xp_rank['items']] == [1, 2]
+    assert [i['xp'] for i in xp_rank['items']] == [80, 30]
+    week_xp = sum(d['xp'] for d in client.get('/rewards/growth').json()['week'])
+    assert xp_rank['me']['xp'] == week_xp == 30
+    assert all('points' not in i for i in xp_rank['items'])
+    assert client.get('/rewards/ranking?metric=invalid').status_code == 422
     text = str(data)
     assert 'Tester' not in text and 'rival@example.com' not in text
 

@@ -62,3 +62,6 @@
 /* ?? ??? ?? ?? ?? ??? ????. */
 .hd-hero--overview{grid-template-columns:1fr}
 @media(min-width:1201px){.hd-hero--overview .hd-stats{max-width:790px}.hd-hero--overview .hd-room{width:320px;height:300px;right:20px}.home-dashboard .hd-hero--overview h1,.hd-hero--overview .hd-intro{max-width:calc(100% - 350px)}}
+/* 넓은 화면: 지방이 방을 히어로 오른쪽 세로 가운데에 조금 크게(사용자 요청 2026-10-26). 좁은 화면은 위 배치 유지. */
+@media(min-width:1500px){.hd-hero--overview .hd-room{top:50%;bottom:auto;right:70px;width:340px;height:380px;transform:translateY(-50%)}
+  .home-dashboard .hd-hero--overview h1,.hd-hero--overview .hd-intro{max-width:calc(100% - 430px)}}

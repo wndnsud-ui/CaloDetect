@@ -2,8 +2,8 @@
 import React, {useEffect, useState} from 'react';
 import { readApiResponse } from './apiResponse';
 
-// 소개 페이지의 계정 진입 영역. 현재 세션을 조회해 회원 환영/계정 버튼 또는 로그인·가입 진입 버튼을 표시한다.
-export default function LandingAccount({onOpen}) {
+// 소개 페이지의 세션 조회. 계정 영역과 히어로 버튼이 같은 결과를 쓰도록 Landing에서 한 번 호출한다.
+export function useLandingSession() {
   const [session,setSession]=useState({loading:true,user:null,error:false});
   // 의존값 변경/마운트에 맞춰 외부 데이터 또는 브라우저 자원을 동기화한다. 반환하는 정리 함수는 이전 작업/자원을 해제한다.
   useEffect(()=>{
@@ -26,6 +26,11 @@ export default function LandingAccount({onOpen}) {
     refresh();window.addEventListener('focus',refresh);
     return()=>{active=false;window.removeEventListener('focus',refresh);};
   },[]);
+  return session;
+}
+
+// 소개 페이지의 계정 진입 영역. 회원 환영/계정 버튼 또는 로그인·가입 진입 버튼을 표시한다.
+export default function LandingAccount({onOpen,session}) {
   if(session.loading)return <div className="header-actions"><span role="status">로그인 확인 중…</span></div>;
   return <div className="header-actions landing-account">
     {session.user?<><span className="welcome-message">{session.user.name}님 환영합니다</span><button className="primary" onClick={()=>onOpen('마이페이지')}>내 계정</button></>:

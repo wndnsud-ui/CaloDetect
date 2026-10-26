@@ -2,7 +2,7 @@
 import React, {useEffect, useState} from 'react';
 import {PromoSlider} from './RewardMall';
 import {Brand} from './Visuals';
-import LandingAccount from './LandingAccount';
+import LandingAccount, {useLandingSession} from './LandingAccount';
 import FeatureSection from './FeatureSection';
 const steps = [
   ['01','회원가입','기본 정보를 설정해요.','회원가입','phone'],
@@ -37,7 +37,7 @@ function HowSection({onOpen}) {
 </div></section>;
 }
 // 서비스 소개 페이지. 브랜드·기능·가입 안내를 표시하고 선택한 메뉴를 회원 앱 진입 콜백으로 전달한다.
-export default function Landing({onOpen}) {return <div className="landing"><header className="landing-header"><Brand onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}/><nav aria-label="홈페이지 메뉴"><a href="#service">서비스 소개</a><a href="#features">주요 기능</a><a href="#how">이용 방법</a><a href="#faq">FAQ</a></nav><LandingAccount onOpen={onOpen}/></header><main className="landing-main"><section className="landing-hero hero-with-background" id="service"><div className="hero-copy"><span className="pill">매일의 식사를 위한 파트너</span><h1>오늘 뭐 먹지?<br/>데이터로 해결하다<span>.</span></h1><p>사진 한 장으로 시작하는 식단 기록,<br/>나의 영양 상태에 맞는 다음 한 끼.<br/>건강한 식사 습관을 CaloDetect와 함께하세요.</p><div className="hero-actions"><button className="primary" onClick={()=>onOpen('음식 추가')}>내 식단 기록 시작하기 →</button><button className="outline" onClick={()=>onOpen('홈')}>웹앱 둘러보기</button></div><small>음식 조회와 목표 계산부터 경험해보세요.</small></div></section><FeatureSection onOpen={onOpen}/>
+export default function Landing({onOpen}) {const session=useLandingSession();const member=!!session.user;return <div className="landing"><header className="landing-header"><Brand onClick={()=>window.scrollTo({top:0,behavior:'smooth'})}/><nav aria-label="홈페이지 메뉴"><a href="#service">서비스 소개</a><a href="#features">주요 기능</a><a href="#how">이용 방법</a><a href="#faq">FAQ</a></nav><LandingAccount onOpen={onOpen} session={session}/></header><main className="landing-main"><section className="landing-hero hero-with-background" id="service"><div className="hero-copy"><span className="pill">매일의 식사를 위한 파트너</span><h1>오늘 뭐 먹지?<br/>데이터로 해결하다<span>.</span></h1><p>사진 한 장으로 시작하는 식단 기록,<br/>나의 영양 상태에 맞는 다음 한 끼.<br/>건강한 식사 습관을 CaloDetect와 함께하세요.</p><div className="hero-actions">{/* 비회원은 가입으로, 로그인 회원은 식단 기록으로 유도한다. 세션 확인 중에는 기존 문구를 둔다. */}{session.loading?<button className="primary" onClick={()=>onOpen('음식 추가')}>내 식단 기록 시작하기 →</button>:member?<button className="primary" onClick={()=>onOpen('음식 추가')}>내 식단 기록하기 →</button>:<button className="primary" onClick={()=>onOpen('회원가입')}>회원가입하고 시작하기 →</button>}<button className="outline" onClick={()=>onOpen('홈')}>웹앱 둘러보기</button></div><small>{member?'오늘의 식사를 사진 한 장으로 기록해 보세요.':'음식 조회와 목표 계산부터 경험해보세요.'}</small></div></section><FeatureSection onOpen={onOpen}/>
 <HowSection onOpen={onOpen}/><button className="landing-cta landing-cta-link" onClick={()=>onOpen('회원가입')}>
   <span className="cta-copy"><span className="cta-caption">맛있는 식사가<br/>건강한 하루를 만듭니다.</span>
     <span className="cta-title">지금, CaloDetect와 함께<br/>시작해 보세요.</span>

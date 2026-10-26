@@ -152,7 +152,7 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
       setItems(old=>append?[...old,...data.items.filter(i=>!old.some(o=>o.id===i.id))]:data.items);setCursor(data.next_cursor);
     }catch(e){if(ticket===request.current)setError(e.message);}finally{if(ticket===request.current)setLoading(false);}
   }
-  const refreshRank=React.useCallback(async(force=false)=>{if(!force&&Date.now()-rankFetched.current<30000)return;try{const data=await api('/rewards/ranking?metric=xp');if(alive.current){setRank(data);rankFetched.current=Date.now();}}catch(e){if(alive.current)setError(e.message);}},[api]);
+  const refreshRank=React.useCallback(async(force=false)=>{if(!force&&Date.now()-rankFetched.current<30000)return;try{const data=await api('/rewards/ranking');if(alive.current){setRank(data);rankFetched.current=Date.now();}}catch(e){if(alive.current)setError(e.message);}},[api]);
   async function refreshStats(){const data=await api('/community/points/me');if(alive.current)setPoints({...data,balance:data.reward_view?.balance ?? data.balance});await refreshRank(true);}
   useEffect(()=>{setError('');setItems([]);setCursor(null);loadFeed();},[mine]);
   useEffect(()=>{refreshStats().catch(e=>setError(e.message));},[]);

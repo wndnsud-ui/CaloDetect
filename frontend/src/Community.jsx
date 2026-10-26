@@ -92,16 +92,26 @@ function Post({post,busy,onReact,onDelete}) {
     measure();const observer=new ResizeObserver(measure);observer.observe(element);
     return()=>observer.disconnect();
   },[post.comment,full]);
-  const totals=post.meal.totals;
-  return <article className="community-post"><div className="community-avatar" aria-hidden="true">{post.author.name.slice(0,1)}</div><div className="community-post-body">
-    <div className="community-post-meta"><strong>{post.author.name}</strong>{post.is_mine&&<small className="community-me">나</small>}<time dateTime={post.created_at}>{relativeTime(post.created_at)}</time><span className="community-meal-tag">{mealNames[post.meal.meal_type]}</span></div>
-    {post.comment&&<><p ref={commentRef} className={`community-comment ${full?'':'is-clamped'}`}>{post.comment}</p>{(overflow||full)&&<button className="community-text" onClick={()=>setFull(v=>!v)}>{full?'접기':'더보기'}</button>}</>}
-    <div className="community-meal"><strong>{mealSummary(post.meal.items)}</strong><button className="community-text" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{expanded?'구성 접기':'구성 보기'}</button>
-      <p className="community-nutrition"><strong>{number(totals.cal)} kcal</strong><span>탄 {number(totals.carbs)}g</span><span>단 {number(totals.protein)}g</span><span>지 {number(totals.fat)}g</span></p>
-      {expanded&&<ul className="community-food-list">{post.meal.items.map((item,index)=><li key={`${item.class_id}-${index}`}><span>{displayFoodName(item.food_name)}</span><span>{item.unit} × {number(item.serving_multiplier)}</span></li>)}</ul>}</div>
-    {post.show_photo===true&&post.image_urls.map(url=><img className="community-post-photo" key={url} src={url} alt="공개한 식단 사진" loading="lazy"/>)}
-    <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>
-  </div></article>;
+  const [photoFailed,setPhotoFailed]=useState(false);
+  const totals=post.meal.totals, mealName=mealNames[post.meal.meal_type];
+  // 카드 상단: 공개 사진(첫 장) 또는 사진이 없거나 불러오지 못하면 끼니·칼로리 색 블록.
+  const photo=post.show_photo===true&&!photoFailed?post.image_urls[0]:null;
+  return <article className={`community-card meal-${post.meal.meal_type}`}>
+    <div className="community-card-media">
+      {photo?<img src={photo} alt="공개한 식단 사진" loading="lazy" onError={()=>setPhotoFailed(true)}/>
+        :<div className="community-card-placeholder" aria-hidden="true"><strong>{number(totals.cal)}<small> kcal</small></strong></div>}
+      <span className="community-meal-tag">{mealName}</span>
+      {photo&&post.image_urls.length>1&&<span className="community-card-count">+{post.image_urls.length-1}</span>}
+    </div>
+    <div className="community-card-body">
+      <div className="community-post-meta"><span className="community-avatar" aria-hidden="true">{post.author.name.slice(0,1)}</span><strong>{post.author.name}</strong>{post.is_mine&&<small className="community-me">나</small>}<time dateTime={post.created_at}>{relativeTime(post.created_at)}</time></div>
+      {post.comment&&<div><p ref={commentRef} className={`community-comment ${full?'':'is-clamped'}`}>{post.comment}</p>{(overflow||full)&&<button className="community-text" onClick={()=>setFull(v=>!v)}>{full?'접기':'더보기'}</button>}</div>}
+      <div className="community-meal"><strong>{mealSummary(post.meal.items)}</strong>
+        <p className="community-nutrition"><strong>{number(totals.cal)} kcal</strong><span>탄 {number(totals.carbs)}g</span><span>단 {number(totals.protein)}g</span><span>지 {number(totals.fat)}g</span></p>
+        <button className="community-text" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{expanded?'구성 접기':'구성 보기'}</button>
+        {expanded&&<ul className="community-food-list">{post.meal.items.map((item,index)=><li key={`${item.class_id}-${index}`}><span>{displayFoodName(item.food_name)}</span><span>{item.unit} × {number(item.serving_multiplier)}</span></li>)}</ul>}</div>
+      <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>
+    </div></article>;
 }
 
 export default function Community({api,onNavigate,initialMealId,onShareOpened,onRewardsChanged}) {
@@ -148,7 +158,7 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
   return <div className="community-page"><div className="community-heading"><div><p className="community-eyebrow">TOGETHER, A BETTER MEAL</p><h1>커뮤니티</h1><p>오늘의 한 끼를 나누고, 함께 건강해져요.</p></div><div className="community-mobile-chips"><button onClick={()=>setSheet('points')}>{number(points?.balance)} P</button><button onClick={()=>{setSheet('ranking');refreshRank();}}>이번 주 {rank?.me.rank?`${rank.me.rank}위`:'집계 전'}</button></div></div>
     {error&&<p className="community-error" role="alert">{error}</p>}{toast&&<p className="community-toast" role="status">{toast}</p>}
     <div className="community-layout"><section className="community-feed" aria-label="식단 공유 피드"><div className="community-tabs" role="group" aria-label="피드 선택"><button aria-pressed={!mine} className={!mine?'selected':''} onClick={()=>setMine(false)}>전체</button><button aria-pressed={mine} className={mine?'selected':''} onClick={()=>setMine(true)}>내 게시물</button></div>
-      {items.map(post=><Post key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)}/>)}
+      {items.length>0&&<div className="community-grid">{items.map(post=><Post key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)}/>)}</div>}
       {loading&&<p className="community-empty" role="status">식단을 불러오는 중이에요.</p>}{!loading&&!items.length&&<div className="community-empty"><span>♧</span><h2>{mine?'아직 공유한 식단이 없어요':'첫 번째 한 끼를 나눠 주세요'}</h2><p>나의 식단이 누군가에게 좋은 영감이 될 수 있어요.</p><button onClick={openShare}>식단 공유하기</button></div>}
       {!loading&&cursor&&<button className="community-more" onClick={()=>loadFeed(true)}>더 보기</button>}</section>
       <aside className="community-sidebar"><Points data={points}/><Ranking data={rank} onRefresh={refreshRank}/></aside></div>

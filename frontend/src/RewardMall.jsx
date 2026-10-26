@@ -63,7 +63,7 @@ function MallHeader({me, figure, figureLabel, onTab, onOpenGoal}) {
 }
 
 // 프로모션 슬라이더(M3): 5초 자동 넘김, 마우스 올림·포커스 시 멈춤, 일시정지·이전·다음·점, 스와이프. 움직임 줄이기면 자동 넘김 끔.
-function PromoSlider({items, onOpen}) {
+export function PromoSlider({items, onOpen}) {
   const [index, setIndex] = useState(0), [paused, setPaused] = useState(false), [hovering, setHovering] = useState(false), [focused, setFocused] = useState(false);
   const touch = useRef(null);
   const count = items.length;

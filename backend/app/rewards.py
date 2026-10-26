@@ -143,6 +143,12 @@ def product_detail(product_id: str, user: CurrentUser, db: DB):
     return exchange.product_detail(db, user, product_id)
 
 
+# 공개 홈페이지용(로그인 불필요). 콜라보·실존 브랜드 제외, 고정 가격 문구.
+@router.get('/rewards/promotions/public')
+def public_promotions(db: DB):
+    return exchange.public_promotions(db)
+
+
 @router.get('/rewards/promotions')
 def promotions(user: CurrentUser, db: DB):
     return exchange.promotions(db, user)

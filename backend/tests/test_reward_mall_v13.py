@@ -219,3 +219,16 @@ def test_demo_scenario_v13(env, monkeypatch):
     assert {'물병 소품 구매', '하트 쿠션 구매'} <= {r['label'] for r in spends}
     assert client.post('/dev/demo/rewards', json={'scenario': 'v13_coaching'}).status_code == 200
     assert client.get('/rewards/me').json()['exchangeable'] == 760
+
+
+# 공개 홈페이지 슬라이더: 로그인 없이, 기획전 플래그가 켜져 있어도 콜라보·실존 브랜드 상품 제외, 고정 가격 문구, 교환 off면 빈 목록.
+def test_public_promotions_exclude_collab_without_login(buyer):
+    client, _, _, mp = buyer
+    assert client.get('/rewards/promotions').status_code == 200  # 상품 카탈로그 준비
+    from fastapi.testclient import TestClient
+    with TestClient(app) as guest:
+        slides = guest.get('/rewards/promotions/public').json()['items']
+        assert [s['id'] for s in slides] == ['pita', 'salad', 'drink']
+        assert all(s['chip'].endswith('P로 교환') for s in slides)
+        mp.setattr(settings, 'reward_exchange_enabled', False)
+        assert guest.get('/rewards/promotions/public').json() == {'items': []}

@@ -360,3 +360,6 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
 .mall-crumbs button:hover{color:var(--m-ink);text-decoration:underline}
 .mall-crumbs .mall-back{width:36px;height:36px;justify-content:center;border-radius:50%;background:#fff;border:1px solid var(--m-line);color:var(--m-ink);font-size:16px;margin-right:4px}
 .mall-crumbs .mall-back:hover{text-decoration:none;background:var(--m-soft)}
+
+/* 공개 홈페이지 슬라이드(Landing): 리워드몰 밖에서도 같은 색 변수를 쓴다. */
+.landing-promos{--m-ink:#193C32;--m-sub:#60776F;--m-main:#1C4B3A;--m-gold:#8A6420;--m-gold-bg:#FBF1DC;--m-ok:#178366;--m-short:#E9B949;--m-line:#E3E8DE;--m-soft:#F3F7F4}

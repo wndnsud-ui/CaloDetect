@@ -106,9 +106,10 @@ function Post({post,busy,onReact,onDelete}) {
     <div className="community-card-body">
       <div className="community-post-meta"><span className="community-avatar" aria-hidden="true">{post.author.name.slice(0,1)}</span><strong>{post.author.name}</strong>{post.is_mine&&<small className="community-me">나</small>}<time dateTime={post.created_at}>{relativeTime(post.created_at)}</time></div>
       {post.comment&&<div><p ref={commentRef} className={`community-comment ${full?'':'is-clamped'}`}>{post.comment}</p>{(overflow||full)&&<button className="community-text" onClick={()=>setFull(v=>!v)}>{full?'접기':'더보기'}</button>}</div>}
-      <div className="community-meal"><strong>{mealSummary(post.meal.items)}</strong>
-        <p className="community-nutrition"><strong>{number(totals.cal)} kcal</strong><span>탄 {number(totals.carbs)}g</span><span>단 {number(totals.protein)}g</span><span>지 {number(totals.fat)}g</span></p>
-        <button className="community-text" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>{expanded?'구성 접기':'구성 보기'}</button>
+      <div className="community-meal">
+        {/* 한 줄 요약을 누르면 음식 구성을 펼친다. */}
+        <button type="button" className="community-meal-line" aria-expanded={expanded} title={expanded?'구성 접기':'구성 보기'} onClick={()=>setExpanded(v=>!v)}>
+          <strong>{mealSummary(post.meal.items)}</strong><span className="community-nutrition"><b>{number(totals.cal)} kcal</b> · 탄 {number(totals.carbs)} · 단 {number(totals.protein)} · 지 {number(totals.fat)}g</span><span aria-hidden="true">{expanded?'⌃':'⌄'}</span></button>
         {expanded&&<ul className="community-food-list">{post.meal.items.map((item,index)=><li key={`${item.class_id}-${index}`}><span>{displayFoodName(item.food_name)}</span><span>{item.unit} × {number(item.serving_multiplier)}</span></li>)}</ul>}</div>
       <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>
     </div></article>;

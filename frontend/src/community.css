@@ -32,3 +32,5 @@
 .community-card .community-food-list{padding:6px 8px 0;font-size:11px}.community-card .community-food-list li{padding:3px 0}
 .community-card .community-reactions{gap:14px;padding-top:6px}.community-card .community-reaction>span{font-size:17px}
 @media(max-width:700px){.community-page>.community-tabs{padding:0 12px}}
+/* 휴대폰(700px 이하)은 카드 한 줄에 하나. 위 3·2열 규칙보다 우선한다. */
+@media(max-width:700px){.community-grid{grid-template-columns:1fr;gap:12px}}

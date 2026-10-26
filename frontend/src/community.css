@@ -3,12 +3,11 @@
 @media(max-width:700px){.community-page{padding:20px 0 110px}.community-heading{align-items:flex-start;flex-direction:column;padding:0 5px;gap:16px}.community-heading h1{font-size:27px}.community-heading>div>p:not(.community-eyebrow){font-size:12px}.community-feed{padding:0 12px}.community-post-meta{gap:6px;font-size:12px}.community-meal{padding:11px}.community-nutrition{gap:9px;font-size:10px}.community-food-list li{flex-direction:column;gap:3px}.community-fab{right:20px;bottom:22px;width:52px;height:52px}.community-backdrop{padding:0;align-items:flex-end}.community-modal{border-radius:22px 22px 0 0;width:100%;padding:10px 22px max(24px,env(safe-area-inset-bottom));max-height:90dvh}.community-modal-heading{margin-top:10px}.community-sheet-handle{display:block;height:18px;position:relative;touch-action:pan-x}.community-sheet-handle:before{content:'';position:absolute;top:5px;left:calc(50% - 20px);width:40px;height:4px;border-radius:3px;background:#dce4d8}.community-modal .community-points{padding:15px 0;border:0}.community-modal-heading h2{font-size:17px}.community-comment{font-size:13px}.community-heading .community-mobile-chips{max-width:100%}}
 .community-share-empty{padding:12px 16px;background:#f5f8f1;border-radius:10px;font-size:13px;line-height:1.8}.community-share-empty .community-primary{margin:0 0 4px}.community-photo-status{font-size:12px;line-height:1.8;color:#35523f}.community-modal select:disabled,.community-modal textarea:disabled{background:#f3f5f3;color:#75847c}
 @media(prefers-reduced-motion:reduce){.community-page *,.community-modal *{animation:none!important;transition:none!important}}
-/* 카드 격자: 피드 폭 기준 4·3·2·1열(720·520·340px). 사진 칸은 2:1로 고정하고 본문은 이야기 2줄·식단 한 줄로 줄인다. */
+/* 카드 격자: 피드 폭 기준 3·2·1열(520·340px). 사진 칸 2:1이 카드 폭에 맞춰 같은 비율로 커진다. 사진 칸은 2:1로 고정하고 본문은 이야기 2줄·식단 한 줄로 줄인다. */
 .community-feed{container-type:inline-size}
 .community-grid{display:grid;grid-template-columns:1fr;gap:12px;align-items:stretch}
 @container(min-width:340px){.community-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
-@container(min-width:520px){.community-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}}
-@container(min-width:720px){.community-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}}
+@container(min-width:520px){.community-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}}
 .community-card{display:flex;flex-direction:column;min-width:0;background:white;border:1px solid #e7ede5;border-radius:14px;overflow:hidden;transition:box-shadow .2s,transform .2s}
 @media(hover:hover){.community-card:hover{box-shadow:0 8px 22px #1f4a3414;transform:translateY(-2px)}}
 .community-card-media{position:relative;aspect-ratio:2/1;overflow:hidden;background:#eef4ec}

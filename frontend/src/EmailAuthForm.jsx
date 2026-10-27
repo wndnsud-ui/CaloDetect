@@ -5,9 +5,12 @@ import {ForgotPassword} from './PasswordTools';
 import {readRememberedEmail, saveRememberedEmail} from './rememberedEmail';
 
 // 로그인/회원가입 이메일 폼. 서버 가입 정책에 맞춰 이름·만 나이·필수 동의 항목을 표시한다.
-export default function EmailAuthForm({signup, policy, busy, error, onSubmit, api}) {
-  const [loginEmail, setLoginEmail] = useState(readRememberedEmail);
+export default function EmailAuthForm({signup, policy, busy, error, onSubmit, api, signedUpEmail = ''}) {
+  // 방금 가입한 이메일이 있으면 로그인 칸에 우선 채운다(브라우저에 영구 저장하지는 않는다).
+  const [loginEmail, setLoginEmail] = useState(() => signedUpEmail || readRememberedEmail());
   const [signupEmail, setSignupEmail] = useState('');
+  // 가입 탭에서 입력한 이메일은 로그인 탭으로 바꿀 때 그대로 넘긴다.
+  useEffect(() => { if (!signup && signupEmail.trim()) setLoginEmail(signupEmail.trim()); }, [signup]);
   const [rememberEmail, setRememberEmail] = useState(() => !!readRememberedEmail());
   // 가입 때만 비밀번호 확인 칸을 두고, 다르면 브라우저 검증으로 제출을 막는다. 확인 값은 서버로 보내지 않는다.
   const [password, setPassword] = useState(''), [passwordConfirm, setPasswordConfirm] = useState('');

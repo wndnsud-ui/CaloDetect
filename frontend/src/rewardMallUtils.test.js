@@ -11,9 +11,10 @@ test('이미지 키는 public/rewards 경로로 바뀐다', () => {
 
 test('고해상도 갤러리는 저해상도 썸네일을 노출하지 않는다', () => {
   assert.deepEqual(productGallery({id:'energy_bar',hero:'products/energy_bar/hero.jpg',content:{thumbs:['products/energy_bar/t1.jpg']}}),
-    ['products/energy_bar/hero-hd.png','products/energy_bar/hero-no-video.png']);
+    ['products/energy_bar/hero-no-video.png','products/energy_bar/hero-hd.png']);
   assert.deepEqual(productGallery({id:'bristick15',hero:'products/bristick15/hero.jpg',content:{thumbs:['products/bristick15/t1.jpg']}}),
-    ['products/bristick15/hero-hd.png']);
+    ['/rewards/products/bristick15/hero.jpg','products/bristick15/hero-hd.png']);
+  assert.equal(imageUrl('/rewards/products/bristick15/hero.jpg'), '/rewards/products/bristick15/hero.jpg?v=20261027-hd');
   assert.deepEqual(productGallery({id:'other',hero:'other.jpg',content:{thumbs:['other.jpg','extra.jpg']}}), ['other.jpg','extra.jpg']);
 });
 

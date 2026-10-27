@@ -60,6 +60,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [resetToken, setResetToken] = useState(takeResetToken);
   const [authLoading,setAuthLoading] = useState(true);
   const [page,setPage] = useState(initialPage==='회원가입'?'로그인':initialPage), [user,setUser] = useState(null), [policy,setPolicy] = useState(null);
+  const [mallKey,setMallKey] = useState(0), [signedUpEmail,setSignedUpEmail] = useState('');
   const [foods,setFoods] = useState([]), [today,setToday] = useState(null), [history,setHistory] = useState([]);
   const [profile,setProfile] = useState(null), [recommendation,setRecommendation] = useState(null);
   const [recommendTheme,setRecommendTheme] = useState('balance');
@@ -128,13 +129,15 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   function navigate(p,tab){
     const personalReward=p==='리워드'&&['room','growth','coupons','ledger'].includes(tab);
     setPage(personalReward?'마이페이지':p);setError('');setMessage('');
+    // 리워드몰 메뉴를 다시 누르면 상품 상세·기획전·코치 상세에서 몰 첫 화면으로 돌아간다.
+    if(p==='리워드'&&!personalReward)setMallKey(key=>key+1);
     if(personalReward)setAccountTab(tab);
     else if(p==='마이페이지')setAccountTab('profile');
     if(['리워드','홈','마이페이지'].includes(p))loadRewards();
   }
   // 폼 값을 가입/로그인 요청 형태로 변환하고 성공 후 세션과 회원 데이터를 복원한다.
   async function authenticate(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));const rememberEmail=data.remember_email==='on';delete data.remember_email;if(signup){if(data.password!==data.password_confirm){setError('비밀번호가 일치하지 않아요.');return}delete data.password_confirm;data.age=Number(data.age);data.service_consent=data.service_consent==='on';data.consent_text=policy.service_consent_text}
-    await run(async()=>{signupFlow.current=signup;const result=await api(signup ? '/auth/signup':'/auth/login',data);if(!signup)saveRememberedEmail(data.email,rememberEmail);setUser(result.user);setPage(file?'음식 추가':'홈');const account=await loadAccount();if(signup&&earnedSignupPoints(account))setFirstDecorate('signup')})}
+    await run(async()=>{signupFlow.current=signup;const result=await api(signup ? '/auth/signup':'/auth/login',data);if(!signup)saveRememberedEmail(data.email,rememberEmail);else setSignedUpEmail(data.email.trim());setUser(result.user);setPage(file?'음식 추가':'홈');const account=await loadAccount();if(signup&&earnedSignupPoints(account))setFirstDecorate('signup')})}
   // 선택 사진을 FormData로 분석 요청하고 탐지 ID·클래스·신뢰도를 수정 가능한 음식 행으로 만든다.
   async function scan(e){e.preventDefault();if(!file)return;setScanStatus('working');setScanError('');await run(async()=>{try{const form=new FormData();form.append('file',file);const result=await api('/meals/detect',form);setImage(result);setScanStatus('success');setRows(result.detections.map(d=>({key:d.id,class_id:d.class_id,serving_multiplier:1,detection_id:d.id,confidence:d.confidence,bbox:d.bbox})));setMessage(result.detections.length ? `사진 분석을 완료했습니다. 인식된 음식 ${result.detections.length}개의 이름과 섭취량을 확인해 주세요.` : '분석은 완료되었지만 인식된 음식이 없습니다. 다른 사진으로 시도하거나 음식을 직접 추가해 주세요.')}catch(err){setScanStatus('error');setScanError(err.message);throw err;}})}
   // 새 사진을 선택할 때 이전 탐지·수정 행·분석 오류를 초기화해 서로 다른 사진 결과가 섞이지 않게 한다.
@@ -163,7 +166,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 비밀번호 변경으로 무효화된 회원 상태를 비우고 새 비밀번호 로그인 화면을 표시한다.
   function passwordChanged(text){csrf='';setResetToken(null);setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setSignup(false);setPage('로그인');setError('');setMessage(text);}
   // 인증 화면은 header를 숨기므로 오류를 폼 안에 직접 표시한다.
-  const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} error={error} onSubmit={authenticate} api={api}/>;
+  const authForm=<EmailAuthForm signup={signup} policy={policy} busy={busy} error={error} onSubmit={authenticate} api={api} signedUpEmail={signedUpEmail}/>;
   if(resetToken&&!authLoading)return <div className="shell integrated-app"><main><PasswordForm api={api} token={resetToken}
     onChanged={passwordChanged} onCancel={()=>{setResetToken(null);setSignup(false);setPage('로그인');}}/></main></div>;
   if(authLoading)return <div className="shell integrated-app"><main><p className="notice" role="status">로그인 상태를 확인하고 있습니다…</p></main></div>;
@@ -248,7 +251,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}
     {page==='테스트'&&canUseDevDemo&&<DevDemo api={api} status={devDemo} onChanged={loadRewards} onNavigate={navigate}/>}
-    {page==='리워드'&&user&&<Rewards api={api} me={rewards} tab="mall" showTabs={false} onTab={tab=>navigate('리워드',tab)} onChanged={loadRewards}/>}
+    {page==='리워드'&&user&&<Rewards key={mallKey} api={api} me={rewards} tab="mall" showTabs={false} onTab={tab=>navigate('리워드',tab)} onChanged={loadRewards}/>}
     {page==='히스토리'&&user&&<MealHistory headerTabs={managementTabs} history={history} onAdd={()=>navigate('음식 추가')} api={api} onChanged={()=>loadAccount().catch(e=>setError(e.message))}/>}
     {page==='마이페이지'&&user&&<>
       {accountTab!=='profile'&&<Rewards api={api} me={rewards} tab={accountTab} showTabs={false} onTab={tab=>tab==='mall'?navigate('리워드','mall'):setAccountTab(tab)} onChanged={loadRewards}/>}

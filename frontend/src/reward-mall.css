@@ -98,6 +98,8 @@
 .mall-card.is-goal{outline:2px solid var(--m-ok)}
 .mall-card-open{display:flex;flex-direction:column;gap:10px;border:0;background:none;padding:0;text-align:left;color:inherit;cursor:pointer}
 .mall-card-art{height:130px}
+/* 상품 목록 카드는 상세 첫 장(글씨 있는 시안, 4:3)을 회색 칸에 꽉 채운다. */
+.mall-card-art.fill{height:auto;aspect-ratio:4/3;object-fit:cover}
 .mall-card-title{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .mall-card-title span{font-size:14px;font-weight:700;line-height:1.4;word-break:keep-all}.mall-card-title b{font-size:16px;font-weight:800;white-space:nowrap}
 .mall-bar{display:block;height:6px;flex:0 0 auto;background:#EEF3EF;border-radius:999px;overflow:hidden}
@@ -239,19 +241,27 @@
 .coach-steps li{background:#fff;border-radius:20px;padding:16px 18px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 30px rgba(37,74,54,.05)}
 .coach-steps li>span{width:30px;height:30px;border-radius:50%;background:#178366;color:#fff;font-size:13px;font-weight:800;display:grid;place-items:center;flex-shrink:0}
 .coach-steps p{display:flex;flex-direction:column;font-size:13px}.coach-steps small{color:#60776F}
-.coach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:14px}
-.coach-card{background:#fff;border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 30px rgba(37,74,54,.05)}
+.coach-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+/* 사이드바 유무와 상관없이 몰 본문 폭 기준으로 4→2→1열로 줄인다. */
+.mall-page{container:mall/inline-size}
+@container mall (max-width:960px){.coach-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@container mall (max-width:520px){.coach-grid{grid-template-columns:1fr}}
+.coach-card{background:#fff;border-radius:22px;padding:18px 14px;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 30px rgba(37,74,54,.05)}
 .coach-card>.primary{margin-top:auto}
-.coach-card{position:relative}
-.coach-card-head{display:flex;gap:12px;align-items:center}
-/* 사용 중 표시는 카드 위 모서리에 걸쳐 두어 카드 내용 높이를 바꾸지 않는다. */
-.coach-card>.coach-inuse{position:absolute;top:-11px;right:16px;white-space:nowrap;border:2px solid #fff;box-shadow:0 2px 8px rgba(37,74,54,.12)}.coach-card-head b{font-size:17px;display:block}.coach-card-head small{font-size:12px;font-weight:700}
+.coach-card{container:coach-card/inline-size}.coach-card-head{display:flex;gap:8px;align-items:center}.coach-card-head>div{min-width:0;flex:1}
+.coach-card-head .coach-avatar.md{width:42px;height:42px;font-size:18px}
+/* 사용 중 표시는 코치 이름과 같은 줄 오른쪽 끝에 두어 카드 높이를 바꾸지 않는다. */
+.coach-name-row{display:flex;align-items:center;justify-content:space-between;gap:5px;flex-wrap:wrap}
+.coach-name-row>.coach-inuse{white-space:nowrap;font-size:9.5px;padding:2px 6px;line-height:1.4;letter-spacing:-.3px;display:inline-flex;align-items:center;gap:3px}
+.coach-inuse.dot::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.coach-card-head b{font-size:15px;display:block;white-space:nowrap}.coach-card-head small{font-size:12px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 카드가 좁아도 사용 중 표시가 이름 줄에서 내려가지 않게 아바타·이름을 조금 줄인다. */
+@container coach-card (max-width:215px){.coach-card-head{gap:6px}.coach-card-head .coach-avatar.md{width:30px;height:30px;font-size:13px}.coach-card-head b{font-size:14px}.coach-card-head small{font-size:11px}.coach-name-row>.coach-inuse{font-size:9px;padding:2px 5px}}
 .coach-quote{font-size:14px;line-height:1.6;background:#F3F7F4;border-radius:14px;padding:12px 14px;margin:0}
 .coach-avatar{border-radius:50%;display:grid;place-items:center;font-weight:800;flex-shrink:0}
 .coach-avatar.sm{width:28px;height:28px;font-size:12px}.coach-avatar.md{width:56px;height:56px;font-size:22px}
 .coach-avatar.lg{width:130px;height:130px;font-size:46px}.coach-avatar.xl{width:180px;height:180px;font-size:64px;border:6px solid #F4F1E8}
-.tone-nutrition{background:#EAF5EE;color:#16805C}.tone-exercise,.tone-diet{background:#E8EEF5;color:#2F4E73}.tone-lifestyle{background:#F1ECF5;color:#5A3F75}
-.ink-nutrition{color:#16805C}.ink-exercise{color:#2F4E73}.ink-lifestyle{color:#5A3F75}
+.tone-nutrition{background:#EAF5EE;color:#16805C}.tone-exercise{background:#E8EEF5;color:#2F4E73}.tone-diet{background:#FBEEE2;color:#A4561E}.tone-lifestyle{background:#F1ECF5;color:#5A3F75}
+.ink-nutrition{color:#16805C}.ink-exercise{color:#2F4E73}.ink-lifestyle{color:#5A3F75}.ink-diet{color:#A4561E}
 .star{color:#F2A818}
 .coach-inuse{align-self:flex-start;font-size:12px;font-weight:700;color:#1E5B42;background:#E3F1E6;border-radius:999px;padding:4px 10px}
 .coach-inuse.big{align-self:stretch;min-height:52px;border-radius:14px;font-size:16px;display:flex;align-items:center;justify-content:center}
@@ -358,6 +368,11 @@
 .collab-browse{display:block;width:100%;border:0;padding:0;cursor:pointer}
 .collab-browse:focus-visible{outline:3px solid #178366;outline-offset:4px}
 .collab-lineup{scroll-margin-top:24px}
+.collab-official{display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:20px;padding:18px clamp(18px,3vw,32px);background:#F3EBDF;color:#3F2D24;text-decoration:none}
+.collab-official>span:first-child{display:flex;flex-direction:column;gap:2px;min-width:0}.collab-official b{font-size:16px}.collab-official small{font-size:13px;color:#6B4A32}
+.collab-official>span[aria-hidden]{flex-shrink:0;border-radius:999px;padding:10px 18px;background:#4A3528;color:#F3E5CC;font-size:14px;font-weight:700}
+.collab-official:hover>span[aria-hidden]{background:#3F2D24}
+.collab-official:focus-visible{outline:3px solid #178366;outline-offset:4px}
 img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
 .coach-intro-row{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
 .coach-intro-row>p{flex:1 1 320px;font-size:15px;line-height:1.75;color:#3D4F47;margin:0}

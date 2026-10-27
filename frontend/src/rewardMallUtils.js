@@ -35,14 +35,18 @@ export const HD_PRODUCTS = new Set(['energy_bar', 'protein_bar', 'chicken_sandwi
 const FOOD_PHOTOS = new Set(['energy_bar', 'protein_bar', 'chicken_sandwich', 'energy_drink', 'greek_yogurt', 'pita_sandwich', 'salad_box']);
 
 // 작은 기존 썸네일 대신 실제 고해상도 사진만 갤러리에 노출한다.
+// 첫 장은 글씨가 들어간 시안 사진(식품은 동영상 버튼을 지운 본, 홍삼은 포장 글씨가 있는 원본)이고 다음 장이 글씨 없는 고해상도 사진이다.
 export function productGallery(product) {
   if (!HD_PRODUCTS.has(product.id)) return [...new Set([product.hero, ...(product.content?.thumbs || [])].filter(Boolean))];
-  return [`products/${product.id}/hero-hd.png`, ...(FOOD_PHOTOS.has(product.id) ? [`products/${product.id}/hero-no-video.png`] : [])];
+  const labeled = FOOD_PHOTOS.has(product.id) ? `products/${product.id}/hero-no-video.png` : `/rewards/products/${product.id}/hero.jpg`;
+  return [labeled, `products/${product.id}/hero-hd.png`];
 }
 
 // 이미지 키 → 공개 경로. ZIP 확대본 대신 재제작한 상품 사진을 공통 사용한다.
 export function imageUrl(key) {
   if (!key) return null;
+  // '/'로 시작하는 키는 공개 경로 그대로 쓴다(고해상도 대체 없이 시안 원본을 보여 줄 때).
+  if (key.startsWith('/')) return `${key}?v=20261027-hd`;
   const hero = key.match(/^products\/([^/]+)\/hero\.jpg$/);
   const collab = key.match(/^collab\/(?:pick|lineup)_([^/]+)\.jpg$/);
   const productId = hero?.[1] || collab?.[1];

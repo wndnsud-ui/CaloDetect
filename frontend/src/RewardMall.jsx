@@ -125,7 +125,7 @@ function ProductCard({item, exchangeable, onOpen}) {
   const ratio = item.price ? Math.min(1, exchangeable / item.price) : 0;
   return <article className={`mall-card${item.is_goal ? ' is-goal' : ''}`}>
     <button type="button" className="mall-card-open" onClick={() => onOpen(item)} aria-label={`${item.name} ${fmt(item.price)}포인트, ${status.text}`}>
-      <ProductArt product={item} className="mall-card-art"/>
+      <ProductArt product={item} image={productGallery(item)[0]} className="mall-card-art fill"/>
       <span className="mall-card-title"><span>{item.name}</span><b>{fmt(item.price)}P</b></span>
     </button>
     <span className={`mall-bar ${status.ok ? 'ok' : 'short'}`} aria-hidden="true"><span style={{width: `${Math.round(ratio * 100)}%`}}/></span>
@@ -319,7 +319,9 @@ function FeatureIcon({name}) {
   </svg>;
 }
 
-// 콜라보 기획전(M3, 플래그 on일 때만): 배너 → 혜택 → 추천 3종 → 브랜드 스토리 → 전체 라인업 → 이벤트 배너. 사진 대신 텍스트 배너.
+const BRAND_SITE = 'https://www.taegeuksagye.kr/home';
+
+// 콜라보 기획전(M3, 플래그 on일 때만): 배너 → 혜택 → 추천 3종 → 브랜드 스토리·공식 홈페이지 → 전체 라인업 → 이벤트 배너. 사진 대신 텍스트 배너.
 function CollabPage({api, onBack, onOpen}) {
   const lineup = useRef(null);
   const browse = () => { lineup.current?.scrollIntoView({behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start'}); lineup.current?.focus({preventScroll: true}); };
@@ -347,6 +349,9 @@ function CollabPage({api, onBack, onOpen}) {
         <img src={imageUrl(data.images.story)} alt={`계절이 빚어낸 한국적인 건강, ${data.brand} 브랜드 스토리`}/></section>
       : <section className="collab-story" aria-label="브랜드 스토리"><span className="mall-eyebrow gold">BRAND STORY</span><h2>계절이 빚어낸 한국적인 건강, {data.brand}</h2>
         <p>홍삼 브랜드와 함께하는 시연용 기획전이에요. 실제 제휴·판매와 관계없어요.</p></section>}
+    <a className="collab-official" href={BRAND_SITE} target="_blank" rel="noopener noreferrer">
+      <span><b>{data.brand} 공식 홈페이지</b><small>브랜드와 제품 이야기를 더 알아보세요</small></span><span aria-hidden="true">바로가기 ↗</span>
+      <span className="sr-only">(새 창)</span></a>
     <section ref={lineup} tabIndex={-1} className="mall-panel collab-lineup" aria-labelledby="collab-lineup"><h2 id="collab-lineup">{data.brand} 전체 상품</h2>
       <div className="collab-lineup-grid">{data.lineup.map(item => <button key={item.id} type="button" onClick={() => onOpen(item)}><ProductArt product={item} image={item.lineup_image}/><span>{item.name}</span><small>{fmt(item.price)}P</small></button>)}</div></section>
     {data.images?.event ? <section className="collab-image" aria-label="콜라보 이벤트" style={{background: '#3F2D24'}}>
@@ -370,6 +375,10 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
   useEffect(() => { load(); }, [load, me.balance, me.goal?.ref]);
   // 하위 화면(상세·기획전·코치)은 브라우저 기록에 남긴다. 브라우저 뒤로 가기·화면의 뒤로 가기 모두 같은 탭·스크롤 위치의 목록으로 돌아온다.
   const toList = () => { setView({kind: 'list'}); load(); requestAnimationFrame(() => window.scrollTo?.({top: scroll.current})); };
+  // 메뉴로 다시 들어오면 목록에서 시작하므로, 현재 기록 항목에 남은 하위 화면 표시를 지운다.
+  useEffect(() => {
+    try { if (window.history.state?.rewardMall) { const {rewardMall, ...rest} = window.history.state; window.history.replaceState(rest, ''); } } catch {}
+  }, []);
   useEffect(() => {
     const pop = event => { const next = event.state?.rewardMall; if (next && next.kind !== 'list') setView(next); else toList(); };
     window.addEventListener('popstate', pop);

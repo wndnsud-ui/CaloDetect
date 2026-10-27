@@ -164,7 +164,7 @@ RETIRED = frozenset({'ai_report', 'pro_coaching'})
 
 # M4: 코치별 7회 이용권(category='pro'). 판매 여부는 REWARD_COACHING_ENABLED가 정한다.
 COACH_PRODUCTS = (('coach_kim', 'kim', '김지윤 코치 · 7회 코칭'), ('coach_park', 'park', '박재현 코치 · 7회 코칭'),
-                  ('coach_lee', 'lee', '이수민 코치 · 7회 코칭'))
+                  ('coach_lee', 'lee', '이수민 코치 · 7회 코칭'), ('coach_choi', 'choi', '최하은 코치 · 7회 코칭'))
 COACH_PRICE = 700
 COACH_SESSIONS = 7
 

@@ -71,8 +71,8 @@ export default function CoachingTab({api, preview, onOpenCoach}) {
         <div className="mall-tabs" role="tablist" aria-label="코칭 분야">{SPECS.map(([key, label]) =>
           <button key={key || 'all'} type="button" role="tab" aria-selected={spec === key} className={spec === key ? 'on' : ''} onClick={() => setSpec(key)}>{label}</button>)}</div>
         {data.items.length ? <div className="coach-grid">{data.items.map(coach => <article key={coach.id} className="coach-card">
-          {coach.pass_status === 'in_use' && <span className="coach-inuse">● 이용권 사용 중</span>}
-          <div className="coach-card-head"><Avatar coach={coach}/><div><b>{coach.name}</b><small className={`ink-${coach.tone}`}>{coach.headline}</small></div></div>
+          <div className="coach-card-head"><Avatar coach={coach}/><div><span className="coach-name-row"><b>{coach.name}</b>
+            {coach.pass_status === 'in_use' && <span className="coach-inuse dot">이용권 사용 중</span>}</span><small className={`ink-${coach.tone}`}>{coach.headline}</small></div></div>
           <p className="mall-small"><span aria-hidden="true" className="star">★</span> <b>{coach.rating_text}</b> · 누적 코칭 {fmt(coach.coaching_count)}회 · 시연용</p>
           <p className="coach-quote">“{coach.quote}”</p>
           <button type="button" className="primary" onClick={() => onOpenCoach(coach.id)}>코칭 보기</button>

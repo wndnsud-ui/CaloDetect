@@ -1,5 +1,5 @@
 // 가입·첫 목표·첫 식단 보상 후 공통 꾸미기 안내. reason에 따라 제목만 바꾼다.
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import Jibang from './Jibang';
 import RewardDialog from './RewardDialog';
 import {fmt} from './RewardHomeCard';
@@ -14,6 +14,8 @@ export default function FirstDecorate({api, reason = 'signup', onClose, onDone})
   const [eyebrow, heading] = HEADINGS[reason] || HEADINGS.signup;
   const [me, setMe] = useState(null), [items, setItems] = useState([]), [picked, setPicked] = useState(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const choices = useRef(null);
+  const [showHint, setShowHint] = useState(false);
   useEffect(() => {
     Promise.all([api('/rewards/me'), api('/rewards/items')]).then(([profile, catalog]) => {
       setMe(profile);
@@ -25,7 +27,13 @@ export default function FirstDecorate({api, reason = 'signup', onClose, onDone})
   const preview = picked ? {...me?.equipment, [picked.slot]: picked.id} : me?.equipment;
   const remain = me && picked ? me.balance - picked.price : 0;
   async function buy() {
-    if (!picked || busy) return;
+    if (busy) return;
+    if (!picked) {
+      setShowHint(true);
+      choices.current?.scrollIntoView({block:'nearest'});
+      choices.current?.querySelector('button')?.focus({preventScroll:true});
+      return;
+    }
     setBusy(true); setError('');
     try {
       if (!picked.owned) await api(`/rewards/items/${picked.id}/purchase`, {});
@@ -41,12 +49,13 @@ export default function FirstDecorate({api, reason = 'signup', onClose, onDone})
     {me && <Jibang equipment={preview} level={me.level} figureWidth={132} bubble="나 어때?" className="first-preview"
       badge={`보유 ${fmt(me.balance)}P`}/>}
     <p className="reward-section-title">꾸미기</p>
-    <div className="first-items" role="group" aria-label="꾸미기">{items.map(item => <button type="button" key={item.id} aria-pressed={picked?.id === item.id}
+    {showHint && !picked && <p className="reward-small" role="status">아래에서 마음에 드는 아이템을 골라 주세요. 미리 본 뒤 착용할 수 있어요.</p>}
+    <div ref={choices} className="first-items" role="group" aria-label="꾸미기">{items.map(item => <button type="button" key={item.id} aria-pressed={picked?.id === item.id}
       className={picked?.id === item.id ? 'selected' : ''} onClick={() => setPicked(picked?.id === item.id ? null : item)}><span>{item.name}</span><b>{item.owned ? '보유' : `${item.price}P`}</b></button>)}</div>
     {picked && me && <p className="reward-small center">{picked.owned ? '이미 가진 아이템이라 바로 착용해요.' : remain < 0 ? `${fmt(-remain)}P가 더 필요해요.` : remain >= 10 ? `구매 후 ${fmt(remain)}P가 남아요. 하나 더 살 수 있어요.` : `구매 후 ${fmt(remain)}P가 남아요. 내일 기록하면 더 모여요.`}</p>}
     {picked && me && !picked.owned && me.deco_only > 0 && <p className="reward-small center">가입 보너스 {fmt(Math.min(picked.price, me.deco_only))}P가 먼저 사용돼요.</p>}
     {error && <p className="error" role="alert">{error}</p>}
-    <button type="button" className="primary" onClick={buy} disabled={!picked || busy || (!picked.owned && remain < 0)}>{picked ? (picked.owned ? `${picked.name} 착용하기` : `${picked.price}P로 ${picked.name} 착용하기`) : me ? '꾸미기 아이템을 골라주세요' : '불러오는 중'}</button>
+    <button type="button" className="primary" onClick={buy} disabled={!me || !items.length || busy || (picked && !picked.owned && remain < 0)}>{picked ? (picked.owned ? `${picked.name} 착용하기` : `${picked.price}P로 ${picked.name} 착용하기`) : me ? '꾸미기 아이템을 골라주세요' : '불러오는 중'}</button>
     <button type="button" className="text-button" onClick={onClose}>나중에 할게요</button>
   </RewardDialog>;
 }

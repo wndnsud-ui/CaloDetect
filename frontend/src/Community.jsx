@@ -44,7 +44,7 @@ function RankingList({data}) {
 }
 
 function Ranking({data,onRefresh}) {
-  const [state,setState]=useState('closed'),[focus,setFocus]=useState(false);
+  const [state,setState]=useState('pinned'),[focus,setFocus]=useState(false);
   const timer=useRef(null), id=useId(), open=state!=='closed'||focus;
   const clear=()=>{clearTimeout(timer.current);timer.current=null;};
   useEffect(()=>clear,[]);

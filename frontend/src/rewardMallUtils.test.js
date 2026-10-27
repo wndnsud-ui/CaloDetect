@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {clampQty, couponsFor, couponChip, COUPON_TABS, shouldAutoplay, nextSlide, targetSuffix, nextMonthLabel, imageUrl} from './rewardMallUtils.js';
 
 test('이미지 키는 public/rewards 경로로 바뀐다', () => {
-  assert.equal(imageUrl('products/pita_sandwich/hero.jpg'), '/rewards/products/pita_sandwich/hero.jpg');
+  assert.equal(imageUrl('products/pita_sandwich/hero.jpg'), '/rewards/products/pita_sandwich/hero-no-video.png');
   assert.equal(imageUrl('pita/hero'), '/rewards/products/pita/hero.webp');
   assert.equal(imageUrl(null), null);
 });

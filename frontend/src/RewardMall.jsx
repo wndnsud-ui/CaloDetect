@@ -87,7 +87,7 @@ export function PromoSlider({items, onOpen}) {
         onPointerCancel={() => { drag.current = null; }}
         onDragStart={event => event.preventDefault()}
         onClickCapture={event => { if (dragged.current) { dragged.current = false; event.preventDefault(); event.stopPropagation(); } }}>
-        {items.map((slide, i) => <div key={slide.id} className={`mall-slide theme-${slide.theme}`} role="group" aria-roledescription="slide"
+        {items.map((slide, i) => <div key={slide.id} data-promotion={slide.id} className={`mall-slide theme-${slide.theme}`} role="group" aria-roledescription="slide"
           aria-label={`${i + 1} / ${count}`} aria-hidden={i !== index}>
           <div className="mall-slide-copy">
             <span className="mall-eyebrow">{slide.eyebrow}</span>
@@ -215,11 +215,14 @@ function ExchangeFlow({api, product, option, quantity, conditions, onClose, onCh
 function ProductDetail({api, id, onBack, onChanged, onTab, onOpen, onCollab, onCategory}) {
   const [data, setData] = useState(null), [error, setError] = useState(''), [option, setOption] = useState(null), [qty, setQty] = useState(1);
   const [confirming, setConfirming] = useState(false), [busy, setBusy] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const load = useCallback(() => api(`/rewards/products/${id}`).then(row => { setData(row); setOption(current => current ?? row.options[0] ?? null); }).catch(e => setError(e.message)), [api, id]);
-  useEffect(() => { setData(null); setQty(1); setOption(null); load(); window.scrollTo?.({top: 0}); }, [load]);
+  useEffect(() => { setData(null); setQty(1); setOption(null); setSelectedImage(null); load(); window.scrollTo?.({top: 0}); }, [load]);
   if (error) return <div className="mall-page"><button type="button" className="text-button" onClick={onBack}>← 리워드몰</button><p className="error" role="alert">{error}</p></div>;
   if (!data) return <p className="muted" role="status">상품을 불러오고 있어요…</p>;
   const content = data.content || {};
+  const gallery = [...new Set([data.hero, ...(content.thumbs || [])].filter(Boolean))];
+  const activeImage = selectedImage || data.hero || gallery[0];
   const c = data.conditions;
   const quantity = clampQty(qty, data.max_qty);
   const total = data.price * quantity;
@@ -235,9 +238,12 @@ function ProductDetail({api, id, onBack, onChanged, onTab, onOpen, onCollab, onC
       {data.subcategory && <><span aria-hidden="true">›</span><span>{data.subcategory}</span></>}<span aria-hidden="true">›</span><b>{data.name}</b></nav>
     <div className="mall-detail">
       <section className="mall-detail-media" aria-label="상품 이미지">
-        <ProductArt product={data} className="mall-detail-hero" label={`${data.name} 대표 이미지`}/>
-        {content.thumbs?.length > 0 && <div className="mall-thumbs" role="group" aria-label="추가 이미지">{content.thumbs.map((key, i) =>
-          <img key={key} src={imageUrl(key)} alt={`${data.name} 이미지 ${i + 2}`} className={i === 0 ? 'on' : ''}/>)}</div>}
+        <ProductArt key={activeImage} product={data} image={activeImage} className="mall-detail-hero" label={`${data.name} 이미지 ${Math.max(0, gallery.indexOf(activeImage)) + 1}`}/>
+        {gallery.length > 1 && <div className="mall-thumbs" role="group" aria-label="상품 이미지 선택">{gallery.map((key, i) =>
+          <button type="button" key={key} aria-label={`${data.name} 이미지 ${i + 1} 보기`} aria-pressed={activeImage === key}
+            className={activeImage === key ? 'on' : ''} onClick={() => setSelectedImage(key)}>
+            <img src={imageUrl(key)} alt=""/>
+          </button>)}</div>}
       </section>
       <section className="mall-detail-info" aria-label="상품 정보">
         <Tags tags={data.tags}/>

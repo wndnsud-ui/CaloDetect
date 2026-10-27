@@ -5,7 +5,7 @@ import {ForgotPassword} from './PasswordTools';
 import {readRememberedEmail, saveRememberedEmail} from './rememberedEmail';
 
 // 로그인/회원가입 이메일 폼. 서버 가입 정책에 맞춰 이름·만 나이·필수 동의 항목을 표시한다.
-export default function EmailAuthForm({signup, policy, busy, onSubmit, api}) {
+export default function EmailAuthForm({signup, policy, busy, error, onSubmit, api}) {
   const [loginEmail, setLoginEmail] = useState(readRememberedEmail);
   const [signupEmail, setSignupEmail] = useState('');
   const [rememberEmail, setRememberEmail] = useState(() => !!readRememberedEmail());
@@ -49,6 +49,7 @@ export default function EmailAuthForm({signup, policy, busy, onSubmit, api}) {
         {signup ? '이메일로 가입하기' : '로그인'}
       </button>
     </fieldset>
+    {error && <p className="error" role="alert">{error}</p>}
     {signup && policy && !policy.signup_enabled && <p className="muted" role="status">
       가입 동의 내용이 아직 준비되지 않아 신규 회원가입을 진행할 수 없습니다. 기존 회원은 로그인 탭을 이용해 주세요.
     </p>}

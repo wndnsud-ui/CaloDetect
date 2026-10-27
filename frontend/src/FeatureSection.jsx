@@ -68,14 +68,17 @@ export default function FeatureSection({onOpen}) {
       </article>
 
       <article className="fx-card fx-menu">
-        <CardHead icon="meal" title="오늘 뭐먹지?" goLabel="오늘 뭐먹지 바로가기" onGo={() => onOpen('식사 추천')}/>
+        <CardHead icon="meal" title="메뉴 추천 받기" goLabel="오늘 뭐먹지? 바로가기" onGo={() => onOpen('식사 추천')}/>
         <div className="fx-body">
           <div className="fx-copy"><h4>지금 내 상태에 맞는 오늘의 메뉴 추천</h4><p>목표와 식사 기록을 바탕으로 지금 먹기 좋은 메뉴를 추천해드려요.</p></div>
           <div className="fx-menu-art" aria-hidden="true"><p className="fx-hand">지금 나에게<br/>이런 메뉴가 좋아요!</p><img src={`${IMG}jibangi-salad.png`} alt="" width="184" height="112"/></div>
         </div>
-        <ul className="fx-menus">{menus.map(m => <li key={m.name}>
+        <ul className="fx-menus">{menus.map(m => <li key={m.name}><button type="button" onClick={() => onOpen('식사 추천')}>
           <img src={IMG + m.img} alt={m.name} loading="lazy"/><span>{m.tag}</span><strong>{m.name}</strong><b>{m.kcal}</b>
-        </li>)}</ul>
+        </button></li>)}</ul>
+        <div className="fx-chips">
+          <button type="button" onClick={() => onOpen('식사 추천')}><Icon name="meal"/>오늘 뭐먹지?</button>
+        </div>
       </article>
 
       <article className="fx-card fx-manage">

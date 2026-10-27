@@ -69,7 +69,7 @@
 @media (prefers-reduced-motion:reduce){.mall-slider-track{transition:none}}
 
 /* 자리표시 그림 */
-.mall-art{display:block;width:100%;object-fit:cover;background:var(--m-soft);border-radius:16px}
+.mall-art{display:block;width:100%;object-fit:contain;background:var(--m-soft);border-radius:16px}
 .mall-art-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;text-align:center;min-height:100px}
 .mall-art-ph svg{width:40px;height:40px;opacity:.8}
 .mall-art-ph b{font-size:13px;line-height:1.35;word-break:keep-all}
@@ -117,10 +117,10 @@
 .mall-crumbs b{color:var(--m-ink)}
 .mall-detail{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
 .mall-detail-media{flex:1.3 1 420px;min-width:0;background:#fff;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgba(37,74,54,.05)}
-.mall-detail-hero{aspect-ratio:529/398;height:auto;border-radius:20px}
+.mall-detail-hero{aspect-ratio:4/3;height:auto;object-fit:contain;border-radius:20px}
 .mall-detail-hero.mall-art-ph b{font-size:22px}
 .mall-detail-hero.mall-art-ph svg{width:64px;height:64px}
-.mall-thumbs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.mall-thumbs img{width:100%;aspect-ratio:6/5;object-fit:cover;border-radius:12px}
+.mall-thumbs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.mall-thumbs img{width:100%;aspect-ratio:4/3;object-fit:contain;background:var(--m-soft);border-radius:12px}
 .mall-detail-info{flex:1 1 340px;min-width:0;background:#fff;border-radius:28px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 30px rgba(37,74,54,.05)}
 .mall-detail-info h1{font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1.3;margin-top:4px}
 .mall-tags{display:flex;flex-wrap:wrap;gap:6px}
@@ -336,7 +336,10 @@
 .mall-sum div{padding:0;border:0;margin:0;background:none}.mall-sum .total{border-top:1px solid var(--m-line);padding-top:8px}
 
 /* 시안 이미지(2026-10-22 사용자 결정: 시안 이미지 그대로 사용) */
-.mall-thumbs img{border:1px solid var(--m-line)}.mall-thumbs img.on{border:2px solid var(--m-ok)}
+.mall-thumbs button{padding:0;min-width:0;border:2px solid transparent;border-radius:12px;background:transparent;overflow:hidden;cursor:pointer}
+.mall-thumbs button.on{border-color:var(--m-ok)}
+.mall-thumbs button:focus-visible{outline:3px solid var(--m-ok);outline-offset:3px}
+.mall-thumbs button img{display:block;border:1px solid var(--m-line)}
 .collab-image{border-radius:28px;overflow:hidden}.collab-image img{display:block;width:100%;max-width:941px;margin:0 auto}
 .collab-browse{display:block;width:100%;border:0;padding:0;cursor:pointer}
 .collab-browse:focus-visible{outline:3px solid #178366;outline-offset:4px}
@@ -363,6 +366,23 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
 
 /* 공개 홈페이지 슬라이드(Landing): 리워드몰 밖에서도 같은 색 변수를 쓴다. */
 .landing-promos{--m-ink:#193C32;--m-sub:#60776F;--m-main:#1C4B3A;--m-gold:#8A6420;--m-gold-bg:#FBF1DC;--m-ok:#178366;--m-short:#E9B949;--m-line:#E3E8DE;--m-soft:#F3F7F4}
-/* 홈페이지 슬라이더는 리워드몰보다 넓어 그림 칸이 가로로 길어지고 4:3 상품 사진 위아래가 잘린다. 그림 칸을 사진 비율(4:3)로 고정한다. */
-.landing-promos .mall-slide-art{flex:0 0 min(48%,560px);aspect-ratio:4/3;min-height:0;align-self:center}
-@media(max-width:760px){.landing-promos .mall-slide-art{flex-basis:auto;width:100%}}
+/* 넓은 화면에서도 문구와 상품을 가운데 묶고 배경색으로 광고 전체를 연결한다. */
+.landing-promos .mall-slide{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);align-items:stretch;gap:0;padding:0;background:linear-gradient(110deg,#F5F0E4,#E5EAD9)}
+.landing-promos .mall-slide[data-promotion="pita"]{background:linear-gradient(110deg,#FFF3DC,#E9EBD6)}
+.landing-promos .mall-slide[data-promotion="salad"]{background:linear-gradient(110deg,#F1F7E8,#DDEDD9)}
+.landing-promos .mall-slide[data-promotion="drink"]{background:linear-gradient(110deg,#F4FAE8,#DEEEE8)}
+.landing-promos .mall-slide.theme-dark{background:linear-gradient(110deg,#173D30,#315847);color:#fff}
+.landing-promos .mall-slide-copy{padding:clamp(28px,4vw,72px) clamp(24px,4vw,72px) 92px;gap:18px;align-items:flex-start;justify-content:center;text-align:left}
+.landing-promos .mall-slide-copy h2{font-size:clamp(26px,2.6vw,42px);line-height:1.35}
+.landing-promos .mall-slide-copy p{max-width:540px;font-size:16px;line-height:1.8;word-break:keep-all}
+.landing-promos .mall-slide-art{width:100%;height:100%;min-height:clamp(360px,34vw,580px);align-self:stretch;overflow:hidden}
+.landing-promos .mall-slide-art .mall-art{object-fit:contain;object-position:center;background:transparent;border-radius:0}
+.landing-promos .mall-slider-controls{left:clamp(24px,4vw,72px);bottom:22px}
+@media(max-width:760px){
+  .landing-promos .mall-slide{grid-template-columns:minmax(0,1fr);gap:0;padding:0}
+  .landing-promos .mall-slide-art{height:auto;min-height:0;aspect-ratio:4/3;order:-1}
+  .landing-promos .mall-slide-copy{padding:26px 24px 28px}
+  .landing-promos .mall-slide-copy h2{font-size:26px}
+  .landing-promos .mall-slide-copy p{font-size:14px}
+  .landing-promos .mall-slider-controls{position:static;margin:12px 24px 18px}
+}

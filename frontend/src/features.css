@@ -44,6 +44,9 @@
 .fx-chips button:hover{background:#F2F6F3}
 .fx-chips svg{width:20px;height:20px;color:#2E8B57}
 .fx-chips .is-coach svg{color:#6B4FD8}
+.fx-menu .fx-chips button{border-color:#F3DDC2}
+.fx-menu .fx-chips button:hover{background:#FFF1DF}
+.fx-menu .fx-chips svg{color:#E07A1F}
 .fx-manage .fx-chips button{border-color:#D3E2F2}
 .fx-manage .fx-chips svg{color:#2F6FD6}
 
@@ -51,7 +54,9 @@
 .fx-menu-art .fx-hand{font-size:18px;color:#8A5A1C}
 .fx-menu-art img{width:100%;max-width:190px;height:auto;border-radius:20px}
 .fx-menus{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.fx-menus li{background:#fff;border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:3px;box-shadow:0 2px 8px rgba(31,42,36,.06);min-width:0}
+.fx-menus li{min-width:0;display:flex}
+.fx-menus button{flex:1;background:#fff;border:0;border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:3px;box-shadow:0 2px 8px rgba(31,42,36,.06);min-width:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.fx-menus button:hover{box-shadow:0 4px 14px rgba(31,42,36,.12)}
 .fx-menus img{width:100%;height:76px;object-fit:cover;border-radius:10px}
 .fx-menus span{font-size:12px;color:#56625B}
 .fx-menus strong{font-size:14px;word-break:keep-all}
@@ -104,7 +109,7 @@
 .fx-rewards span{font-size:13px;font-weight:500;word-break:keep-all}
 .fx-rewards strong{font-size:15px}
 
-.fx-go:focus-visible,.fx-chips button:focus-visible,.fx-cta:focus-visible{outline:3px solid #79BC95;outline-offset:3px}
+.fx-go:focus-visible,.fx-chips button:focus-visible,.fx-menus button:focus-visible,.fx-cta:focus-visible{outline:3px solid #79BC95;outline-offset:3px}
 
 @media(max-width:1280px){
   .fx-row-3{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -137,7 +142,7 @@
 }
 @media(max-width:480px){
   .fx-menus{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
-  .fx-menus li{padding:6px}.fx-menus img{height:60px}
+  .fx-menus button{padding:6px}.fx-menus img{height:60px}
   .fx-posts{flex-direction:column}
   .fx-post:first-child,.fx-post:last-child{transform:none}
 }

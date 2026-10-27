@@ -132,7 +132,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
     setWorking(true); setError('');
     try {
       const result = await api(`/auth/social/${pending.provider}/register`, data);
-      if (active.current) await onAuthenticated(result);
+      if (active.current) await onAuthenticated(result, true);
     } catch (err) {if (active.current) setError(err.message);}
     finally {if (active.current) setWorking(false);}
   }

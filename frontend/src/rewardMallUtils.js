@@ -33,6 +33,10 @@ export function nextSlide(index, step, count) {
 // 이미지 키 → 공개 경로(frontend/public/rewards/). 확장자 없는 옛 키는 products/<키>.webp. 키가 없으면 null(자리표시 그림).
 export function imageUrl(key) {
   if (!key) return null;
+  // 영상이 없는 상품은 이미지에 합성돼 있던 재생 안내를 제거한 버전을 사용한다.
+  if (/^products\/(energy_bar|protein_bar|chicken_sandwich|energy_drink|greek_yogurt|pita_sandwich|salad_box)\/hero\.jpg$/.test(key)) {
+    return `/rewards/${key.replace('hero.jpg', 'hero-no-video.png')}`;
+  }
   return /\.[a-z0-9]+$/i.test(key) ? `/rewards/${key}` : `/rewards/products/${key}.webp`;
 }
 

@@ -139,6 +139,9 @@ def test_cursor_same_time_invalid_and_csrf(users):
         ids.extend(i['id'] for i in data['items']);cursor=data['next_cursor']
         if cursor is None:break
     assert len(ids)==len(set(ids))==5
+    # 남은 게시물이 limit과 정확히 같으면 다음 커서(더 보기)를 주지 않는다.
+    assert b.get('/community/posts',params={'limit':5}).json()['next_cursor'] is None
+    assert b.get('/community/posts',params={'limit':4}).json()['next_cursor'] is not None
     assert b.get('/community/posts?cursor=bad').status_code==422
     assert b.get('/community/posts?limit=0').status_code==422
     token=b.headers.pop('X-CSRF-Token')

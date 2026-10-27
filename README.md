@@ -451,7 +451,7 @@ npm.cmd run dev -- --host localhost --port 5174
 
 사용자가 승인한 **로컬 이메일 테스트 가입**은 `.env`에 `APP_ENV=development`, `LOCAL_TEST_SIGNUP=true`, `FRONTEND_ORIGIN=http://localhost:5173`을 설정하고 Backend를 재시작하면 활성화됩니다. 만 18세 이상이며 화면의 테스트용 안내에 명시적으로 동의해야 합니다. 실제 개인정보 대신 테스트용 이름·이메일을 사용합니다. 승인된 `SERVICE_CONSENT_TEXT`가 없는 경우에만 테스트 안내를 사용하며 해당 내용을 개발 DB의 동의 이력에 저장합니다. 로컬 호스트와 루프백 접속에서만 허용하고 전달된 프록시 접속은 차단합니다. `APP_ENV=production` 또는 `LOCAL_TEST_SIGNUP=false`이면 테스트 가입을 허용하지 않습니다. `.env.example` 기본값은 운영 차단을 유지합니다. 소셜 가입은 이 테스트 설정으로 활성화하지 않습니다.
 
-인증 방식은 이메일/비밀번호 및 사용자 요청으로 추가한 Google 로그인 + HttpOnly 세션 쿠키입니다. 로그인 후 마이페이지에서 이름을 수정할 수 있으며 이메일과 role 변경은 제공하지 않습니다. HTTPS 운영에서는 `COOKIE_SECURE=true`가 필요합니다. 홈페이지 기능 카드는 음식 영양 조회·목표 계산·오늘의 식단으로 연결되고 웹앱은 실제 API 기록을 표시합니다. 홈페이지의 휴대폰·포케·기능 카드·하단 배너 이미지 영역은 고품질 이미지 선정 전까지 빈 박스로 유지합니다. 회원 웹앱의 기존 CSS 식사 일러스트는 유지합니다. 위치 기반 맛집/포인트는 후속 범위입니다.
+인증 방식은 이메일/비밀번호 및 사용자 요청으로 추가한 Google 로그인 + HttpOnly 세션 쿠키입니다. 계정 이름·이메일·role은 가입 후 변경할 수 없으며(마이페이지에서 읽기 전용), 화면에 보이는 이름은 닉네임으로 바꿉니다. HTTPS 운영에서는 `COOKIE_SECURE=true`가 필요합니다. 홈페이지 기능 카드는 음식 영양 조회·목표 계산·오늘의 식단으로 연결되고 웹앱은 실제 API 기록을 표시합니다. 홈페이지의 휴대폰·포케·기능 카드·하단 배너 이미지 영역은 고품질 이미지 선정 전까지 빈 박스로 유지합니다. 회원 웹앱의 기존 CSS 식사 일러스트는 유지합니다. 위치 기반 맛집/포인트는 후속 범위입니다.
 
 Vite의 `CALODETECT_API_TARGET` 환경변수로 검증용 API 주소를 바꿀 수 있습니다(로컬 개발 서버 기준 `http://[::1]:8000`). 다른 웹 포트를 쓰면 Backend `FRONTEND_ORIGIN`도 해당 주소와 일치시켜야 합니다. 컨테이너 migration은 `docker compose exec backend python -m alembic -c backend/alembic.ini upgrade head`로 실행합니다.
 

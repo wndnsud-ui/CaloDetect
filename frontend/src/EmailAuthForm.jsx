@@ -25,7 +25,7 @@ export default function EmailAuthForm({signup, policy, busy, error, onSubmit, ap
     <fieldset disabled={busy} className="auth-fields">
       {signup && <>
         <label>이름<input name="name" required maxLength="80" autoComplete="name"/></label>
-        <label>만 나이<input name="age" type="number" required min={policy?.age_min || 18} step="1" max="120"/></label>
+        <label>만 나이<input name="age" type="number" required min={policy?.age_min || 18} step="1" max="120" defaultValue={Math.max(18, policy?.age_min || 0)}/></label>
       </>}
       <label>이메일<input name="email" type="email" required autoComplete="email"
         value={signup ? signupEmail : loginEmail}

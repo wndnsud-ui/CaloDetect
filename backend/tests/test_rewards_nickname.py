@@ -145,9 +145,11 @@ def test_nickname_not_logged(new_member, caplog):
 # N16. 기존 가입·회원정보 API 응답 본문은 그대로다.
 def test_existing_account_api_unchanged(new_member):
     client, engine, user, mp = new_member
-    assert set(user) == {'id', 'email', 'name', 'role', 'password_login_enabled'}
-    updated = client.put('/users/me', json={'name': '새이름'}).json()
-    assert set(updated) == {'user'} and set(updated['user']) == set(user)
+    # age는 2026-10-27 목표 설정 화면 표시용으로 추가한 키다(기존 키는 그대로).
+    assert set(user) == {'id', 'email', 'name', 'role', 'password_login_enabled', 'age'}
+    # 계정 이름 변경 API는 2026-10-27 사용자 결정으로 없앴다. 조회 응답 본문은 그대로다.
+    assert client.put('/users/me', json={'name': '새이름'}).status_code == 405
+    assert set(client.get('/users/me').json()['user']) == set(user)
 
 
 # N7. (PostgreSQL) 같은 닉네임 동시 요청 2건 → 1건만 성공, 다른 1건은 중복 문구.

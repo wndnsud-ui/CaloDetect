@@ -132,12 +132,15 @@ def feed(db, user, limit, cursor=None, mine=False):
         except ValueError as error:
             raise HTTPException(422, str(error)) from None
         query = query.where(or_(Post.created_at < instant, and_(Post.created_at == instant, Post.id < post_id)))
-    posts = list(db.scalars(query.order_by(Post.created_at.desc(), Post.id.desc()).limit(limit)))
+    # 한 건 더 조회해 다음 게시물이 실제로 있을 때만 커서를 준다(정확히 limit개면 더 보기 없음).
+    posts = list(db.scalars(query.order_by(Post.created_at.desc(), Post.id.desc()).limit(limit + 1)))
+    has_more = len(posts) > limit
+    posts = posts[:limit]
     last = posts[-1] if posts else None
     # SQLite datetime은 timezone 정보가 없지만 저장 시각은 UTC다. 잠금 로직에는 방언 분기가 없다.
     from datetime import timezone
     next_cursor = encode_cursor(last.created_at.replace(tzinfo=timezone.utc) if last.created_at.tzinfo is None
-        else last.created_at, last.id) if len(posts) == limit else None
+        else last.created_at, last.id) if has_more else None
     return {'items': serialize(db, posts, user), 'next_cursor': next_cursor}
 
 

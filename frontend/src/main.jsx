@@ -49,6 +49,15 @@ async function api(path, body, method = 'POST') {
   return data;
 }
 const meals = {breakfast:'아침',lunch:'점심',dinner:'저녁',snack:'간식'};
+// 가장 최근 기록 날짜의 마지막 끼니(간식 제외) 다음 끼니를 고른다. 아침→점심→저녁→아침, 기록이 없으면 아침.
+const MAIN_MEALS = ['breakfast','lunch','dinner'];
+function nextMealType(history) {
+  const mains = (history || []).filter(meal => MAIN_MEALS.includes(meal.meal_type));
+  if (!mains.length) return 'breakfast';
+  const lastDate = mains.reduce((latest, meal) => meal.meal_date > latest ? meal.meal_date : latest, mains[0].meal_date);
+  const lastIndex = Math.max(...mains.filter(meal => meal.meal_date === lastDate).map(meal => MAIN_MEALS.indexOf(meal.meal_type)));
+  return MAIN_MEALS[(lastIndex + 1) % MAIN_MEALS.length];
+}
 // 가입 보너스가 실제로 지급된 경우에만(온보딩 시작일 이후 가입자) 첫 꾸미기 안내를 띄운다.
 const earnedSignupPoints = account => account?.today_items?.some(row => row.key === 'onboarding:signup' && row.points > 0);
 const calorieBandNames = {light:'가벼운 메뉴',medium:'보통 열량',high:'고열량 메뉴'};
@@ -101,6 +110,35 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   },[rows]);
   // 화면 이름이 바뀌면 상위 진입점에 전달해 현재 탭의 마지막 화면을 기억한다. 이 effect는 자원 정리 함수가 필요하지 않다.
   useEffect(()=>{onPageChange?.(page)},[page,onPageChange]);
+  // 브라우저 뒤로/앞으로 가기: 화면과 내 정보 탭을 기록 항목의 calo에 남긴다. 처음 한 번은 현재 항목을 바꾸고, 이후 바뀔 때만 새 항목을 쌓는다.
+  // 리워드몰 하위 화면 기록(rewardMall)은 같은 항목 위에 쌓이므로 화면이 같으면 새 항목을 만들지 않는다.
+  const historyReady = React.useRef(false), userRef = React.useRef(user);
+  userRef.current = user;
+  useEffect(()=>{
+    const entry={page,accountTab}, current=window.history.state?.calo;
+    try {
+      if(!historyReady.current){historyReady.current=true;window.history.replaceState({...(window.history.state||{}),calo:entry},'');}
+      else if(!current||current.page!==page||current.accountTab!==accountTab)window.history.pushState({calo:entry},'');
+    } catch {}
+  },[page,accountTab]);
+  // 기록 항목의 화면으로 돌아간다. 로그인한 상태에서 로그인 화면 항목으로 돌아오면 홈으로 바꾼다.
+  useEffect(()=>{
+    const pop=event=>{
+      const saved=event.state?.calo;if(!saved)return;
+      let next=saved.page;
+      if(userRef.current&&next==='로그인'){next='홈';try {window.history.replaceState({...event.state,calo:{...saved,page:next}},'');} catch {}}
+      setPage(next);setAccountTab(saved.accountTab||'profile');setError('');setMessage('');
+      if(userRef.current&&['리워드','홈','마이페이지'].includes(next))loadRewards();
+    };
+    window.addEventListener('popstate',pop);
+    return()=>window.removeEventListener('popstate',pop);
+  },[]);
+  // 오늘 뭐먹지? 진입·기록 변경 시 마지막 기록 다음 끼니를 기본 선택한다. 화면 안에서 직접 바꾼 선택은 덮지 않는다.
+  useEffect(()=>{
+    if(page!=='식사 추천')return;
+    const next=nextMealType(history);
+    if(next!==mealType){setMealType(next);setRecommendation(null);}
+  },[page,history]);
   // 최초 진입 시 음식/가입 정책을 병렬 조회하고 HttpOnly 쿠키로 로그인 상태를 복원한다.
   useEffect(() => {
     let active=true;
@@ -256,7 +294,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='마이페이지'&&user&&<>
       {accountTab!=='profile'&&<Rewards api={api} me={rewards} tab={accountTab} showTabs={false} onTab={tab=>tab==='mall'?navigate('리워드','mall'):setAccountTab(tab)} onChanged={loadRewards}/>}
     </>}
-    {page==='마이페이지'&&user&&accountTab==='profile'&&<AccountInfo key={nicknameEdit?'edit':'view'} api={api} rewards={rewards} onRewardsChanged={()=>{setNicknameEdit(false);loadRewards();}} startNicknameOpen={nicknameEdit} user={user} profile={profile} busy={busy} onGoals={()=>navigate('목표 설정')} onUpdate={name=>run(async()=>{const d=await api('/users/me',{name},'PUT');setUser(d.user);setMessage('회원정보를 수정했습니다.');})}/>}
+    {page==='마이페이지'&&user&&accountTab==='profile'&&<AccountInfo key={nicknameEdit?'edit':'view'} api={api} rewards={rewards} onRewardsChanged={()=>{setNicknameEdit(false);loadRewards();}} startNicknameOpen={nicknameEdit} user={user} profile={profile} onGoals={()=>navigate('목표 설정')}/>}
     {page==='마이페이지'&&user&&accountTab==='profile'&&(user.password_login_enabled ? <PasswordForm api={api} onChanged={passwordChanged}/>
       : <section className="panel"><h2>비밀번호 관리</h2><p className="muted">Google 계정의 비밀번호는 Google 계정 설정에서 변경해 주세요.</p></section>)}
     {user&&grantMeal&&!nicknameStep&&<RewardGrantPanel key={grantMeal} api={api} mealId={grantMeal} onLoaded={data=>{setFirstPending(!!data.first_meal);loadRewards();}} onNavigate={navigate} onShare={mealId=>{setGrantMeal(null);setFirstPending(false);setCommunityMeal(mealId);loadRewards();navigate('커뮤니티');}} onClose={()=>{setGrantMeal(null);loadRewards();if(firstPending){setFirstPending(false);setFirstDecorate('meal');}}}/>}

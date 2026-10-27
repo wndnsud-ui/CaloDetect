@@ -1,6 +1,6 @@
 // React 브라우저 진입점. 소개 화면과 회원 앱을 선택하고 현재 탭의 화면을 sessionStorage에 기억한다.
 // 비밀번호 재설정·소셜 로그인 반환 URL은 로그인 흐름으로 연결한다.
-import React,{useState} from 'react';
+import React,{useEffect,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './main';
 import Landing from './Landing';
@@ -14,8 +14,21 @@ function Entry(){
   const[page,setPage]=useState(storedPage);
   // 현재 화면을 sessionStorage에 기록한다. 브라우저 저장소 제한 시에도 화면 사용은 계속된다.
   function rememberPage(value){try {if(value===null)sessionStorage.removeItem(pageKey);else sessionStorage.setItem(pageKey,value);} catch {}}
-  // 화면 선택을 저장하고 React 상태를 함께 갱신한다.
-  function open(value){rememberPage(value);setPage(value);}
+  // 화면 선택을 저장하고 React 상태를 함께 갱신한다. 소개 화면↔회원 앱 전환은 브라우저 기록에 새 항목으로 남긴다.
+  function open(value){
+    try {if(value===null)window.history.pushState({landing:true},'');else if(window.history.state?.landing)window.history.pushState({},'');} catch {}
+    rememberPage(value);setPage(value);
+  }
+  // 브라우저 뒤로/앞으로 가기로 소개 화면 항목(landing)이나 회원 앱 항목(calo)에 오면 해당 화면으로 바꾼다. 회원 앱 안의 화면 이동은 App이 처리한다.
+  useEffect(()=>{
+    try {if(page===null&&!window.history.state?.calo)window.history.replaceState({...(window.history.state||{}),landing:true},'');} catch {}
+    const pop=event=>{
+      if(event.state?.landing){rememberPage(null);setPage(null);}
+      else if(event.state?.calo)setPage(current=>{if(current!==null)return current;rememberPage(event.state.calo.page);return event.state.calo.page;});
+    };
+    window.addEventListener('popstate',pop);
+    return()=>window.removeEventListener('popstate',pop);
+  },[]);
   return page===null?<Landing onOpen={open}/>:<App initialPage={page} onPageChange={rememberPage} onHomepage={()=>open(null)}/>;
 }
 // index.html의 root 요소에 앱을 한 번 마운트한다.

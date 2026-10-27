@@ -88,18 +88,6 @@ class Signup(Credentials):
         return value.strip()
 
 
-# MemberUpdate: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
-class MemberUpdate(RequestModel):
-    # 사용자 표시 이름. 앞뒤 공백과 길이는 요청 모델에서 검증한다.
-    name: str = Field(min_length=1, max_length=80)
-
-    # 이름의 앞뒤 공백을 정리하고 빈 이름을 거부한다.
-    @field_validator('name')
-    @classmethod
-    def valid_name(cls, value):
-        return Signup.valid_name(value)
-
-
 # 회원 API에 DB 세션을 공급하고 SQLAlchemy 오류 시 rollback 후 일반 오류를 반환한다.
 def database():
     try:
@@ -172,8 +160,9 @@ def current_session(request: Request, db: Session = Depends(database)):
 def public_user(user):
     email = (None if user.oauth_provider == 'kakao'
              and user.email.endswith('@kakao.calodetect.invalid') else user.email)
+    # age는 가입 때 입력한 만 나이다. 목표 설정 화면이 이 값을 그대로 표시한다(키 추가만, 기존 키 유지).
     return {'id': user.id, 'email': email, 'name': user.name, 'role': user.role,
-            'password_login_enabled': not bool(user.oauth_provider)}
+            'password_login_enabled': not bool(user.oauth_provider), 'age': user.age}
 
 
 # 무작위 세션/CSRF 토큰을 생성하고 DB에 세션 해시를 저장한 뒤 HttpOnly 쿠키를 설정한다.
@@ -275,15 +264,7 @@ def me(response: Response, session=Depends(current_session), db: Session = Depen
     return {'user': public_user(db.get(User, session.user_id)), 'csrf_token': session.csrf_token}
 
 
-# 인증된 회원의 이름만 갱신한다. 역할·이메일·비밀번호 변경 입력은 받지 않는다.
-# HTTP PUT /users/me: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
-@router.put('/users/me')
-def update_me(body: MemberUpdate, session=Depends(current_session), db: Session = Depends(database)):
-    user = db.get(User, session.user_id)
-    user.name = body.name
-    # 이 트랜잭션의 변경을 DB에 확정한다. 이후 응답/재조회에서 저장된 결과를 사용할 수 있다.
-    db.commit()
-    return {'user': public_user(user)}
+# 계정 이름·이메일은 가입 후 바꿀 수 없다(2026-10-27 사용자 결정). PUT /users/me는 제공하지 않으며 화면에 보이는 이름은 닉네임으로 바꾼다.
 
 
 # 현재 회원의 저장된 프로필을 반환하고 아직 없으면 null로 표시한다.

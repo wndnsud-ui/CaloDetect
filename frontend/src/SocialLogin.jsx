@@ -167,7 +167,7 @@ export default function SocialLogin({api, policy, onAuthenticated, disabled, sig
     {pending && <form onSubmit={register}>
       <h3>{pending.provider === 'kakao' ? '카카오' : 'Google'} 회원가입 마무리</h3><p className="muted">{pending.email}</p>
       <label>이름<input name="name" required maxLength="80" defaultValue={pending.name}/></label>
-      <label>만 나이<input name="age" type="number" min={policy?.age_min || 18} max="120" step="1" required/></label>
+      <label>만 나이<input name="age" type="number" min={policy?.age_min || 18} max="120" step="1" required defaultValue={Math.max(18, policy?.age_min || 0)}/></label>
       <p className="notice">{policy?.service_consent_text || policy?.notice || '가입 동의 문구 확인 중'}</p>
       <label className="check"><input type="checkbox" name="consent" required/>서비스 이용·개인정보 처리 동의</label>
       <button className="primary" disabled={locked || !policy?.signup_enabled}>동의하고 가입하기</button>

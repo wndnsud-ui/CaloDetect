@@ -12,6 +12,9 @@ from backend.app.main import app
 from backend.app.models import AuthSession, Base, User, utcnow
 
 
+# CSRF·세션 검사에 쓰는 유효한 목표 프로필(계정 이름 변경 API가 없어 프로필 저장으로 확인한다).
+PROFILE = {'height':175,'weight':70,'age':30,'sex':'male','activity_level':'moderate','goal_type':'maintain','target_calories':2500}
+
 # accounts: 이 파일의 테스트용 환경·입력 또는 대체 클라이언트를 준비한다. 외부 기능과 분리된 검사에 사용한다.
 @pytest.fixture
 def accounts(monkeypatch):
@@ -71,7 +74,8 @@ def test_signup_hash_duplicate_and_role(accounts):
         assert 'secure-test-password' not in user.password_hash
         assert db.scalar(select(AuthSession)).token_hash != client.cookies.get(COOKIE)
     csrf = response.json()['csrf_token']
-    assert client.put('/users/me', json={'name':'관리자', 'role':'admin'}, headers={'X-CSRF-Token':csrf}).status_code == 422
+    # 계정 이름·이메일·역할 변경 API는 없다(2026-10-27 사용자 결정).
+    assert client.put('/users/me', json={'name':'관리자', 'role':'admin'}, headers={'X-CSRF-Token':csrf}).status_code == 405
     assert client.get('/users/me').json()['user']['role'] == 'user'
 
 
@@ -87,7 +91,7 @@ def test_session_restores_in_new_client(accounts):
         assert me.status_code == 200
         assert me.json()['user']['id'] == response.json()['user']['id']
         assert me.json()['csrf_token'] == response.json()['csrf_token']
-        assert restored.put('/users/me', json={'name':'복원 확인'},
+        assert restored.put('/users/me/profile', json=PROFILE,
             headers={'X-CSRF-Token':me.json()['csrf_token']}).status_code == 200
 
 
@@ -111,11 +115,11 @@ def test_login_logout_revocation(accounts):
 def test_csrf_origin_and_expiry(accounts):
     client, engine = accounts
     csrf = register(client).json()['csrf_token']
-    assert client.put('/users/me', json={'name':'새 이름'}).status_code == 403
-    assert client.put('/users/me', json={'name':'새 이름'}, headers={'X-CSRF-Token':csrf,'Origin':'https://untrusted.example'}).status_code == 403
+    assert client.put('/users/me/profile', json=PROFILE).status_code == 403
+    assert client.put('/users/me/profile', json=PROFILE, headers={'X-CSRF-Token':csrf,'Origin':'https://untrusted.example'}).status_code == 403
     assert client.post('/auth/login', json={'email':'one@example.com','password':'secure-test-password'}, headers={'Origin':'https://untrusted.example'}).status_code == 403
-    assert client.put('/users/me', json={'name':'새 이름'}, headers={'X-CSRF-Token':csrf}).status_code == 200
-    assert client.get('/users/me').json()['user']['name'] == '새 이름'
+    assert client.put('/users/me/profile', json=PROFILE, headers={'X-CSRF-Token':csrf}).status_code == 200
+    assert client.get('/users/me/profile').json()['profile']['target_calories'] == PROFILE['target_calories']
     with Session(engine) as db:
         row = db.scalar(select(AuthSession))
         row.expires_at = utcnow() - timedelta(seconds=1)

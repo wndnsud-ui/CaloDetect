@@ -147,7 +147,7 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
   useEffect(()=>()=>{alive.current=false;request.current++;},[]);
   async function loadFeed(append=false) {
     const ticket=++request.current;setLoading(true);
-    try {const params=new URLSearchParams({mine:String(mine),limit:'20'});if(append&&cursor)params.set('cursor',cursor);
+    try {const params=new URLSearchParams({mine:String(mine),limit:'15'});if(append&&cursor)params.set('cursor',cursor);
       const data=await api(`/community/posts?${params}`);if(ticket!==request.current)return;
       setItems(old=>append?[...old,...data.items.filter(i=>!old.some(o=>o.id===i.id))]:data.items);setCursor(data.next_cursor);
     }catch(e){if(ticket===request.current)setError(e.message);}finally{if(ticket===request.current)setLoading(false);}

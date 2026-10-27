@@ -128,7 +128,7 @@
 /* 넓은 화면에서도 내용 폭을 1560px 안쪽으로 두어 양옆 여백을 확보한다. */
 .landing{--page-gutter:max(clamp(24px,3vw,72px),calc((100vw - 1560px) / 2))}
 .landing-header,.landing-main{width:100%;max-width:none;margin:0;padding-left:var(--page-gutter);padding-right:var(--page-gutter)}
-.landing>footer{max-width:none;margin:0 var(--page-gutter);padding:28px 0}
+.landing .faq{padding-bottom:0}.landing>footer{max-width:none;margin:0 var(--page-gutter);padding:20px 0 28px;border-top:0}
 .landing-hero{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
 .hero-copy{min-width:0}
 .integrated-app>main{max-width:none;margin:0;align-self:stretch}

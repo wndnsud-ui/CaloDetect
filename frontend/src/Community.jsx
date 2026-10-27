@@ -67,18 +67,18 @@ function Points({data}) {
     return <section className="community-points"><p className="community-eyebrow">MY CALO POINT</p><h2>내 포인트</h2>
       <p className="community-balance">{number(reward.balance)} <span>P</span></p>
       <p className="community-week">리워드 몰과 같은 전체 보유 포인트예요.</p>
-      <div className="community-point-rules"><small>커뮤니티 지급 기준</small>
+      <details><summary>커뮤니티 지급 기준</summary><div className="community-point-rules">
         <div><span>식단 공유 · 하루 1회</span><strong>+{reward.share_points} P · +{reward.share_xp} XP</strong></div>
         <div><span>좋아요 받기</span><strong>+{reward.like_xp} XP</strong></div>
         <div><span>추천 받기</span><strong>+{reward.recommend_xp} XP</strong></div>
         <div><span>좋아요·추천 누르기</span><strong>+{reward.given_xp} XP</strong></div>
-      </div><p className="community-muted">반응은 포인트 대신 XP를 받아요. 하루 받기 최대 {reward.received_daily_cap} XP, 누르기 최대 {reward.given_daily_cap} XP예요.</p>
+      </div><p className="community-muted">반응은 포인트 대신 XP를 받아요. 하루 받기 최대 {reward.received_daily_cap} XP, 누르기 최대 {reward.given_daily_cap} XP예요.</p></details>
       <details><summary>최근 포인트 내역</summary><ul className="community-transactions">{reward.recent.map(row=><li key={`${row.type}-${row.id}`}><span>{row.label}<small>{relativeTime(row.at)}</small></span><strong className={row.amount<0?'community-negative':''}>{signed(row.amount)} P</strong></li>)}</ul>{!reward.recent.length&&<p>아직 적립 내역이 없어요.</p>}</details></section>;
   }
   const labels={like_received:'좋아요 받기',recommend_received:'추천 받기',like_given:'좋아요 누르기',recommend_given:'추천 누르기'};
   return <section className="community-points"><p className="community-eyebrow">MY CALO POINT</p><h2>내 포인트</h2><p className="community-balance">{number(data.balance)} <span>P</span></p>
     <p className="community-week">이번 주 <strong>+{number(data.earned_this_week)} P</strong><span className="community-negative">감점 {signed(data.deducted_this_week)} P</span></p>
-    <div className="community-point-rules"><small>개발 중 지급 기준</small>{Object.entries(data.rules).map(([key,value])=><div key={key}><span>{labels[key]}</span><strong>+{value} P</strong></div>)}</div>
+    <details><summary>커뮤니티 지급 기준</summary><div className="community-point-rules"><small>개발 중 지급 기준</small>{Object.entries(data.rules).map(([key,value])=><div key={key}><span>{labels[key]}</span><strong>+{value} P</strong></div>)}</div></details>
     <details><summary>최근 포인트 내역</summary><ul className="community-transactions">{data.recent.map(row=><li key={row.id}><span>{row.reason.endsWith('_revoked')?(row.reason==='post_deleted_revoked'?'게시물 삭제로 감점':'반응 취소로 감점'):labels[row.reason]}<small>{relativeTime(row.created_at)}</small></span><strong className={row.amount<0?'community-negative':''}>{signed(row.amount)} P</strong></li>)}</ul>{!data.recent.length&&<p>아직 적립 내역이 없어요.</p>}</details></section>;
 }
 

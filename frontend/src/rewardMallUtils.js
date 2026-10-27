@@ -30,14 +30,25 @@ export function nextSlide(index, step, count) {
   return ((index + step) % count + count) % count;
 }
 
-// 이미지 키 → 공개 경로(frontend/public/rewards/). 확장자 없는 옛 키는 products/<키>.webp. 키가 없으면 null(자리표시 그림).
+export const HD_PRODUCTS = new Set(['energy_bar', 'protein_bar', 'chicken_sandwich', 'energy_drink', 'greek_yogurt', 'pita_sandwich', 'salad_box',
+  'bristick15', 'bristick30', 'ginseng_daily10', 'ginseng_daily30', 'ginseng_premium10', 'ginseng_premium30', 'ginseng_lady30']);
+const FOOD_PHOTOS = new Set(['energy_bar', 'protein_bar', 'chicken_sandwich', 'energy_drink', 'greek_yogurt', 'pita_sandwich', 'salad_box']);
+
+// 작은 기존 썸네일 대신 실제 고해상도 사진만 갤러리에 노출한다.
+export function productGallery(product) {
+  if (!HD_PRODUCTS.has(product.id)) return [...new Set([product.hero, ...(product.content?.thumbs || [])].filter(Boolean))];
+  return [`products/${product.id}/hero-hd.png`, ...(FOOD_PHOTOS.has(product.id) ? [`products/${product.id}/hero-no-video.png`] : [])];
+}
+
+// 이미지 키 → 공개 경로. ZIP 확대본 대신 재제작한 상품 사진을 공통 사용한다.
 export function imageUrl(key) {
   if (!key) return null;
-  // 영상이 없는 상품은 이미지에 합성돼 있던 재생 안내를 제거한 버전을 사용한다.
-  if (/^products\/(energy_bar|protein_bar|chicken_sandwich|energy_drink|greek_yogurt|pita_sandwich|salad_box)\/hero\.jpg$/.test(key)) {
-    return `/rewards/${key.replace('hero.jpg', 'hero-no-video.png')}`;
-  }
-  return /\.[a-z0-9]+$/i.test(key) ? `/rewards/${key}` : `/rewards/products/${key}.webp`;
+  const hero = key.match(/^products\/([^/]+)\/hero\.jpg$/);
+  const collab = key.match(/^collab\/(?:pick|lineup)_([^/]+)\.jpg$/);
+  const productId = hero?.[1] || collab?.[1];
+  if (HD_PRODUCTS.has(productId)) return `/rewards/products/${productId}/hero-hd.png?v=20261027-hd`;
+  const path = /\.[a-z0-9]+$/i.test(key) ? `/rewards/${key}` : `/rewards/products/${key}.webp`;
+  return `${path}?v=20261027-hd`;
 }
 
 // 포인트 내역의 정산 대상일 표기: "(10.20)"

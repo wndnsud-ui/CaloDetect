@@ -282,3 +282,8 @@ button.feature-card-content{cursor:pointer}button.feature-card-content:hover{bac
 .social-login .google-login-button { overflow: hidden; align-items: center; }
 .social-login .kakao-login-button { background: #fee500; color: #191919; border: 1px solid #fee500; }
 .kakao-login-button:hover:not(:disabled) { background: #f5dc00; }
+/* 회원 화면의 바깥 여백은 커뮤니티 기준으로 통일한다. 내부 카드 배치는 유지한다. */
+.page-content-pass-through{display:contents}
+.member-page-content{box-sizing:border-box;width:100%;max-width:1480px;margin:0 auto;padding:34px 28px 120px;min-width:0}
+.member-page-content>.community-page{max-width:none;margin:0;padding:0}
+@media(max-width:700px){.member-page-content{padding:20px 0 110px}}

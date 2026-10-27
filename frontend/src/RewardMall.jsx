@@ -5,7 +5,7 @@ import React, {useCallback, useEffect, useRef, useState} from 'react';
 import RewardDialog from './RewardDialog';
 import {MOOD_IMAGES, CHARACTER_NAME} from './Jibang';
 import {Progress, etaText, fmt} from './RewardHomeCard';
-import {clampQty, shouldAutoplay, nextSlide, imageUrl, nextMonthLabel} from './rewardMallUtils';
+import {clampQty, shouldAutoplay, nextSlide, imageUrl, nextMonthLabel, productGallery, HD_PRODUCTS} from './rewardMallUtils';
 import CoachingTab, {CoachDetail} from './Coaching';
 import './reward-mall.css';
 
@@ -147,11 +147,13 @@ function MallSide({me, conditions, showCollab, onCollab}) {
       <div className="mall-row"><span>실물 교환에 쓸 수 있는 포인트</span><b>{fmt(conditions.exchangeable)}P</b></div>
       {conditions.deco_only > 0 && <p className="mall-small">가입 보너스·커뮤니티 포인트 {fmt(conditions.deco_only)}P는 꾸미기에만 쓸 수 있어요.</p>}
     </section>}
-    {rules.length > 0 && <section className="mall-panel">
-      <h2>포인트 모으는 법</h2>
+    {rules.length > 0 && <details className="mall-panel mall-earn-toggle">
+      <summary>포인트 모으는 법</summary>
+      <div className="mall-earn-content">
       {rules.map(rule => <div className="mall-row" key={rule.id}><span>{rule.label}<small>{rule.condition}</small></span><b className="gold">+{rule.points}P</b></div>)}
       <div className="mall-cheer"><img src={MOOD_IMAGES.proud} alt={`뿌듯한 ${CHARACTER_NAME}`}/><p>오늘 기록하면 목표가 가까워져!</p></div>
-    </section>}
+      </div>
+    </details>}
     <p className="mall-small">포인트는 적립일로부터 12개월간 유효하고, 먼저 받은 포인트부터 사용돼요. 건강상품은 모바일 쿠폰으로 쿠폰함에 발급돼요. 시연용 가상 상품·리뷰예요.</p>
   </div>;
 }
@@ -221,8 +223,8 @@ function ProductDetail({api, id, onBack, onChanged, onTab, onOpen, onCollab, onC
   if (error) return <div className="mall-page"><button type="button" className="text-button" onClick={onBack}>← 리워드몰</button><p className="error" role="alert">{error}</p></div>;
   if (!data) return <p className="muted" role="status">상품을 불러오고 있어요…</p>;
   const content = data.content || {};
-  const gallery = [...new Set([data.hero, ...(content.thumbs || [])].filter(Boolean))];
-  const activeImage = selectedImage || data.hero || gallery[0];
+  const gallery = productGallery(data);
+  const activeImage = selectedImage || gallery[0];
   const c = data.conditions;
   const quantity = clampQty(qty, data.max_qty);
   const total = data.price * quantity;
@@ -289,7 +291,13 @@ function ProductDetail({api, id, onBack, onChanged, onTab, onOpen, onCollab, onC
       {content.satisfaction?.length > 0 && <div className="mall-sat-bars">{content.satisfaction.map(([label, value]) => <div key={label}>
         <span>{label}</span><span className="mall-bar ok" role="img" aria-label={`${label} ${value}%`}><span style={{width: `${value}%`}}/></span><b>{value}%</b></div>)}</div>}
     </section>}
-    {content.detail && <section className="mall-detail-ad" aria-label="상품 상세 이미지" style={{background: content.detail_bg || '#F7EEE3'}}><img src={imageUrl(content.detail)} alt={`${data.name} 상세 이미지`}/></section>}
+    {HD_PRODUCTS.has(data.id) ? <section className="mall-product-story" aria-label="상품 소개">
+      <ProductArt product={data} image={gallery[gallery.length - 1]} label={`${data.name} 상품 사진`}/>
+      <div><p className="mall-eyebrow">CALOPOINT SELECTION</p><h2>{data.name}</h2>
+        <p>{content.summary || data.description}</p>
+        {content.storage && <p className="mall-small">보관방법 · {content.storage}</p>}
+      </div>
+    </section> : content.detail && <section className="mall-detail-ad" aria-label="상품 상세 이미지" style={{background: content.detail_bg || '#F7EEE3'}}><img src={imageUrl(content.detail)} alt={`${data.name} 상세 이미지`}/></section>}
     {data.collab_brand && data.related.length > 0 && <section aria-labelledby="related-title" className="mall-related">
       <div className="mall-section-head"><h2 id="related-title">함께 만나보세요</h2><button type="button" className="text-button" onClick={onCollab}>기획전 전체 보기 ›</button></div>
       <div className="mall-related-grid">{data.related.map(item => <button type="button" key={item.id} className="mall-related-card" onClick={() => onOpen(item)}>

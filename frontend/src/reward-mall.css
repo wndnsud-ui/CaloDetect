@@ -14,6 +14,10 @@
 .mall-hand{font-family:'Gaegu',cursive;font-size:20px;color:#16805C}
 .mall-panel{background:#fff;border-radius:24px;padding:20px;box-shadow:0 8px 30px rgba(37,74,54,.05);display:flex;flex-direction:column;gap:10px}
 .mall-panel h2{font-size:16px;font-weight:800}
+.mall-earn-toggle{display:block}
+.mall-earn-toggle>summary{cursor:pointer;font-size:16px;font-weight:800;line-height:1.5}
+.mall-earn-toggle>summary:focus-visible{outline:2px solid var(--m-ok);outline-offset:5px;border-radius:4px}
+.mall-earn-content{display:flex;flex-direction:column;gap:10px;margin-top:16px}
 .mall-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;align-items:center}
 .mall-row span small{display:block;font-size:11px;color:var(--m-sub)}
 .mall-row b.ok{color:#16805C}.mall-row b.wait{color:#B0611B}.mall-row b.gold,b.gold,dd.gold{color:var(--m-gold)}
@@ -118,6 +122,12 @@
 .mall-detail{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
 .mall-detail-media{flex:1.3 1 420px;min-width:0;background:#fff;border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:10px;box-shadow:0 8px 30px rgba(37,74,54,.05)}
 .mall-detail-hero{aspect-ratio:4/3;height:auto;object-fit:contain;border-radius:20px}
+.mall-product-story{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:center;gap:clamp(24px,4vw,64px);padding:clamp(20px,3vw,40px);background:#F5F2E9;border-radius:28px}
+.mall-product-story>.mall-art{aspect-ratio:4/3;object-fit:contain;border-radius:20px}
+.mall-product-story>div{display:flex;flex-direction:column;gap:18px}
+.mall-product-story h2{font-size:clamp(24px,3vw,36px);line-height:1.4;word-break:keep-all}
+.mall-product-story p{line-height:1.8;white-space:pre-line;word-break:keep-all}
+@media(max-width:760px){.mall-product-story{grid-template-columns:minmax(0,1fr)}}
 .mall-detail-hero.mall-art-ph b{font-size:22px}
 .mall-detail-hero.mall-art-ph svg{width:64px;height:64px}
 .mall-thumbs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.mall-thumbs img{width:100%;aspect-ratio:4/3;object-fit:contain;background:var(--m-soft);border-radius:12px}

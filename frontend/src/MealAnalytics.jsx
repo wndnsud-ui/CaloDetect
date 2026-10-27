@@ -13,7 +13,7 @@ function Bars({items,unit,onSelect,target,monthly}) {
   return <StreamlitChart kind="bars" data={{items,unit,target,monthly}} onSelect={onSelect} height={270} title="식단 칼로리 및 영양 막대그래프"/>;
 }
 // 기존 월별 분석 API로 일간 식사별·월간 날짜별 영양 차트를 표시한다.
-export default function MealAnalytics({api, targetCalories}) {
+export default function MealAnalytics({api, targetCalories, headerTabs}) {
   const [date,setDate] = useState(kstDate), [mode,setMode] = useState('daily');
   const [metric,setMetric] = useState('cal'), [data,setData] = useState(null);
   const [error,setError] = useState(''), [retry,setRetry] = useState(0);
@@ -41,7 +41,7 @@ export default function MealAnalytics({api, targetCalories}) {
   });
   // 총합은 Backend가 반환한 날짜별 칼로리를 사용한다. 미기록과 0 kcal를 구분한다.
   if(mode==='daily'&&metric==='cal') bars.push({label:'총 칼로리',value:day?.totals?.cal??null,isTotal:true});
-  return <><p className="eyebrow">MEAL ANALYTICS</p><h1>기록으로 보는 나의 식단</h1>
+  return <><p className="eyebrow">MEAL ANALYTICS</p><h1>기록으로 보는 나의 식단</h1>{headerTabs}
     <section className="panel"><div className="analysis-controls"><div className="segmented" role="group" aria-label="분석 기간">{[['daily','일간 분석'],['monthly','월별 분석']].map(([key,label])=><button key={key} className={mode===key?'selected':''} aria-pressed={mode===key} onClick={()=>setMode(key)}>{label}</button>)}</div>
     <label>{mode==='daily'?'날짜':'월'}<input type={mode==='daily'?'date':'month'} value={mode==='daily'?date:month} onChange={e=>{if(e.target.value)setDate(mode==='daily'?e.target.value:`${e.target.value}-01`)}}/></label>
     <label>영양 항목<select value={metric} onChange={e=>setMetric(e.target.value)}>{Object.entries(nutrients).map(([key,[label]])=><option key={key} value={key}>{label}</option>)}</select></label></div>

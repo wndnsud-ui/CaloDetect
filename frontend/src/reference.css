@@ -125,7 +125,8 @@
 /* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
 @media(max-width:480px){.meal-nutrition-heading>strong{font-size:30px}.meal-macro-legend{gap:12px;font-size:12px}.meal-macro-legend>div{font-size:12px}.meal-nutrition-details>div{flex-wrap:wrap;padding:12px}}
 /* Shared fluid width for the homepage and member workspace. */
-.landing{--page-gutter:clamp(24px,3vw,72px)}
+/* 넓은 화면에서도 내용 폭을 1560px 안쪽으로 두어 양옆 여백을 확보한다. */
+.landing{--page-gutter:max(clamp(24px,3vw,72px),calc((100vw - 1560px) / 2))}
 .landing-header,.landing-main{width:100%;max-width:none;margin:0;padding-left:var(--page-gutter);padding-right:var(--page-gutter)}
 .landing>footer{max-width:none;margin:0 var(--page-gutter);padding:28px 0}
 .landing-hero{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}

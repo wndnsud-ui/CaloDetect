@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/auth/google/callback",
+      "destination": "https://calodetect-production.up.railway.app/api/auth/google/callback"
+    },
+    {
+      "source": "/api/auth/kakao/callback",
+      "destination": "https://calodetect-production.up.railway.app/api/auth/kakao/callback"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://calodetect-production.up.railway.app/:path*"
     }

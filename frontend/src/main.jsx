@@ -40,14 +40,26 @@ import './rewards.css';
 // HttpOnly 쿠키 원문 대신 서버가 준 CSRF 토큰만 모듈 메모리에 보관한다. 로그아웃/비밀번호 변경 시 비운다.
 let csrf = '';
 // 요청 본문 유무에 따라 조회/변경 호출을 구성하고 공통 응답 파서로 결과를 읽는다.
-async function api(path, body, method = 'POST') {
+async function api(path, body, method = 'POST', refreshSession = true) {
   // 사진 업로드는 브라우저가 multipart boundary를 붙이도록 Content-Type을 직접 지정하지 않는다.
   const form = body instanceof FormData;
   // credentials: include로 세션 쿠키를 보내고 JSON 본문과 CSRF 헤더는 필요한 경우에만 추가한다.
-  const response = await fetch(`/api${path}`, {credentials: 'include', method: body === undefined ? 'GET' : method,
+  const response = await fetch(`/api${path}`, {credentials: 'include', cache: 'no-store', method: body === undefined ? 'GET' : method,
     headers: {...(!form && body !== undefined ? {'Content-Type': 'application/json'} : {}), ...(csrf ? {'X-CSRF-Token': csrf} : {})},
     body: body === undefined ? undefined : form ? body : JSON.stringify(body)});
-  const data = await readApiResponse(response);
+  let data;
+  try {
+    data = await readApiResponse(response);
+  } catch (error) {
+    // A different tab or a new login can replace the cookie while this page retains its old token.
+    // This exact rejection occurs before the handler runs, so one retry cannot duplicate a saved meal.
+    if (refreshSession && body !== undefined && error.status === 403 &&
+        error.message === '세션을 새로고침한 뒤 다시 시도하세요.') {
+      await api('/users/me');
+      return api(path, body, method, false);
+    }
+    throw error;
+  }
   if (data.csrf_token) csrf = data.csrf_token;
   return data;
 }

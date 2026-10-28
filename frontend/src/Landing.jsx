@@ -4,6 +4,7 @@ import {PromoSlider} from './RewardMall';
 import {Brand} from './Visuals';
 import LandingAccount, {useLandingSession} from './LandingAccount';
 import FeatureSection from './FeatureSection';
+import './landing-compact.css';
 const steps = [
   ['01','회원가입','기본 정보를 설정해요.','회원가입','phone'],
   ['02','사진 업로드','오늘 먹은 음식을 촬영해요.','음식 추가','camera'],

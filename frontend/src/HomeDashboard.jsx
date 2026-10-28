@@ -46,12 +46,10 @@ export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal
   );
   return <div className="home-dashboard">
     {homeCard}
-    <section className="hd-hero hd-hero--overview" aria-labelledby="hd-title">
+    <section className="hd-hero hd-hero--overview hd-overview-summary" aria-label="선택한 날의 기록 요약">
       <div className="hd-hero-content">
       <div className="hd-room"><Jibang equipment={me?.equipment} level={me?.level||1} background="bg_lv1" bubble="오늘도 잘 하고 있어요!" figureWidth={230} className="hd-hero-scene"/></div>
         <div className="hd-date"><strong>{date.getUTCMonth()+1}.{date.getUTCDate()} {['일','월','화','수','목','금','토'][date.getUTCDay()]}</strong><button type="button" aria-label="이전 날짜 기록 보기" onClick={previousDay}>‹</button><button type="button" className="hd-today" onClick={()=>setSelectedDate(todayDate)}>{currentDay?'오늘':'오늘로'}</button></div>
-        <h1 id="hd-title">{currentDay?'오늘도':'하루하루'}<br/>건강한 한 끼를 기록해요!</h1>
-        <p className="hd-intro">식단을 기록하고, 건강한 습관과<br/>더 나은 나를 만들어가요.</p>
         <div className="hd-stats"><div><i aria-hidden="true">🔥</i><span>섭취 칼로리<strong>{display(totals?.cal)} <small>/ {display(target)} kcal</small></strong></span></div><div><i className="hd-check" aria-hidden="true">✓</i><span>기록 현황<strong>{4-remaining.length}끼 기록 완료</strong></span></div><div><i aria-hidden="true">🍴</i><span>남은 기록<strong>{remaining.map(([,label])=>label).join(' · ')||'모두 완료!'}</strong></span></div></div>
         <button type="button" className="hd-record" onClick={()=>addMeal()}>＋ 식사 기록하기 <span aria-hidden="true">→</span></button>
       </div>

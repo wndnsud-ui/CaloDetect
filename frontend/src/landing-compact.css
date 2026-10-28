@@ -1,0 +1,115 @@
+/* Compact feature illustrations and the sections below them. */
+.landing .fx{padding:28px;gap:18px}
+.landing .fx-card{padding:22px;gap:14px;border-radius:22px}
+.landing .fx-icon{width:44px;height:44px}
+.landing .fx-icon svg{width:22px;height:22px}
+.landing .fx-head{gap:10px}
+.landing .fx-head h3{font-size:23px}
+.landing .fx-go{width:40px;height:40px}
+.landing .fx-body{flex:0 0 auto;align-items:flex-start}
+.landing .fx-copy{flex:1;gap:9px}
+.landing .fx-copy p,.landing .fx-side>p{font-size:14px;line-height:1.65}
+.landing .fx-scan{flex:0 0 42%;width:42%;height:170px;min-height:0;max-height:170px;border-radius:15px}
+.landing .fx-menu-art{flex:0 0 38%;gap:4px}
+.landing .fx-menu-art img{height:90px;object-fit:contain}
+.landing .fx-menu-art .fx-hand{font-size:16px}
+.landing .fx-chips{margin-top:auto;gap:8px}
+.landing .fx-chips button{min-height:44px;padding:8px 12px;font-size:13px}
+.landing .fx-menus img{height:58px}
+.landing .fx-menus button{padding:8px}
+.landing .fx-menus strong{font-size:12px}
+.landing .fx-manage .fx-body{min-height:0;align-items:center}
+.landing .fx-manage .fx-copy{flex:1}
+.landing .fx-phone{position:relative;inset:auto;flex:0 0 118px;width:118px;height:218px;padding:6px;border-radius:22px;transform:rotate(4deg);margin:0 4px}
+.landing .fx-phone-screen{padding:14px 8px;gap:8px;border-radius:17px}
+.landing .fx-phone-screen>strong{font-size:10px}
+.landing .fx-ring,.landing .fx-ring svg{width:78px;height:78px}
+.landing .fx-ring b{font-size:18px}
+.landing .fx-bar{font-size:9px}
+.landing .fx-side,.landing .fx-reward .fx-side{flex:0 0 40%;gap:12px}
+.landing .fx-cta{min-height:44px;padding:10px 16px;font-size:14px}
+.landing .fx-posts{gap:10px;padding-top:0}
+.landing .fx-post{padding:10px;gap:7px;border-radius:15px}
+.landing .fx-post img{height:100px}
+.landing .fx-post p{font-size:12px;line-height:1.5}
+.landing .fx-post-user{gap:6px}
+.landing .fx-post-user>span{width:24px;height:24px}
+.landing .fx-post-user strong{font-size:12px}
+.landing .fx-reward{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.landing .fx-reward .fx-side{grid-column:1;grid-row:1 / span 2;height:100%}
+.landing .fx-reward-me{grid-column:2;width:100%;flex-direction:row;gap:8px}
+.landing .fx-reward-me img{width:56px;max-height:96px;object-fit:contain}
+.landing .fx-reward-me div{min-width:0;flex:1;padding:8px}
+.landing .fx-reward-me strong{font-size:20px}
+.landing .fx-rewards{grid-column:2}
+.landing .fx-rewards img{height:56px}
+.landing .fx-rewards span{font-size:12px}
+.landing .landing-promos .mall-slide-art{min-height:280px;max-height:350px}
+.landing .landing-promos .mall-slide-copy{padding:28px 32px 72px;gap:12px}
+.landing .landing-promos .mall-slide-copy h2{font-size:30px}
+.landing .landing-promos .mall-slide-copy p{font-size:14px;line-height:1.65}
+@media(max-width:760px){
+  .landing .landing-section{margin-top:28px}
+  .landing .fx{padding:18px 12px;gap:14px}
+  .landing .fx-top{gap:10px;position:relative;padding-right:62px}
+  .landing .fx-top h2{font-size:28px;line-height:1.25;letter-spacing:-1px}
+  .landing .fx-kicker{font-size:14px}
+  .landing .fx-sub{font-size:13px;line-height:1.6}
+  .landing .fx-top-art{position:absolute;right:0;top:8px;padding:0}
+  .landing .fx-top-art img{width:54px}
+  .landing .fx-top-art .fx-hand{display:none}
+  .landing .fx-row{gap:14px}
+  .landing .fx-card{padding:16px;gap:14px;border-radius:18px}
+  .landing .fx-head h3{font-size:20px}
+  .landing .fx-icon{width:38px;height:38px}
+  .landing .fx-body{flex-direction:row;gap:12px}
+  .landing .fx h4{font-size:16px;line-height:1.45}
+  .landing .fx-copy p,.landing .fx-side>p{font-size:12px;line-height:1.65}
+  .landing .fx-body>*{flex-shrink:1}
+  .landing .fx-scan{flex:0 0 34%;width:34%;height:128px;max-height:128px;object-position:center}
+  .landing .fx-menu-art{flex:0 0 32%;align-self:center}
+  .landing .fx-menu-art .fx-hand{display:none}
+  .landing .fx-menu-art img{height:90px}
+  .landing .fx-menus{gap:6px}
+  .landing .fx-menus button{padding:6px}
+  .landing .fx-menus img{height:48px}
+  .landing .fx-menus span{font-size:10px}
+  .landing .fx-menus strong,.landing .fx-menus b{font-size:11px;line-height:1.4}
+  .landing .fx-chips button{padding:8px 10px;font-size:12px}
+  .landing .fx-chips svg{width:16px;height:16px}
+  .landing .fx-phone{flex:0 0 100px;width:100px;height:186px;margin:0;transform:none}
+  .landing .fx-phone-screen{padding:10px 6px;gap:6px}
+  .landing .fx-phone-screen>strong{font-size:9px}
+  .landing .fx-ring,.landing .fx-ring svg{width:66px;height:66px}
+  .landing .fx-ring b{font-size:16px}
+  .landing .fx-bar{font-size:8px}
+  .landing .fx-community{flex-direction:column}
+  .landing .fx-side,.landing .fx-reward .fx-side{flex-basis:auto}
+  .landing .fx-side h4 br{display:none}
+  .landing .fx-posts{flex-direction:row;gap:8px}
+  .landing .fx-post{padding:8px;transform:none}
+  .landing .fx-post img{height:82px}
+  .landing .fx-post p{font-size:11px}
+  .landing .fx-post-user>span{display:none}
+  .landing .fx-post-user strong{font-size:11px}
+  .landing .fx-post-user small,.landing .fx-post-meta{font-size:10px}
+  .landing .fx-post-meta{gap:8px}
+  .landing .fx-reward{grid-template-columns:1fr}
+  .landing .fx-reward .fx-side,.landing .fx-reward-me,.landing .fx-rewards{grid-column:1;grid-row:auto}
+  .landing .fx-reward-me{align-items:center}
+  .landing .fx-reward-me img{width:44px;max-height:70px}
+  .landing .fx-rewards{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .landing .fx-rewards li{padding:6px;border-radius:10px}
+  .landing .fx-rewards img{height:44px}
+  .landing .fx-rewards span{font-size:10px;line-height:1.5}
+  .landing .fx-rewards strong{font-size:11px}
+  .landing .landing-promos .mall-slide-art{height:180px;min-height:0;max-height:180px;aspect-ratio:auto}
+  .landing .landing-promos .mall-slide-copy{padding:18px 20px;gap:10px}
+  .landing .landing-promos .mall-slide-copy h2{font-size:23px}
+  .landing .landing-promos .mall-slide-copy p{font-size:13px}
+  .landing .service-flow{padding:20px 16px;gap:18px}
+  .landing .service-flow-steps{gap:12px}
+  .landing .service-flow-steps button{padding:8px}
+  .landing .faq h2{font-size:24px}
+  .landing .faq details{padding:16px 0}
+}

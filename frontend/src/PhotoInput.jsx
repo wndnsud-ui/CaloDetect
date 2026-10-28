@@ -93,7 +93,7 @@ export default function PhotoInput({file, onChange, busy = false}) {
     <p className="muted">JPG/PNG · 최대 10MB · 음식이 잘 보이도록 촬영해 주세요.</p>
     {error && <p className="error" role="alert">{error}</p>}
     {starting && <button type="button" className="text-button" onClick={stopCamera}>카메라 연결 취소</button>}
-    {camera && <div className="camera-preview"><video ref={video} autoPlay muted playsInline aria-label="촬영할 음식 미리보기"/><div className="photo-actions"><button type="button" className="primary" onClick={capture}>촬영하기</button><button type="button" className="text-button" onClick={stopCamera}>촬영 취소</button></div></div>}
+    {camera && <div className="camera-preview"><video ref={video} autoPlay muted playsInline aria-label="촬영할 음식 미리보기"/><div className="photo-actions camera-actions"><button type="button" className="outline" onClick={capture}>촬영하기</button><button type="button" className="outline" onClick={stopCamera}>촬영 취소</button></div></div>}
     {file && preview && !camera && <div className="scan-preview"><img src={preview} alt="선택한 음식 사진 미리보기"/><p className="photo-filename">{file.name}</p><button type="button" className="text-button" disabled={busy} onClick={()=>{onChange(null);setError('');}}>사진 제거</button></div>}
   </div>;
 }

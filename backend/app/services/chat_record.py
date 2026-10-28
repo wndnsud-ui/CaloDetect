@@ -281,7 +281,7 @@ def ask_amount(db, conversation, draft, reply_to, prefix=''):
                draft=draft_json(db, draft), chips=ANALYSIS_CHIPS, meal_chips=True)
 
 
-def analyze_attachment(db, user, attachment_id):
+def analyze_attachment(db, user, attachment_id, *, mobile=False):
     attachment = db.get(ChatAttachment, attachment_id)
     if not attachment or attachment.user_id != user.id:
         raise not_found()
@@ -293,7 +293,7 @@ def analyze_attachment(db, user, attachment_id):
     require_storage()
     try:
         with storage.local_file(attachment.storage_key) as path:
-            result = detect_image(path)
+            result = detect_image(path, mobile=True) if mobile else detect_image(path)
     except Exception:
         logger.exception('chat photo analysis failed')
         result = None

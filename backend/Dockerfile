@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir "ultralytics>=8.4,<9"
 # 이미지 빌드에 필요한 기존 파일만 지정된 위치로 복사한다.
 COPY backend /workspace/backend
 # 이미지 빌드에 필요한 기존 파일만 지정된 위치로 복사한다.
-COPY data_config.py data.yaml CaloDetect_nutrition_all_matched.csv best.pt /workspace/
+COPY data_config.py data.yaml CaloDetect_nutrition_all_matched.csv best.pt 26s_best.pt /workspace/
 # API가 사용하는 컨테이너 포트를 문서화한다. 호스트 공개는 Compose 설정이 담당한다.
 EXPOSE 8000
 # 컨테이너 시작 시 Backend 준비/서버 진입 모듈을 실행한다.

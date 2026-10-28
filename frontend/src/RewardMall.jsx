@@ -8,6 +8,7 @@ import {Progress, etaText, fmt} from './RewardHomeCard';
 import {clampQty, shouldAutoplay, nextSlide, imageUrl, nextMonthLabel, productGallery, HD_PRODUCTS} from './rewardMallUtils';
 import CoachingTab, {CoachDetail} from './Coaching';
 import './reward-mall.css';
+import MenuPageHero from './MenuPageHero';
 
 const TAG_TONE = {green: 'tone-green', gold: 'tone-gold', dark: 'tone-dark', soft: 'tone-soft'};
 const NOTICES = {
@@ -96,7 +97,7 @@ export function PromoSlider({items, onOpen}) {
             <span className="mall-slide-chip">{slide.chip}</span>
             <button type="button" className="mall-slide-cta" tabIndex={i === index ? 0 : -1} onClick={() => onOpen(slide)}>{slide.cta}</button>
           </div>
-          <div className="mall-slide-art"><ProductArt product={{name: slide.title.split('\n').pop(), hero: slide.image, collab_brand: slide.target === 'collab' || slide.id === 'premium30' ? 'collab' : null,
+          <div className="mall-slide-art"><ProductArt product={{name: slide.title.split('\n').pop(), hero: slideImage(slide), collab_brand: slide.target === 'collab' || slide.id === 'premium30' ? 'collab' : null,
             subcategory: slide.id === 'drink' ? '음료' : '간편식'}}/></div>
         </div>)}
       </div>
@@ -211,6 +212,12 @@ function ExchangeFlow({api, product, option, quantity, conditions, onClose, onCh
       </>}
     </div>
   </RewardDialog>;
+}
+
+// 슬라이드 사진은 상품 상세·목록과 같은 대표 이미지(글씨 있는 시안 첫 장)를 쓴다. 콜라보 슬라이드는 이미지 키의 상품으로 찾는다.
+function slideImage(slide) {
+  const id = slide.product_id || slide.image?.match(/^products\/([^/]+)\//)?.[1];
+  return id ? productGallery({id, hero: slide.image})[0] : slide.image;
 }
 
 // 상품 상세(공통 템플릿 1개, §7-3).
@@ -404,12 +411,11 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
   const items = (data?.items || []).filter(item => item.category === category);
   const tabs = [['deco', '꾸미기'], ['goods', '건강상품'], ['pro', '전문 코칭']];
   return <div className="mall-page">
+    <MenuPageHero kind="rewards"><div className="section-tabs" role="group" aria-label="리워드 종류">{tabs.map(([key,label])=><button key={key} type="button" aria-pressed={category===key} className={category===key?'active':''} onClick={()=>setCategory(key)}>{label}</button>)}</div></MenuPageHero>
     {/* 프로모션 슬라이더는 사용자 결정(2026-10-26)으로 리워드몰에서 빼고 공개 홈페이지에서만 쓴다. promos는 기획전 배너 표시 여부에 계속 쓴다. */}
     <MallHeader me={me} figure={figure} figureLabel={figureLabel} onTab={onTab} onOpenGoal={openGoal}/>
     <div className="mall-layout">
       <section className="mall-main" aria-label="리워드 상품">
-        <div className="mall-tabs" role="tablist" aria-label="리워드 종류">{tabs.map(([key, label]) =>
-          <button key={key} type="button" role="tab" aria-selected={category === key} className={category === key ? 'on' : ''} onClick={() => setCategory(key)}>{label}</button>)}</div>
         <p className="mall-notice">{NOTICES[category]}</p>
         {error && <p className="error" role="alert">{error}</p>}
         {category === 'deco' ? deco

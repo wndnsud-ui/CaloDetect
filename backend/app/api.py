@@ -22,7 +22,7 @@ from .services.analytics import get_today_status, get_month_status, meal_json
 from .services.timezone import korean_date
 from .services.correction import apply_correction
 from .services.recommendation import recommend_meals
-from .services.vision import detect_image
+from .services.vision import detect_image, mobile_request
 from .accounts import local_development_environment, local_test_request
 from .services import rewards
 from . import storage
@@ -75,7 +75,7 @@ def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
         raise HTTPException(503, '사진을 저장하지 못했습니다. 다시 시도해 주세요.')
     try:
         with storage.local_file(filename, data) as path:
-            result = detect_image(path)
+            result = detect_image(path, mobile=True) if mobile_request(request) else detect_image(path)
         db.add(ImageUpload(id=group_id, user_id=user.id, image_path=filename))
         detections = []
         # 모델이 반환한 각 음식 박스를 별도 탐지 행으로 저장해 나중에 개별 음식 수정/식단 연결이 가능하게 한다.

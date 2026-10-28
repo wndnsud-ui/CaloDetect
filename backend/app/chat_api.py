@@ -1,3 +1,4 @@
+from .services.vision import mobile_request
 # 채팅 식사기록(A1) 라우트. main.py가 CHAT_RECORD_ENABLED=true일 때만 등록한다.
 # 식사 확정은 별도 공개 경로가 없고 메시지 처리 안에서 서버가 수행한다(지시서 11장).
 from typing import Annotated
@@ -62,7 +63,7 @@ def upload(request: Request, user: CurrentUser, db: DB, file: UploadFile, conver
 def analyze(attachment_id: str, request: Request, user: CurrentUser, db: DB):
     require_image_environment(request)
     try:
-        return chat_record.analyze_attachment(db, user, attachment_id)
+        return chat_record.analyze_attachment(db, user, attachment_id, mobile=mobile_request(request))
     except ChatRecordError as error:
         return failure(error)
 

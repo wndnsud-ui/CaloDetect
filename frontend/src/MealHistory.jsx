@@ -10,7 +10,7 @@ const format = value => value == null || !Number.isFinite(Number(value)) ? '—'
 const PAGE_SIZE = 15;
 
 // 식단 항목을 음식 한 개당 한 행으로 펼치는 기록 표.
-export default function MealHistory({history, onAdd, api, onChanged, headerTabs}) {
+export default function MealHistory({history, api, onChanged, headerTabs}) {
   // 챗으로 수정 대상 {meal, item}. 서버가 CHAT_RECORD_ENABLED일 때만 항목에 version 키가 있어 진입 버튼이 보인다.
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState('');
@@ -32,8 +32,6 @@ export default function MealHistory({history, onAdd, api, onChanged, headerTabs}
   useEffect(() => { if (tableScroll.current) tableScroll.current.scrollTop = 0; }, [currentPage, query, type, order]);
 
   return <div className="meal-history">
-    <p className="eyebrow">MEAL HISTORY</p>
-    <div className="history-heading"><div><h1>한 끼씩 쌓이는 나의 기록</h1><p className="muted">날짜별 음식과 영양 정보를 한눈에 확인하세요.</p></div><button className="primary" onClick={onAdd}>+ 식단 추가하기</button></div>
     {headerTabs}
     <section className="history-database" aria-label="식단 기록 데이터베이스">
       <div className="history-toolbar">

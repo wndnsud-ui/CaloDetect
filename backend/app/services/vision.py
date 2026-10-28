@@ -11,7 +11,16 @@ inference_lock = Lock()
 
 
 # 기존 .venv Python이 있으면 재사용하고 추론 worker를 120초 제한으로 실행해 JSON을 반환한다.
-def detect_image(path):
+def mobile_request(request):
+    """Use browser device hints, with a UA fallback for iOS and older browsers."""
+    hint = request.headers.get('sec-ch-ua-mobile')
+    if hint == '?1':
+        return True
+    ua = request.headers.get('user-agent', '').lower()
+    return any(token in ua for token in ('android', 'iphone', 'ipad', 'ipod', 'mobile'))
+
+
+def detect_image(path, *, mobile=False):
     # 기존 Streamlit/YOLO 가상환경 경로를 OS별로 찾는다. 없으면 Backend를 실행한 Python을 사용한다.
     legacy_python = ROOT / '.venv' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
     executable = str(legacy_python) if legacy_python.is_file() else sys.executable
@@ -19,7 +28,7 @@ def detect_image(path):
     config_dir.mkdir(parents=True, exist_ok=True)
     # 이 서버 프로세스에서 여러 요청이 동시에 모델 worker를 실행하지 않게 한다. 여러 worker 전체를 묶는 전역 잠금은 아니다.
     with inference_lock:
-        result = subprocess.run([executable, str(ROOT / 'backend/app/vision_worker.py'), str(path)],
+        result = subprocess.run([executable, str(ROOT / 'backend/app/vision_worker.py'), str(path), 'mobile' if mobile else 'web'],
                                 capture_output=True, text=True, encoding='utf-8', errors='replace',
                                 timeout=120, cwd=ROOT, env={**os.environ, 'YOLO_CONFIG_DIR': str(config_dir)},
                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)

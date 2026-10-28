@@ -19,9 +19,12 @@ function Lv1() {
     <rect x="198" y="72" width="124" height="148" rx="10" fill="none" stroke="#C9A67A" strokeWidth="7"/>
     <path d="M260 72v148M198 146h124" stroke="#C9A67A" strokeWidth="5"/>
     <path d="M188 72c10 40 6 110 -4 160M332 72c-10 40 -6 110 4 160" fill="none" stroke="#E7CBB5" strokeWidth="14" strokeLinecap="round"/>
-    <rect x="186" y="226" width="148" height="10" rx="5" fill="#C9A67A"/><path d="M222 236h30l-4 28h-22z" fill="#CF7150"/>
+    <rect x="186" y="226" width="148" height="10" rx="5" fill="#C9A67A"/>
+    <g transform="translate(0 -38)">
+    <path d="M222 236h30l-4 28h-22z" fill="#CF7150"/>
     <path d="M237 236c0-14 0-20 0-26" stroke="#2E8B5A" strokeWidth="3" strokeLinecap="round"/>
     <path d="M237 214c-10-2-14-10-12-16 8 0 12 6 12 16zM237 210c8-4 14-12 12-18-8 2-12 8-12 18z" fill="#4FA77A"/>
+    </g>
     <rect x="40" y="104" width="78" height="62" rx="6" fill="#EAF5EE" stroke="#C9A67A" strokeWidth="5"/>
     <path d="M79 148c-12-8-16-15-12-20 3-4 9-3 12 2 3-5 9-6 12-2 4 5 0 12-12 20z" fill="#E9A4A0"/>
     <rect y="352" width="360" height="128" fill="#E9DAC1"/><rect y="344" width="360" height="10" fill="#D9C4A2"/>

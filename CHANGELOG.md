@@ -2,6 +2,9 @@
 
 ## 2026-10-28
 
+- Railway 추론 503 대응: 배포 중인 backend/Dockerfile에 OpenCV용 libgl1·libglib2.0-0 설치와 cv2/YOLO import 빌드 검사를 반영. 기존 추론 worker stderr 및 식단 탐지 저장 예외를 서버 로그로 기록해 원인 누락 방지. 사용자가 지정한 main 배포에 적용하며 모델·클래스·추론 설정은 유지.
+- Railway 운영 장애 확인·복구: 실제 배포 로그에서 사진 저장 시 `httpx.UnsupportedProtocol` 및 HTTP 500 확인. `SUPABASE_URL`에 PostgreSQL 접속 URL이 들어 있었으며, 동일 DB·키·버킷의 로컬 정상 설정과 비교한 뒤 HTTPS 프로젝트 URL 하나만 수정. 재배포 `010a71a6-1073-4ecf-aba7-f80199bfd135` SUCCESS, 서버·DB health 200, Supabase 비공개 community 버킷 조회 200 및 기존 이미지 존재 확인. 사용자 브라우저 사진 분석·이미지 표시 재확인은 필요. SSH는 등록 키가 없어 컨테이너 내부 검사는 수행하지 않음. 비밀값은 기록하지 않음.
+
 - 배포 CSRF 오류 대응: 변경 요청이 세션 CSRF 불일치로 거부된 경우 `/users/me`에서 최신 토큰을 받은 뒤 원래 요청을 한 번만 재시도. 다른 403은 재시도하지 않고 서버 검사는 유지. API 요청 캐시 비활성화, Vercel Google·카카오 callback 전용 rewrite 추가. Frontend build 및 토큰 갱신·multipart 유지·반복 제한·일반 403 비재시도 검사 통과. 사용자 요청으로 main 반영. 커뮤니티 사진 조회 실패는 배포 주소·HTTP 응답 확인 대기이며 해결 확인 전.
 
 - 리워드몰 상세 화면 수정: 태극사계 기획전·상품 상세에서 메인 메뉴용 선물 배경이 전용 배너 뒤로 겹치던 현상 제거. 메인 리워드몰의 공통 제목 영역이 있을 때만 메뉴 배경을 표시.

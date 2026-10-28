@@ -11,6 +11,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 # 런타임 의존성을 이미지에 설치한다. CPU 패키지와 기존 YOLO 버전 범위를 유지한다.
 RUN pip install --no-cache-dir "ultralytics>=8.4,<9"
+RUN apt-get update && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+RUN python -c "import cv2; from ultralytics import YOLO"
 # 이미지 빌드에 필요한 기존 파일만 지정된 위치로 복사한다.
 COPY backend /workspace/backend
 # 이미지 빌드에 필요한 기존 파일만 지정된 위치로 복사한다.

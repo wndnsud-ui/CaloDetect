@@ -90,6 +90,7 @@ def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
         db.commit(); logger.info('YOLO inference complete')
     except Exception:
         # 실패한 트랜잭션을 되돌려 부분 변경이 확정되지 않도록 한다.
+        logger.exception('Meal photo inference or detection persistence failed')
         db.rollback(); storage.delete(filename)
         raise HTTPException(503, '사진 분석에 실패했습니다. 직접 음식을 선택하거나 다시 시도해 주세요.')
     return {'image_group_id': group_id, 'image_url': f'/api/meals/images/{group_id}',

@@ -1,6 +1,7 @@
 # 기존 YOLO 환경을 재사용해 추론 worker를 실행하고 JSON 결과를 읽는 서버 서비스.
 # 프로세스 내부 잠금으로 추론을 직렬화하며 시간 제한·종료 코드를 검사한다.
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -8,6 +9,7 @@ from threading import Lock
 from ..config import ROOT
 
 inference_lock = Lock()
+logger = logging.getLogger('calodetect')
 
 
 # 기존 .venv Python이 있으면 재사용하고 추론 worker를 120초 제한으로 실행해 JSON을 반환한다.
@@ -34,5 +36,7 @@ def detect_image(path, *, mobile=False):
                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     # worker 실패를 먼저 검사해 오류 출력이 정상 JSON 결과로 처리되지 않게 한다.
     if result.returncode:
+        logger.error('YOLO worker failed (exit=%s, profile=%s): %s',
+                     result.returncode, 'mobile' if mobile else 'web', result.stderr[-3000:])
         raise RuntimeError('YOLO inference failed')
     return json.loads(result.stdout)

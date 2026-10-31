@@ -45,7 +45,18 @@ CASES = [
     ('밥 조금 먹었어', 'amount', [{'id': 'r', 'food_name': '쌀밥'}], reason('vague_amount')),
     ('두 그릇 먹었어', 'amount', ONE, reason('serving_unit')),
     ('절반만 머겄어', 'amount', ONE, ratios(('g', 0.5))),  # 오탈자
-    ('오늘 저녁 뭐 먹지?', 'none', ONE, lambda r: r['intent'] == 'general_chat' and bool(r['reply']) and not r['out_of_scope']),
+    ('오늘 저녁 뭐 먹지?', 'none', [], lambda r: r['intent'] == 'meal_recommend' and r['meal_type'] == 'dinner'),
+    ('단백질 많은 메뉴 추천해줘', 'none', [], lambda r: r['intent'] == 'meal_recommend' and r['theme'] == 'protein'),
+    ('가볍게 먹을 메뉴 추천해줘', 'none', [], lambda r: r['intent'] == 'meal_recommend' and r['theme'] == 'light'),
+    ('점심 매운 한식 추천해줘', 'none', [], lambda r: r['intent'] == 'meal_recommend' and bool(r['preference'])),
+    ('강남역 샐러드 가게 알려줘', 'none', [], lambda r: r['intent'] == 'restaurant_search' and r['place_area'] and '샐러드' in (r['place_query'] or '')),
+    ('근처 국밥집 어디 있어?', 'none', [], lambda r: r['intent'] == 'restaurant_search' and not r['place_area']),
+    ('방금 거 취소해줘', 'none', ONE, intent('undo')),
+    (f'{GALBI} 반만 먹었어', 'none', [{'id': 'b', 'food_name': GALBI, 'label': '오늘 아침'}, {'id': 'l', 'food_name': GALBI, 'label': '오늘 점심'}],
+     lambda r: r['intent'] == 'clarify' and r['clarification_reason'] == 'ambiguous_target'),
+    (f'점심 {GALBI} 반만 먹었어', 'none', [{'id': 'b', 'food_name': GALBI, 'label': '오늘 아침'}, {'id': 'l', 'food_name': GALBI, 'label': '오늘 점심'}],
+     ratios(('l', 0.5))),
+    ('요즘 도대체 왜 살이 안 빠지지', 'none', [], lambda r: r['intent'] == 'general_chat' and bool(r['reply'])),
     ('오늘 힘들다 ㅠㅠ', 'none', ONE, lambda r: r['intent'] == 'general_chat' and bool(r['reply']) and not r['out_of_scope']),
     ('안녕', 'none', [], lambda r: r['intent'] == 'general_chat' and bool(r['reply'])),
     ('오늘 식사 어땠어?', 'none', [], lambda r: r['intent'] == 'general_chat' and bool(r['reply'])),
@@ -65,7 +76,7 @@ def main():
             print(f'ERROR  {text} -> {error}'); failed += 1; continue
         ok = check(result)
         failed += not ok
-        summary = {k: result[k] for k in ('intent', 'updates', 'save', 'meal_info', 'target_id', 'clarification_reason', 'reply', 'suggest_page') if result.get(k)}
+        summary = {k: result[k] for k in ('intent', 'updates', 'save', 'meal_info', 'target_id', 'clarification_reason', 'reply', 'suggest_page', 'theme', 'preference', 'place_query', 'place_area', 'meal_type') if result.get(k)}
         print(f'{"PASS" if ok else "FAIL"}  {text} -> {summary}')
     print(f'{len(CASES) - failed}/{len(CASES)} passed')
     return 1 if failed else 0

@@ -92,6 +92,8 @@ class Settings(BaseSettings):
     chat_daily_limit: int = Field(default=5, ge=1, le=1000)
     # 지난 대화 메시지 보관 일수. 식사 기록은 지우지 않는다.
     chat_retention_days: int = Field(default=7, ge=1, le=365)
+    # 칼로티 코치 음식점 검색(카카오 로컬 API). 카카오 개발자 앱의 REST API 키. 없으면 카카오 로그인용 KAKAO_CLIENT_ID를 쓴다.
+    kakao_rest_api_key: str | None = None
     # ---- CaloPoint·Growth·Reward(리워드 지시서 v3 §5-6). 모든 수치는 개발 기본값이며 운영값은 TBD ----
     reward_enabled: bool = True
     reward_point_valid_days: int = Field(default=365, ge=1)

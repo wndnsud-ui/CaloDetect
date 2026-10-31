@@ -1,7 +1,7 @@
 from .services.vision import mobile_request
 # 채팅 식사기록(A1) 라우트. main.py가 CHAT_RECORD_ENABLED=true일 때만 등록한다.
 # 식사 확정은 별도 공개 경로가 없고 메시지 처리 안에서 서버가 수행한다(지시서 11장).
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
@@ -26,6 +26,24 @@ class ChatMessageRequest(RequestModel):
     text: str = Field(min_length=1, max_length=200)
     # 답장 칩을 눌러 보낸 문장. 서버가 직전 칩 문장과 같은지 확인한 뒤에만 LLM·횟수에서 뺀다.
     chip: bool = False
+
+
+class FocusRequest(RequestModel):
+    conversation_id: str = Field(min_length=1, max_length=36)
+    item_id: str = Field(min_length=1, max_length=36)
+
+
+class RecordRecommendationRequest(RequestModel):
+    conversation_id: str = Field(min_length=1, max_length=36)
+    food_id: int = Field(ge=0)
+    meal_type: Literal['breakfast', 'lunch', 'dinner', 'snack']
+
+
+class PlacesRequest(RequestModel):
+    conversation_id: str = Field(min_length=1, max_length=36)
+    query: str = Field(min_length=1, max_length=30)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
 
 
 def failure(error: ChatRecordError):
@@ -81,5 +99,32 @@ def analyze(attachment_id: str, request: Request, user: CurrentUser, db: DB):
 def message(body: ChatMessageRequest, user: CurrentUser, db: DB):
     try:
         return chat_record.post_message(db, user, body.conversation_id, body.client_message_id, body.text, body.chip)
+    except ChatRecordError as error:
+        return failure(error)
+
+
+# 식단 기록 표의 '챗으로 수정': 고른 음식을 대화의 수정 대상으로 정하고 양을 묻는다.
+@router.post('/chat/focus')
+def focus(body: FocusRequest, user: CurrentUser, db: DB):
+    try:
+        return chat_record.focus_item(db, user, body.conversation_id, body.item_id)
+    except ChatRecordError as error:
+        return failure(error)
+
+
+# 추천 카드의 [기록]: 그 음식으로 식사 초안을 만들고 드신 양을 묻는다(저장은 확인 뒤 서버가 한다).
+@router.post('/chat/recommendations/record')
+def record_recommendation(body: RecordRecommendationRequest, user: CurrentUser, db: DB):
+    try:
+        return chat_record.record_recommendation(db, user, body.conversation_id, body.food_id, body.meal_type)
+    except ChatRecordError as error:
+        return failure(error)
+
+
+# [내 위치로 찾기]: 브라우저 좌표 근처 음식점(카카오 지도). 좌표는 저장하지 않는다.
+@router.post('/chat/places')
+def places_here(body: PlacesRequest, user: CurrentUser, db: DB):
+    try:
+        return chat_record.search_places_here(db, user, body.conversation_id, body.query, body.lat, body.lng)
     except ChatRecordError as error:
         return failure(error)

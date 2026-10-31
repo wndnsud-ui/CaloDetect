@@ -121,6 +121,8 @@ docker compose exec backend python -m backend.scripts.seed_test_demo
 CHAT_LLM_ENABLED=true
 OPENAI_API_KEY=<서버 전용 키, Git 금지>
 # 선택: OPENAI_MODEL=gpt-4o-mini, CHAT_DAILY_LIMIT=5, CHAT_RETENTION_DAYS=7
+# 선택: 음식점 찾기(카카오 로컬 API). 없으면 KAKAO_CLIENT_ID(카카오 앱 REST API 키)를 쓴다.
+# KAKAO_REST_API_KEY=<카카오 개발자 앱 REST API 키>
 ```
 
 필요한 테이블은 migration `20261031_01`(`chat_llm_consents`·`chat_llm_usage`)입니다. 켜면 첫 대화 전 외부 AI 전송 고지 동의(1회)와 하루 질문 5회 제한(한국 시각 0시 초기화)이 적용되고, 답장 칩은 횟수에 들어가지 않습니다. `CHAT_LLM_ENABLED`가 없거나 키가 없으면 기존 규칙 해석기로 동작합니다. 실제 OpenAI 해석 점검: `.\.venv-backend\Scripts\python.exe -m backend.scripts.check_chat_llm`. 테스트(외부 호출 없음): `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_chat_llm.py backend/tests/test_chat_record.py -q`.

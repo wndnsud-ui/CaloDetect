@@ -3,7 +3,6 @@
 // 시트는 처음 열 때 만들고, 닫으면 숨기기만 해서 진행 중인 사진 분석·입력 내용이 이어진다(대화 자체는 서버가 복원).
 import React, { useEffect, useRef, useState } from 'react';
 import ChatRecord, { COACH_FACE } from './ChatRecord';
-import { ConsumptionEditChat } from './ChatConsumptionEdit';
 import './coach-chat.css';
 
 const HINT_KEY = 'calodetect.coachHintSeen';
@@ -31,7 +30,7 @@ export function CoachFab({hidden, onOpen}) {
 }
 
 // 채팅 시트. 비로그인이면 로그인 안내만 보여 주고 대화(서버 호출)를 만들지 않는다.
-// editTarget({meal, item})이 있으면 식단 기록의 '챗으로 수정' 대화를 같은 시트 안에서 보여 준다.
+// editTarget({meal, item})이 있으면 식단 기록의 '챗으로 수정'으로 고른 음식을 같은 대화에서 고친다(LLM 해석).
 export function CoachSheet({open, user, api, editTarget, onClose, onLogin, onSaved, onNavigate, onBackToChat}) {
   const [mounted, setMounted] = useState(open);
   const [drag, setDrag] = useState(0);
@@ -80,12 +79,8 @@ export function CoachSheet({open, user, api, editTarget, onClose, onLogin, onSav
         <p>식사 기록을 바탕으로 메뉴 추천과 영양 분석을 도와드려요.</p>
         <button type="button" className="primary" onClick={onLogin}>로그인 / 회원가입</button>
       </div> : <>
-        {editTarget && <div className="coach-edit">
-          <button type="button" className="coach-edit-back" onClick={onBackToChat}>‹ 대화로 돌아가기</button>
-          <ConsumptionEditChat key={editTarget.item.id} api={api} item={editTarget.item} onSaved={onSaved}/>
-        </div>}
-        <div className="coach-chat" hidden={!!editTarget}>
-          <ChatRecord key={user.id} api={api} onSaved={onSaved} onNavigate={target => { onClose(); onNavigate(target); }}/>
+        <div className="coach-chat">
+          <ChatRecord key={user.id} api={api} focus={editTarget} onSaved={onSaved} onNavigate={target => { onClose(); onNavigate(target); }}/>
         </div>
       </>}
     </section>

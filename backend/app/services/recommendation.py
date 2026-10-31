@@ -131,8 +131,9 @@ def fallback_item(food: dict, band: str) -> dict:
     }
 
 
-# 오늘 상태와 메뉴 조건을 평가해 3개 후보를 만들고 추천 snapshot/log를 생성한다.
-def recommend_meals(db, user, filters, window, theme='balance'):
+# 오늘 상태와 메뉴 조건으로 전체 후보를 점수순으로 만든다. 칼로티 코치 채팅 추천도 이 후보 목록을 쓴다.
+# 반환: (오늘 snapshot, 점수순 후보, 한도 초과로 뺀 음식)
+def rank_candidates(db, user, filters, window, theme='balance'):
     snapshot = get_today_status(db, user.id)
     target_calories = snapshot.get('target_calories')
     # None과 0 이하 목표를 모두 막아 당류 기준 계산과 추천 점수의 잘못된 분모를 방지한다.
@@ -272,6 +273,12 @@ def recommend_meals(db, user, filters, window, theme='balance'):
 
     # 점수 동점은 class_id 오름차순으로 정렬해 동일한 입력에 재현 가능한 결과를 만든다.
     ranked.sort(key=lambda item: (-item['score'], item['class_id']))
+    return snapshot, ranked, excluded_by_limits
+
+
+# 오늘 상태와 메뉴 조건을 평가해 3개 후보를 만들고 추천 snapshot/log를 생성한다.
+def recommend_meals(db, user, filters, window, theme='balance'):
+    snapshot, ranked, excluded_by_limits = rank_candidates(db, user, filters, window, theme)
 
     # 추천마다 저·중·고 열량 구간을 하나씩 반환하며, 구간 후보가 없을 때만 같은 구간 fallback을 쓴다.
     selected = []

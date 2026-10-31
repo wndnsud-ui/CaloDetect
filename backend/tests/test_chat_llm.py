@@ -203,7 +203,7 @@ def test_general_chat_and_out_of_scope_counting(llm, monkeypatch):
     hello = send(client, conversation, '안녕').json()
     assert last_bot(hello)['text'] == '안녕! 오늘도 같이 기록해요.' and hello['usage']['used'] == 1
     # 오늘 기록 요약이 프롬프트에 들어간다.
-    assert '[사용자 오늘 기록]' in calls['last'] and '오늘 기록 없음' in calls['last']
+    assert '[사용자 기록]' in calls['last'] and '오늘 기록 없음' in calls['last'] and '최근 7일' in calls['last']
     calls['reply'] = raw(intent='general_chat', reply='목표 칼로리 저장은 목표 설정 화면에서 할 수 있어요.', suggest_page='goal', out_of_scope=True)
     ask = send(client, conversation, '목표 칼로리 1500으로 바꿔줘').json()
     chips = last_bot(ask)['payload']['chips']
@@ -229,3 +229,107 @@ def test_rule_rescues_llm_clarify_on_exact_expression(monkeypatch):
     assert rescued['intent'] == 'update_consumption' and rescued['updates'][0]['consumption_ratio'] == 0.25
     vague = chat_llm.interpret('조금 먹었어', 'amount', TARGETS[:1], None, FOODS)
     assert vague['intent'] == 'clarify' and vague['clarification_reason'] == 'vague_amount'
+
+
+# ---- 3단계: 메뉴 추천 카드·[기록], 음식점 찾기, 끼니 되묻기, 되돌리기, '챗으로 수정' ----
+
+def set_goal(client):
+    response = client.put('/users/me/profile', json={'height': 175, 'weight': 70, 'age': 30, 'sex': 'male',
+        'activity_level': 'moderate', 'goal_type': 'maintain', 'target_calories': 2500})
+    assert response.status_code == 200, response.text
+
+
+def test_recommend_cards_use_db_and_record_button(llm):
+    client, engine, _, calls = llm
+    client.post('/chat/consent')
+    conversation = start(client)
+    calls['reply'] = raw(intent='meal_recommend', meal_type='lunch', recommend_theme='protein')
+    no_goal = send(client, conversation, '점심 뭐 먹지?').json()
+    assert '목표 칼로리' in last_bot(no_goal)['text'] and no_goal['usage']['used'] == 0
+    set_goal(client)
+    body = send(client, conversation, '점심 뭐 먹지?').json()
+    bot = last_bot(body)
+    cards = bot['payload']['recommendations']
+    assert bot['kind'] == 'recommend' and 1 <= len(cards) <= 3 and body['usage']['used'] == 1
+    catalog = {cid: name for cid, name in FOODS}
+    assert all(catalog[c['food_id']] == c['food_name'] and c['nutrition']['cal'] >= 0 for c in cards)
+    recorded = client.post('/chat/recommendations/record', json={'conversation_id': conversation, 'food_id': cards[0]['food_id'],
+                                                                  'meal_type': 'lunch'})
+    assert recorded.status_code == 200, recorded.text
+    draft = recorded.json()['draft']
+    assert draft['meal_type'] == 'lunch' and draft['items'][0]['food_id'] == cards[0]['food_id'] and meals(engine) == []
+    chip = next(c for c in last_bot(recorded.json())['payload']['chips'] if c['label'] == '다 먹었어')
+    saved = send(client, conversation, chip['text'], chip=True).json()
+    assert last_bot(saved)['kind'] == 'saved' and len(meals(engine)) == 1
+
+
+def test_restaurant_search_area_and_location(llm, monkeypatch):
+    from backend.app.services import places
+    client, _, _, calls = llm
+    client.post('/chat/consent')
+    monkeypatch.setattr(settings, 'kakao_rest_api_key', 'test')
+    seen = {}
+
+    def fake_search(query, area=None, lat=None, lng=None, size=5):
+        seen.update(query=query, area=area, lat=lat, lng=lng)
+        return [{'name': '초록샐러드', 'category': '샐러드', 'address': '서울 강남구', 'distance': 120, 'phone': '', 'url': 'http://place.map.kakao.com/1'}]
+    monkeypatch.setattr(places, 'search', fake_search)
+    conversation = start(client)
+    calls['reply'] = raw(intent='restaurant_search', place_query='샐러드', place_area='강남역')
+    body = send(client, conversation, '강남역 샐러드 가게 알려줘').json()
+    assert last_bot(body)['kind'] == 'places' and last_bot(body)['payload']['places'][0]['name'] == '초록샐러드'
+    assert seen['area'] == '강남역' and body['usage']['used'] == 1
+    calls['reply'] = raw(intent='restaurant_search', place_query='국밥')
+    ask = send(client, conversation, '근처 국밥집').json()
+    chip = last_bot(ask)['payload']['chips'][0]
+    assert chip == {'label': '내 위치로 찾기', 'action': 'locate', 'query': '국밥'} and ask['usage']['used'] == 1
+    here = client.post('/chat/places', json={'conversation_id': conversation, 'query': '국밥', 'lat': 37.498, 'lng': 127.027})
+    assert here.status_code == 200 and last_bot(here.json())['kind'] == 'places' and seen['lat'] == 37.498
+
+
+def test_ambiguous_meal_then_undo(llm):
+    client, engine, _, calls = llm
+    client.post('/chat/consent')
+    for meal_type in ('breakfast', 'lunch'):
+        assert client.post('/meals', json={'meal_type': meal_type, 'items': [{'class_id': GALBI, 'serving_multiplier': 1}]}).status_code == 201
+    conversation = start(client)
+    calls['reply'] = lambda messages: raw(intent='clarify', clarification_reason='ambiguous_target', candidate_ids=[
+        line.split('id=')[1].split(' ')[0] for line in messages[-1]['content'].splitlines() if line.startswith('- id=')])
+    asked = send(client, conversation, f'{NAMES[GALBI]} 반만 먹었어').json()
+    chips = last_bot(asked)['payload']['chips']
+    assert '어느 끼니' in last_bot(asked)['text'] and sorted(c['label'] for c in chips) == sorted([f'오늘 아침 {NAMES[GALBI]}', f'오늘 점심 {NAMES[GALBI]}'])
+    lunch = next(c for c in chips if '점심' in c['label'])
+    calls['reply'] = lambda messages: raw(intent='update_consumption', save=True, updates=[
+        {'target_id': next(line.split('id=')[1].split(' ')[0] for line in messages[-1]['content'].splitlines() if line.startswith('- id=')),
+         'consumption_ratio': 0.5}])
+    done = send(client, conversation, lunch['text'], chip=True).json()
+    assert last_bot(done)['kind'] == 'corrected' and done['usage']['used'] == 1
+    ratios = {m.meal_type: m.items[0].consumption_ratio for m in meals(engine)}
+    assert ratios == {'breakfast': 1.0, 'lunch': 0.5}
+    calls['reply'] = raw(intent='undo')
+    undone = send(client, conversation, '방금 거 취소해줘').json()
+    assert '되돌렸어요' in last_bot(undone)['text']
+    assert {m.meal_type: m.items[0].consumption_ratio for m in meals(engine)} == {'breakfast': 1.0, 'lunch': 1.0}
+    again = send(client, conversation, '방금 거 취소해줘').json()
+    assert '되돌렸어요' in last_bot(again)['text']  # 되돌린 것을 다시 되돌리면 직전 수정(0.5)으로 돌아간다
+
+
+def test_focus_item_from_history(llm):
+    client, engine, _, calls = llm
+    client.post('/chat/consent')
+    meal = client.post('/meals', json={'meal_type': 'dinner', 'items': [{'class_id': GALBI, 'serving_multiplier': 1}]}).json()
+    conversation = start(client)
+    focused = client.post('/chat/focus', json={'conversation_id': conversation, 'item_id': meal['items'][0]['id']})
+    assert focused.status_code == 200 and '얼마나 드셨는지' in last_bot(focused.json())['text']
+    calls['reply'] = lambda messages: raw(intent='update_consumption', save=True, updates=[
+        {'target_id': meal['items'][0]['id'], 'consumption_ratio': 0.25}])
+    body = send(client, conversation, '사분의 일 정도만 먹었어').json()
+    assert last_bot(body)['kind'] == 'corrected' and meals(engine)[0].items[0].consumption_ratio == 0.25
+
+
+def test_same_food_in_two_meals_needs_meal_word():
+    targets = [{'id': 'b', 'food_name': '쌀밥', 'label': '오늘 아침'}, {'id': 'l', 'food_name': '쌀밥', 'label': '오늘 점심'}]
+    both = chat_llm.base('update_consumption', updates=[{'target_id': 'b', 'consumption_ratio': 0.5}, {'target_id': 'l', 'consumption_ratio': 0.5}])
+    asked = chat_llm.ambiguous_meals(dict(both), '밥 반만 먹었어', targets)
+    assert asked['intent'] == 'clarify' and asked['clarification_reason'] == 'ambiguous_target' and len(asked['candidates']) == 2
+    assert chat_llm.ambiguous_meals(dict(both), '아침이랑 점심 밥 둘 다 반만 먹었어', targets)['intent'] == 'update_consumption'

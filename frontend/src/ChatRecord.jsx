@@ -86,8 +86,37 @@ function CompareCards({cards}) {
   return <div className="compare-cards">{cards.map((card, index) => <p key={index}><b>{card.food_name}</b> {percent(card.before.consumption_ratio)} ({fmt(card.before.nutrition.cal)} kcal) → <b>{percent(card.after.consumption_ratio)}</b> ({fmt(card.after.nutrition.cal)} kcal)</p>)}</div>;
 }
 
+// 메뉴 추천 카드(수치는 서버 DB 값). [기록]을 누르면 그 음식으로 기록 대화가 이어진다.
+function RecommendCards({items, onRecord, disabled}) {
+  return <div className="coach-chat-cards">
+    {items.map(item => <div key={item.food_id} className="coach-chat-card">
+      <span className="food-thumb food-thumb-empty" aria-hidden="true">{item.food_name?.[0] || '?'}</span>
+      <div>
+        <p className="coach-chat-card-title"><b>{item.food_name}</b><span>{fmt(item.nutrition?.cal)}<small> kcal</small></span></p>
+        <small>단백질 {fmt(item.nutrition?.protein)}g · {item.reason || item.category}</small>
+      </div>
+      <button type="button" onClick={() => onRecord(item)} disabled={disabled} aria-label={`${item.food_name} 기록하기`}>기록</button>
+    </div>)}
+  </div>;
+}
+
+// 음식점 카드(카카오 지도 검색 결과). 이름을 누르면 카카오맵 상세가 새 창으로 열린다.
+function PlaceCards({items}) {
+  return <div className="coach-chat-cards">
+    {items.map((place, index) => <div key={`${place.url}-${index}`} className="coach-chat-card coach-place">
+      <span className="food-thumb food-thumb-empty" aria-hidden="true">{index + 1}</span>
+      <div>
+        <p className="coach-chat-card-title"><b>{place.name}</b>{place.distance != null && <span className="coach-distance">{place.distance >= 1000 ? `${(place.distance / 1000).toFixed(1)}km` : `${place.distance}m`}</span>}</p>
+        <small>{[place.category, place.address].filter(Boolean).join(' · ')}</small>
+      </div>
+      {place.url && <a href={place.url} target="_blank" rel="noreferrer" aria-label={`${place.name} 카카오맵에서 보기`}>지도</a>}
+    </div>)}
+  </div>;
+}
+
 // 시트 안의 대화 본문. 첫 화면에는 지방이 인사와 빠른 질문을 두고, 그 아래로 서버 대화를 이어 붙인다.
-export default function ChatRecord({api, onSaved, onNavigate}) {
+// focus: 식단 기록 표의 '챗으로 수정'으로 고른 {meal, item}. 들어오면 그 음식을 수정 대상으로 정하고 양을 묻는다.
+export default function ChatRecord({api, onSaved, onNavigate, focus}) {
   const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState(null);
@@ -117,6 +146,13 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
     setMessages(state.messages); takeLlm(state);
   }, [api]);
   useEffect(() => { restore().catch(e => setError(e.message)); }, [restore]);
+  const focusId = focus?.item?.id;
+  useEffect(() => {
+    if (!focusId || !conversationId) return;
+    api('/chat/focus', {conversation_id: conversationId, item_id: focusId})
+      .then(result => { merge(result.messages); setDraft(result.draft); takeLlm(result); input.current?.focus(); })
+      .catch(e => setError(e.status === 403 ? '' : e.message));
+  }, [focusId, conversationId, api, merge, takeLlm]);
   // 포커스 복귀 시 최신 대화·초안을 다시 불러온다(다른 탭·기기 반영 보조. 실시간 푸시는 B 범위).
   useEffect(() => {
     const refresh = () => { if (document.visibilityState === 'visible' && !busy) restore().catch(() => {}); };
@@ -195,7 +231,27 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
     if (item.action === 'navigate') { onNavigate(item.page); return; }
     if (item.action === 'photo') { setPhotoMenu(true); return; }
     if (item.action === 'type') { input.current?.focus(); return; }
-    send(item.text, undefined, true);
+    if (item.action === 'locate') { locate(item.query); return; }
+    // ask: 다시 추천처럼 새 질문이 되는 칩은 직접 입력과 같이 LLM이 해석한다(하루 횟수 포함).
+    send(item.text, undefined, !item.ask);
+  }
+
+  // 화면 동작(추천 기록·위치 검색)은 질문 횟수와 무관하게 서버가 바로 답한다.
+  async function act(path, body, label) {
+    if (busy || !conversationId) return;
+    setBusy(label); setError('');
+    try { const result = await api(path, {conversation_id: conversationId, ...body}); merge(result.messages); setDraft(result.draft); takeLlm(result); }
+    catch (e) { setError(e.message); }
+    finally { setBusy(''); }
+  }
+  function recordRecommendation(item, mealType) { act('/chat/recommendations/record', {food_id: item.food_id, meal_type: mealType}, 'message'); }
+  function locate(query) {
+    if (!navigator.geolocation || !window.isSecureContext) { setError('위치 확인은 HTTPS 또는 localhost에서만 돼요. 지역 이름을 말씀해 주세요.'); return; }
+    setBusy('locate'); setError('');
+    navigator.geolocation.getCurrentPosition(
+      position => { setBusy(''); act('/chat/places', {query, lat: position.coords.latitude, lng: position.coords.longitude}, 'message'); },
+      () => { setBusy(''); setError('위치 권한이 없어서 찾지 못했어요. "강남역 근처"처럼 지역 이름을 말씀해 주세요.'); },
+      {timeout: 10000, maximumAge: 300000});
   }
 
   async function agree() {
@@ -239,6 +295,8 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
               {message.kind === 'saved' ? <SavedCard meal={payload.meal}/> : <p>{message.text}</p>}
               {payload.draft && <FoodCards draft={isLast && draft?.id === payload.draft.id ? draft : payload.draft}/>}
               {payload.cards && <CompareCards cards={payload.cards}/>}
+              {payload.recommendations && <RecommendCards items={payload.recommendations} disabled={!!busy} onRecord={item => recordRecommendation(item, payload.meal_type)}/>}
+              {payload.places && <PlaceCards items={payload.places}/>}
               {isLast && (payload.chips?.length > 0 || payload.meal_chips) && <div className="reply-chips">
                 {payload.chips?.map(item => <button type="button" key={item.label} className={item.action ? 'chip-nav' : ''} onClick={() => chip(item)} disabled={!!busy}>{item.label}</button>)}
                 {payload.meal_chips && mealTypes.map(item => <button type="button" key={item.value} className={`chip-meal${draft?.meal_type === item.value ? ' selected' : ''}`} aria-pressed={draft?.meal_type === item.value} onClick={() => send(item.text, undefined, true)} disabled={!!busy || draft?.meal_type === item.value}>{item.label}</button>)}
@@ -250,7 +308,7 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
           <p>이렇게 물어볼 수 있어요</p>
           <div className="reply-chips">{QUICK_QUESTIONS.map((item, index) => <button type="button" key={item.label} className={index === 0 ? 'chip-nav' : ''} onClick={() => item.action ? chip(item) : send(item.text)} disabled={!item.action && exhausted}>{item.label}</button>)}</div>
         </li>}
-        {busy && <li className="chat-row chat-row-bot"><img className="chat-avatar" src={COACH_FACE} alt=""/><div className="chat-bubble chat-bot chat-typing" role="status">{busy === 'upload' ? '사진을 올리고 있어요…' : busy === 'analysis' ? '사진 속 음식을 확인하고 있어요… (최대 1~2분)' : '확인하고 있어요…'}</div></li>}
+        {busy && <li className="chat-row chat-row-bot"><img className="chat-avatar" src={COACH_FACE} alt=""/><div className="chat-bubble chat-bot chat-typing" role="status">{busy === 'upload' ? '사진을 올리고 있어요…' : busy === 'analysis' ? '사진 속 음식을 확인하고 있어요… (최대 1~2분)' : busy === 'locate' ? '지금 위치를 확인하고 있어요…' : '확인하고 있어요…'}</div></li>}
       </ol>
       {error && <div className="chat-alert" role="alert">{error}{failed && <button type="button" onClick={() => send(failed.text, failed.id, failed.chip)}>다시 시도</button>}</div>}
       {usage && <p className={`coach-usage${exhausted ? ' is-empty' : ''}`} role="status">{exhausted ? '오늘 질문을 다 썼어요. 내일 다시 만나요!' : <>오늘 남은 질문 <b>{usage.remaining}/{usage.limit}</b></>}</p>}

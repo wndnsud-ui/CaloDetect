@@ -130,3 +130,18 @@
   .coach-consent{padding:10px;overflow-y:auto;align-items:safe flex-end}
   .coach-consent>div{padding:16px 14px;max-height:100%;overflow-y:auto}
 }
+
+/* 메뉴 추천·음식점 카드: chat-record.css 음식 카드와 같은 모양에 오른쪽 버튼(기록·지도)을 붙인다 */
+.coach-chat-cards{margin-top:10px;display:grid;gap:8px}
+.coach-chat-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px;border:1px solid #e3ece7;border-radius:12px;background:#fbfdfc}
+.coach-chat-card .food-thumb{width:44px;height:44px}
+.coach-chat-card>div{min-width:0}
+.coach-chat-card-title{display:flex;align-items:baseline;gap:6px;margin:0;min-width:0}
+.coach-chat-card-title b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coach-chat-card-title span{flex-shrink:0;font-size:12px;font-weight:700;color:#007b68}
+.coach-chat-card-title small{font-weight:400}
+.coach-chat-card-title .coach-distance{color:#5f7468;font-weight:600}
+.coach-chat-card>div>small{display:block;font-size:11px;line-height:1.5;color:#5f7468;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coach-chat-card>button,.coach-chat-card>a{min-height:36px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid #bfdcd1;border-radius:999px;background:#fff;color:#00735f;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer}
+.coach-chat-card>button:disabled{opacity:.5;cursor:default}
+.coach-chat-card>button:focus-visible,.coach-chat-card>a:focus-visible{outline:2px solid #00836d;outline-offset:2px}

@@ -15,8 +15,9 @@ from ..models_chat import (ChatAttachment, ChatLlmConsent, ChatLlmUsage, ChatMes
                            MutationRequest)
 from .analytics import get_today_status
 from .chat_interpret import MEAL_LABELS, chips_for_meal_types
-from . import chat_llm
-from .consumption_record import ChatRecordError, preview_item, update_item_consumption
+from . import chat_llm, places
+from .consumption_record import OPERATION, ChatRecordError, owned_item, preview_item, update_item_consumption
+from .recommendation import rank_candidates
 from .correction import apply_correction
 from .nutrition import calculate_nutrition
 from .timezone import KST, korean_date
@@ -252,7 +253,7 @@ def is_chip_text(db, conversation, text):
     last = db.scalar(select(ChatMessage).where(ChatMessage.conversation_id == conversation.id, ChatMessage.author_role == 'bot')
                      .order_by(ChatMessage.sequence.desc()))
     payload = (last.payload or {}) if last else {}
-    texts = {c.get('text') for c in payload.get('chips') or [] if c.get('text')}
+    texts = {c.get('text') for c in payload.get('chips') or [] if c.get('text') and not c.get('ask')}
     if payload.get('meal_chips'):
         texts |= {c['text'] for c in chips_for_meal_types()}
     return text in texts
@@ -589,25 +590,23 @@ def last_saved_meal(db, conversation):
 
 
 # 저장된 식사의 섭취량 정정(5.1과 같은 방식). A0 미리보기·수정 서비스를 재사용한다.
-def handle_saved(db, user, conversation, message, result, meal):
+def handle_saved(db, user, conversation, message, result, has_targets):
     reply_to = message.id
-    if not meal:
+    if not has_targets:
         # 고칠 기록이 없어 안내만 하는 답은 질문 횟수에 넣지 않는다.
         result['free'] = True
         text = NO_SAVED_TEXT if result['source'] == 'llm' and result['intent'] != 'clarify' else NO_DRAFT_TEXT
         return bot(db, conversation, text, reply_to)
     intent = result['intent']
-    # "점심에 밥 반만 먹었어"처럼 저장된 그 식사를 가리키는 날짜·식사 종류는 변경 요청이 아니다.
-    info = result.get('meal_info')
-    if intent == 'update_consumption' and info and info['meal_type'] == meal.meal_type and meal.meal_date == (
-            now_kst().date() - timedelta(days=1) if info['date'] == 'yesterday' else now_kst().date()):
+    # "점심에 밥 반만 먹었어"처럼 저장된 식사를 가리키는 날짜·식사 종류는 변경 요청이 아니라 대상을 고르는 말이다.
+    if intent == 'update_consumption':
         result['meal_info'] = None
     if intent in ('set_meal_info', 'change_food', 'add_food') or (intent == 'update_consumption' and result['meal_info']):
         return bot(db, conversation, '저장된 식사의 날짜·식사 종류·음식은 아직 여기서 바꿀 수 없어요. 드신 양만 바꿀 수 있어요.', reply_to)
     if intent == 'cancel':
         conversation.pending_question = 'none'; conversation.pending_payload = None
         return bot(db, conversation, '수정을 멈췄어요. 기록은 그대로예요.', reply_to)
-    if intent == 'confirm_save' and conversation.pending_payload:
+    if intent == 'confirm_save' and (conversation.pending_payload or {}).get('updates'):
         return apply_saved_updates(db, user, conversation, conversation.pending_payload['updates'], message)
     if intent in ('confirm_save', 'affirm'):
         return bot(db, conversation, '바꾸실 양을 먼저 말씀해 주세요. 예: "아니, 4분의 1"', reply_to, chips=AMOUNT_CHIPS)
@@ -648,28 +647,229 @@ def apply_saved_updates(db, user, conversation, updates, message):
 def handle_message(db, user, conversation, draft, message, request_id, use_llm):
     foods = food_rows(db)
     catalog = [(f.id, f.canonical_name) for f in foods.values()]
-    meal = None
+    context = user_context(db, user) if llm_on() else None
+    text, selected, free = message.text, None, False
     if draft:
         targets = [{'id': i.id, 'food_name': foods[i.food_id].canonical_name} for i in draft.items]
-        result = chat_llm.interpret(message.text, draft.pending_question, targets, draft.pending_target_id, catalog,
-                                    use_llm=use_llm, context=today_context(db, user) if use_llm else None)
+        result = chat_llm.interpret(text, draft.pending_question, targets, draft.pending_target_id, catalog,
+                                    use_llm=use_llm, context=context)
     else:
-        meal = last_saved_meal(db, conversation)
-        targets = [{'id': i.id, 'food_name': i.corrected_label} for i in meal.items] if meal else []
-        result = chat_llm.interpret(message.text, conversation.pending_question, targets, None, catalog,
-                                    use_llm=use_llm, context=today_context(db, user) if use_llm else None)
-    if result['intent'] == 'general_chat':
+        targets = saved_targets(db, user, conversation)
+        payload = conversation.pending_payload or {}
+        choice = (payload.get('choices') or {}).get(text) if conversation.pending_question == 'target' else None
+        if choice and any(t['id'] == choice for t in targets):
+            # 끼니를 되물은 뒤 고른 칩: 원래 문장을 고른 음식 하나만 대상으로 다시 해석한다(추가 횟수 없음).
+            targets = [t for t in targets if t['id'] == choice]
+            text, selected, free = payload['retry_text'], choice, True
+            use_llm = llm_on()
+        elif payload.get('focus_item_id') in {t['id'] for t in targets}:
+            selected = payload['focus_item_id']
+        result = chat_llm.interpret(text, conversation.pending_question, targets, selected, catalog,
+                                    use_llm=use_llm, context=context)
+    result['free'] = result.get('free') or free
+    intent = result['intent']
+    if intent == 'general_chat':
         reply = general_chat_reply(db, conversation, result, message.id)
+    elif intent == 'meal_recommend':
+        reply = recommend_reply(db, user, conversation, result, message)
+    elif intent == 'restaurant_search':
+        reply = place_reply(db, conversation, result, message.id)
+    elif intent == 'undo' and not draft:
+        reply = undo_reply(db, user, conversation, message, result)
     elif draft:
         reply = handle_draft(db, user, conversation, draft, message, request_id, result)
+    elif intent == 'clarify' and result['clarification_reason'] == 'ambiguous_target' and len(result['candidates']) > 1:
+        reply = ask_which_meal(db, conversation, result, targets, text, message.id)
     else:
-        reply = handle_saved(db, user, conversation, message, result, meal)
+        reply = handle_saved(db, user, conversation, message, result, bool(targets))
     if result['source'] == 'llm' and not result.get('free'):
         count_usage(db, user)
     return reply
 
 
-# 자유 대화용 오늘 기록 요약(서버 계산 값). 목표·섭취 합계·끼니별 음식만 넘기고 개인 신상은 넣지 않는다.
+# 사진 기록 중이 아닐 때 고칠 수 있는 음식: 오늘 기록한 모든 식사 + 이 대화에서 마지막으로 저장한 식사.
+# 식단 기록 표의 '챗으로 수정'으로 고른 음식(focus)이 있으면 그 음식 하나만 대상으로 한다.
+def saved_targets(db, user, conversation):
+    focus = (conversation.pending_payload or {}).get('focus_item_id')
+    if focus:
+        try:
+            item, meal = owned_item(db, user, focus)
+            return [{'id': item.id, 'food_name': item.corrected_label, 'label': f'{date_label(meal.meal_date)} {MEAL_LABELS.get(meal.meal_type, "")}'}]
+        except ChatRecordError:
+            conversation.pending_payload = None
+    meals = list(db.scalars(select(Meal).where(Meal.user_id == user.id, Meal.meal_date == now_kst().date())
+                            .order_by(Meal.created_at)).all())
+    last = last_saved_meal(db, conversation)
+    if last and last.id not in {m.id for m in meals}:
+        meals.append(last)
+    return [{'id': i.id, 'food_name': i.corrected_label, 'label': f'{date_label(m.meal_date)} {MEAL_LABELS.get(m.meal_type, "")}'}
+            for m in meals for i in m.items]
+
+
+# 같은 음식이 여러 끼니에 있으면 끼니를 되묻는다(CASE 9). 칩을 누르면 원래 문장을 그 음식에만 적용한다.
+def ask_which_meal(db, conversation, result, targets, text, reply_to):
+    by_id = {t['id']: t for t in targets}
+    choices = {f'{by_id[c["id"]]["label"]} {c["food_name"]}': c['id'] for c in result['candidates'] if c['id'] in by_id}
+    conversation.pending_question = 'target'
+    conversation.pending_payload = {'retry_text': text, 'choices': choices}
+    return bot(db, conversation, '어느 끼니의 음식을 바꿀까요?', reply_to,
+               chips=[{'label': label, 'text': label} for label in choices])
+
+
+# '챗으로 수정'(식단 기록 표)에서 고른 음식을 이 대화의 수정 대상으로 정하고 양을 묻는다. 질문 횟수와 무관.
+def focus_item(db, user, conversation_id, item_id):
+    require_consent(db, user)
+    conversation = get_conversation(db, user, conversation_id, lock=True)
+    item, meal = owned_item(db, user, item_id)
+    conversation.pending_question = 'amount'
+    conversation.pending_payload = {'focus_item_id': item.id}
+    label = f'{date_label(meal.meal_date)} {MEAL_LABELS.get(meal.meal_type, meal.meal_type)}'
+    chips = [{'label': '다 먹었어', 'text': '다 먹었어'}, {'label': '절반', 'text': '절반만 먹었어'},
+             {'label': '4분의 1', 'text': '4분의 1 먹었어'}, {'label': '안 먹었어', 'text': '안 먹었어'}]
+    reply = bot(db, conversation, f'{label} · {item.corrected_label} 기록이에요(지금 섭취 {percent(item.consumption_ratio)}). '
+                                  '얼마나 드셨는지 편하게 말씀해 주세요.', None, chips=chips)
+    db.commit()
+    return {'messages': [message_json(reply)], 'draft': draft_json(db, active_draft(db, conversation)), **llm_state(db, user)}
+
+
+# "방금 거 취소해줘"(CASE 10): 가장 최근 섭취량 수정을 수정 전 비율로 되돌린다. 그 뒤에 또 바뀐 기록은 되돌리지 않는다.
+def undo_reply(db, user, conversation, message, result):
+    from ..schemas_chat import ConsumptionUpdateRequest
+    record = db.scalar(select(MutationRequest).where(MutationRequest.user_id == user.id, MutationRequest.operation == OPERATION,
+                                                     MutationRequest.status == 'succeeded')
+                       .order_by(MutationRequest.created_at.desc()))
+    if not record or not record.before:
+        result['free'] = True
+        return bot(db, conversation, '되돌릴 최근 수정이 없어요.', message.id)
+    try:
+        item, _ = owned_item(db, user, record.target_id)
+    except ChatRecordError:
+        result['free'] = True
+        return bot(db, conversation, '되돌릴 기록을 찾지 못했어요.', message.id)
+    if item.version != record.result_version:
+        result['free'] = True
+        return bot(db, conversation, '그 뒤에 기록이 또 바뀌어서 되돌릴 수 없어요. 원하는 양을 다시 말씀해 주세요.', message.id)
+    body = ConsumptionUpdateRequest(consumption_ratio=record.before['consumption_ratio'], expected_version=item.version,
+                                    request_id=uuid.uuid5(uuid.UUID(message.client_message_id), 'undo'))
+    changed = update_item_consumption(db, user, item.id, body)
+    conversation = db.get(Conversation, conversation.id)
+    conversation.pending_question = 'none'; conversation.pending_payload = None
+    return bot(db, conversation, f'{item.corrected_label} 섭취량을 되돌렸어요.', message.id, kind='corrected',
+               cards=[{'food_name': item.corrected_label, 'before': changed['before'], 'after': changed['after']}], chips=NAV_CHIPS)
+
+
+# 메뉴 추천: 기존 '오늘 뭐먹지?' 점수 계산 후보에서 고른다. 수치는 DB 값. 조건이 있으면 LLM이 후보 안에서 고른다.
+def recommend_reply(db, user, conversation, result, message):
+    from types import SimpleNamespace
+    meal_type = result.get('meal_type') or default_meal_type()
+    theme = result.get('theme') or 'balance'
+    shown = recent_recommended_ids(db, conversation)
+    filters = SimpleNamespace(meal_type=meal_type, exclude_foods=list(shown) if result.get('preference') else [])
+    try:
+        _, ranked, _ = rank_candidates(db, user, filters, settings.recent_meal_window or 3, theme=theme)
+    except ValueError:
+        result['free'] = True
+        return bot(db, conversation, '목표 칼로리를 먼저 정하면 내 기록에 맞춰 추천해 드릴게요.', message.id,
+                   chips=[{'label': '목표 설정 열기', 'action': 'navigate', 'page': '목표 설정'}])
+    picked = None
+    if result.get('preference') and ranked and llm_on():
+        picked = chat_llm.pick_recommendations(result['preference'], ranked[:25], message.text)
+    if picked:
+        chosen = [(p['candidate'], p['reason'] or p['candidate']['reasons'][0]) for p in picked['picks']]
+        lead = picked['answer']
+    else:
+        chosen, bands = [], set()
+        for item in ranked:
+            if item['calorie_band'] not in bands:
+                bands.add(item['calorie_band']); chosen.append((item, item['reasons'][-1] if item['reasons'] else ''))
+            if len(chosen) == 3:
+                break
+        lead = result.get('reply')
+    if not chosen:
+        result['free'] = True
+        return bot(db, conversation, '지금 조건에 맞는 메뉴를 찾지 못했어요. 조건을 바꿔서 다시 물어봐 주세요.', message.id)
+    cards = [{'food_id': c['class_id'], 'food_name': c['food_name'], 'category': c['category'], 'unit': c['unit'],
+              'nutrition': c['nutrition'], 'reason': reason} for c, reason in chosen]
+    label = MEAL_LABELS.get(meal_type, '')
+    chips = [{'label': '단백질 많은 걸로', 'text': f'{label} 단백질 많은 메뉴로 다시 추천해줘', 'ask': True},
+             {'label': '가볍게', 'text': f'{label} 가벼운 메뉴로 다시 추천해줘', 'ask': True},
+             {'label': '다른 메뉴', 'text': f'{label} 다른 메뉴 추천해줘', 'ask': True}]
+    return bot(db, conversation, lead or f'{label}으로 이런 메뉴는 어때요? 최근 7일에 드신 음식은 뺐어요.', message.id,
+               kind='recommend', recommendations=cards, meal_type=meal_type, chips=chips)
+
+
+def recent_recommended_ids(db, conversation):
+    last = db.scalar(select(ChatMessage).where(ChatMessage.conversation_id == conversation.id, ChatMessage.kind == 'recommend')
+                     .order_by(ChatMessage.sequence.desc()))
+    return {c['food_id'] for c in ((last.payload or {}).get('recommendations') or [])} if last else set()
+
+
+# 추천 카드의 [기록]: 그 음식 하나로 식사 초안을 만들고 드신 양을 묻는다. 기존 사진 기록 흐름(초안 → 저장 확인)을 그대로 쓴다.
+def record_recommendation(db, user, conversation_id, food_id, meal_type):
+    require_consent(db, user)
+    conversation = get_conversation(db, user, conversation_id, lock=True)
+    foods = food_rows(db)
+    if food_id not in foods or meal_type not in MEAL_LABELS:
+        raise ChatRecordError(422, 'invalid_food', '음식 데이터를 확인해 주세요.')
+    for old in db.scalars(select(MealDraft).where(MealDraft.conversation_id == conversation.id, MealDraft.status.in_(ACTIVE))):
+        old.status = 'abandoned'
+    conversation.pending_question = 'none'; conversation.pending_payload = None
+    draft = MealDraft(conversation_id=conversation.id, user_id=user.id, status='needs_confirmation', version=1,
+                      meal_date=now_kst().date(), meal_type=meal_type, pending_question='amount', analysis_failed=False)
+    draft.items.append(DraftItem(position=0, food_id=food_id, serving_multiplier=1.0, consumption_ratio=1.0,
+                                 nutrition=calculate_nutrition(food_id, 1.0)['nutrition']))
+    db.add(draft); db.flush()
+    reply = ask_amount(db, conversation, draft, None, prefix=f'{object_(foods[food_id].canonical_name)} {MEAL_LABELS[meal_type]}으로 기록할게요. ')
+    db.commit()
+    return {'messages': [message_json(reply)], 'draft': draft_json(db, active_draft(db, conversation)), **llm_state(db, user)}
+
+
+# 음식점 찾기(카카오 지도). 지역을 말하면 바로 찾고, 아니면 [내 위치로 찾기]로 브라우저 위치를 받는다.
+def place_reply(db, conversation, result, reply_to):
+    query = result.get('place_query') or '맛집'
+    if not places.available():
+        result['free'] = True
+        return bot(db, conversation, '지금은 음식점 검색을 쓸 수 없어요.', reply_to)
+    if not result.get('place_area'):
+        result['free'] = True
+        return bot(db, conversation, f'어디 근처의 {query}을(를) 찾아볼까요? 지금 위치로 찾거나 지역 이름을 말씀해 주세요.', reply_to,
+                   chips=[{'label': '내 위치로 찾기', 'action': 'locate', 'query': query}])
+    return place_results(db, conversation, query, reply_to, area=result['place_area'])
+
+
+def place_results(db, conversation, query, reply_to, area=None, lat=None, lng=None):
+    try:
+        found = places.search(query, area=area, lat=lat, lng=lng)
+    except places.PlacesUnavailable:
+        return bot(db, conversation, '지금 음식점을 찾지 못했어요. 잠시 후 다시 물어봐 주세요.', reply_to)
+    where = f'{area} 근처' if area else '지금 위치 근처'
+    if not found:
+        return bot(db, conversation, f'{where}에서 {query}을(를) 찾지 못했어요. 다른 지역이나 음식으로 물어봐 주세요.', reply_to)
+    return bot(db, conversation, f'{where} {query} 음식점이에요. 카카오맵에서 자세히 볼 수 있어요.', reply_to,
+               kind='places', places=found)
+
+
+# [내 위치로 찾기]: 브라우저 좌표로 찾는다. 좌표는 검색에만 쓰고 저장하지 않는다. 질문 횟수와 무관.
+def search_places_here(db, user, conversation_id, query, lat, lng):
+    require_consent(db, user)
+    conversation = get_conversation(db, user, conversation_id, lock=True)
+    reply = place_results(db, conversation, (query or '맛집')[:30], None, lat=lat, lng=lng)
+    db.commit()
+    return {'messages': [message_json(reply)], 'draft': draft_json(db, active_draft(db, conversation)), **llm_state(db, user)}
+
+
+# 자유 대화용 기록 요약(서버 계산 값): 오늘 끼니별 음식 + 최근 7일 하루 섭취량. 개인 신상은 넣지 않는다.
+def user_context(db, user):
+    today = now_kst().date()
+    rows = db.scalars(select(Meal).where(Meal.user_id == user.id, Meal.meal_date >= today - timedelta(days=6),
+                                         Meal.meal_date <= today)).all()
+    days = {}
+    for meal in rows:
+        days.setdefault(meal.meal_date, []).append(sum(i.nutrition['cal'] for i in meal.items))
+    week = [f'{d.month}/{d.day} {fmt(sum(days[d]))}kcal({len(days[d])}끼)' for d in sorted(days)]
+    return today_context(db, user) + '\n최근 7일 하루 섭취: ' + (', '.join(week) if week else '기록 없음')
+
+
 def today_context(db, user):
     status = get_today_status(db, user.id)
     totals = status['totals']

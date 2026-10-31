@@ -78,6 +78,16 @@ def options(data):
                                 'emphasis':{'scale':True,'scaleSize':4},'data':slices}],
                      'graphic':[{'type':'text','left':'center','top':'middle','style':{'text':f'{value/target*100:.0f}%' if target else '—',
                                  'fontSize':22,'fontWeight':'bold','fill':color}}]})
+    elif kind=='macro_donut':
+        values=[number(data.get(k))*factor for k,factor in [('carbs',4),('protein',4),('fat',9)]]
+        total=sum(values)
+        names=['탄수화물','단백질','지방']
+        colors=['#79af81','#e5b76f','#63b6ae']
+        pieces=[{'name':name,'value':value,'itemStyle':{'color':color}} for name,value,color in zip(names,values,colors)] if total else [{'name':'기록 없음','value':1,'itemStyle':{'color':'#edf2ed'}}]
+        base.update({'tooltip':{'trigger':'item','show':bool(total),'formatter':'{b}: {d}%'},
+                     'series':[{'type':'pie','radius':['61%','80%'],'center':['50%','50%'],'avoidLabelOverlap':True,'label':{'show':False},'labelLine':{'show':False},'data':pieces}],
+                     'graphic':[{'type':'text','left':'center','top':'43%','style':{'text':'탄단지' if total else '기록 없음','fontSize':20,'fontWeight':'bold','fill':'#194d3e'}},
+                                {'type':'text','left':'center','top':'56%','style':{'text':'열량 기준' if total else '식단을 기록해 주세요','fontSize':11,'fill':'#7b8c81'}}]})
     elif kind=='macros':
         values=[number(data.get(k))*factor for k,factor in [('carbs',4),('protein',4),('fat',9)]]
         total=sum(values)
@@ -106,7 +116,7 @@ try:
     data=json.loads(raw)
     spec=options(data)
     events={'click':'function(params){return params.dataIndex;}'} if data['kind']=='bars' and data.get('monthly') else {}
-    selection=st_echarts(spec,height='250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '104px' if data['kind']=='ring_percent' else '170px' if data['kind']=='xp_week' else '46px',events=events,key='chart')
+    selection=st_echarts(spec,height='240px' if data['kind']=='macro_donut' else '250px' if data['kind']=='bars' else '180px' if data['kind']=='ring' else '104px' if data['kind']=='ring_percent' else '170px' if data['kind']=='xp_week' else '46px',events=events,key='chart')
     if events and isinstance(selection,int) and 0<=selection<len(data['items']):
         origin=st.query_params.get('parent_origin','')
         if origin in ('http://localhost:5174','http://127.0.0.1:5174'):

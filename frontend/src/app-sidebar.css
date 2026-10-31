@@ -1,0 +1,29 @@
+@media(min-width:761px){
+  .shell.integrated-app>aside.app-sidebar{width:276px;flex:0 0 276px;height:100dvh;overflow-y:auto;overflow-x:hidden;padding:26px 18px 18px;gap:18px;background:linear-gradient(145deg,#fdfcfa,#f7f8f4);border-right:1px solid #e8ece5;scrollbar-width:thin;scrollbar-color:#cfdbd1 transparent}
+  .app-sidebar .sidebar-brand{padding:0 6px}
+  .app-sidebar .sidebar-brand .brand{font-size:25px;gap:8px;letter-spacing:-.8px;white-space:nowrap}
+  .app-sidebar .sidebar-brand .brand svg{width:34px;height:34px}
+  .app-sidebar .sidebar-brand p{font-size:13px;line-height:1.65;color:#8a9590;margin:10px 0 0}
+  .sidebar-chevron{width:16px;height:16px;flex-shrink:0;color:#81968a;margin-left:auto}
+  .shell.integrated-app>aside.app-sidebar nav{margin:0;display:flex;flex-direction:column;gap:4px;flex:none;overflow:visible}
+  .app-sidebar .sidebar-group-title{display:flex;align-items:center;gap:10px;margin:10px 6px 7px;font-size:12px;color:#6e8377}
+  .sidebar-group-title:after{content:'';height:1px;background:#e5ebe4;flex:1}
+  .shell.integrated-app>aside.app-sidebar nav .sidebar-menu-item{display:flex;align-items:center;gap:12px;width:100%;min-height:48px;margin:0;padding:12px;border:0;border-radius:14px;background:transparent;color:#35574a;font:inherit;cursor:pointer;text-align:left}
+  .app-sidebar .sidebar-menu-item>svg:not(.sidebar-chevron){width:23px;height:23px;flex-shrink:0}
+  .app-sidebar .sidebar-menu-item>strong{font-size:14px;font-weight:500;line-height:1.5}
+  .shell.integrated-app>aside.app-sidebar nav .sidebar-menu-item.active{background:#e6f1e8;color:#16513b}
+  .app-sidebar .sidebar-menu-item.active>strong{font-weight:700}
+  .app-sidebar .sidebar-menu-item em{font-size:10px;font-style:normal;color:#a96a1d;background:#ffebc9;padding:2px 7px;border-radius:12px}
+  .shell.integrated-app>aside.app-sidebar nav .sidebar-reward{min-height:76px;background:linear-gradient(110deg,#fff6e6,#fdf9ee);color:#925b16;margin-top:5px}
+  .app-sidebar .sidebar-menu-item small{display:block;margin-top:4px;font-size:10px;color:#8b8a71;font-weight:400}
+  .sidebar-menu-balance{margin-left:auto;white-space:nowrap;font-size:13px;color:#a66c1d}
+  .sidebar-utilities{border-top:1px solid #e7ebe3;padding-top:10px;display:grid;gap:4px}
+  .sidebar-utilities button{display:flex;align-items:center;gap:12px;min-height:44px;padding:10px 12px;border:0;border-radius:12px;background:none;color:#39594b;text-align:left;font:inherit;font-size:12px;cursor:pointer}
+  .sidebar-utilities button>strong{font-weight:500}
+  .sidebar-utilities button>svg:not(.sidebar-chevron){width:22px;height:22px}
+  .sidebar-utilities button.active{background:#e6f1e8}
+  .sidebar-closing{min-height:100px;border-radius:17px;padding:15px 16px;background:linear-gradient(90deg,#edf3e9f2,#edf3e940),url('/images/meal-scan/leaf-banner.png') right center/cover}
+  .sidebar-closing p{margin:0;font:19px/1.25 Gaegu,cursive;color:#245b43}
+  .sidebar-homepage{align-self:flex-start;border:0;background:none;padding:0 6px;color:#8b9a90;font-size:10px;cursor:pointer}
+  .app-sidebar button:focus-visible{outline:3px solid #8bbba1;outline-offset:2px}
+}

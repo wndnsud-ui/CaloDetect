@@ -3,6 +3,8 @@
 import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
 import StreamlitChart from './StreamlitChart';
+import MacroDonut from './MacroDonut';
+import './meal-analytics.css';
 
 const nutrients = {cal:['칼로리','kcal'], carbs:['탄수화물','g'], protein:['단백질','g'], fat:['지방','g'], sugar:['당류','g'], sodium:['나트륨','mg']};
 const types = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간식'};
@@ -51,7 +53,7 @@ export default function MealAnalytics({api, targetCalories, headerTabs}) {
     <p className="muted">단위: {unit} · 한국 시간 기준 · —는 미기록입니다.{mode==='monthly'&&' 막대를 누르면 해당 날짜의 일간 분석을 볼 수 있습니다.'}</p>
     {mode==='daily'&&!day?.totals?<p className="empty">이 기간에 기록된 식단이 없습니다.</p>:<Bars items={bars} unit={unit} monthly={mode==='monthly'} target={metric==='cal'?targetCalories:undefined} onSelect={mode==='monthly'?item=>{setDate(item.date);setMode('daily')}:undefined}/>}
     {mode==='daily'&&<SavedMeals meals={day?.meals||[]} title={`${date} 먹은 식단 · 저장한 사진`}/>}
-    <h2>{mode==='daily'?'하루 기록 합계':'기록한 날의 하루 평균'}</h2><div className="nutrition-grid">{Object.entries(nutrients).map(([key,[label,unit]])=><div key={key}><span>{label}</span><strong>{totals?.[key]?.toLocaleString()??'—'}<small> {unit}</small></strong></div>)}</div>
+    <h2>{mode==='daily'?'하루 기록 합계':'기록한 날의 하루 평균'}</h2><div className="analysis-summary"><div className="nutrition-grid">{Object.entries(nutrients).map(([key,[label,unit]])=><div key={key}><span>{label}</span><strong>{totals?.[key]?.toLocaleString()??'—'}<small> {unit}</small></strong></div>)}</div><MacroDonut data={totals}/></div>
     {mode==='monthly'&&<p className="muted">{data.recorded_days}일 기록 · 미기록일은 평균에서 제외합니다. 일부 식사만 기록한 날도 포함됩니다.</p>}
     </>}</section></>;
 }

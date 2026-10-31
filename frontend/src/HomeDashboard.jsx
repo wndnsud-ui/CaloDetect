@@ -63,7 +63,6 @@ export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal
       <div className="hd-room"><Jibang equipment={me?.equipment} level={me?.level||1} background="bg_lv1" bubble="오늘도 잘 하고 있어요!" figureWidth={230} className="hd-hero-scene"/></div>
         <div className="hd-date"><strong>{date.getUTCMonth()+1}.{date.getUTCDate()} {['일','월','화','수','목','금','토'][date.getUTCDay()]}</strong><button type="button" aria-label="이전 날짜 기록 보기" onClick={previousDay}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg></button><button type="button" className="hd-today" onClick={()=>setSelectedDate(todayDate)}>{currentDay?'오늘':'오늘로'}</button></div>
         <div className="hd-stats"><div><i aria-hidden="true">🔥</i><span>섭취 칼로리<strong>{display(totals?.cal)} <small>/ {display(target)} kcal</small></strong></span></div><div><i className="hd-check" aria-hidden="true">✓</i><span>기록 현황<strong>{4-remaining.length}끼 기록 완료</strong></span></div><div><i aria-hidden="true">🍴</i><span>남은 기록<strong>{remaining.map(([,label])=>label).join(' · ')||'모두 완료!'}</strong></span></div></div>
-        <button type="button" className="hd-record" onClick={()=>addMeal()}>＋ 식사 기록하기 <span aria-hidden="true">→</span></button>
       </div>
     </section>
     {nutritionPanel}

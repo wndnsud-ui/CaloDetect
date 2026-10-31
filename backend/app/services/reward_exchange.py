@@ -57,6 +57,9 @@ def startup_check():
 def ensure_products(db):
     """없으면 추가, 있으면 이름·하위분류·옵션·max_qty·listed·collab_brand·content만 갱신한다(§5-3).
     기존 행의 price·available·active는 덮어쓰지 않는다(운영자 변경 보호). 비활성 전환은 migration 20261022_01이 1회 처리한다."""
+    # 코칭·리워드몰 요청마다 불리므로 한 요청(세션)에서는 한 번만 한다.
+    if db.info.get('reward_products_synced'):
+        return
     rows = {p.id: p for p in db.scalars(select(Product))}
     for order, (product_id, name, category, price, available, description, sub, won, options, max_qty, listed, brand,
                 content) in enumerate(catalog.PRODUCTS):
@@ -81,6 +84,7 @@ def ensure_products(db):
                 partner_label='[코치 채널]', description='7회 코칭 이용권', image_key=None, active=True,
                 sort_order=base + offset, listed=True, coach_id=coach_id, options=[], max_qty=1, content={},
                 is_mock=True)), db.flush()))
+    db.info['reward_products_synced'] = True
 
 
 def visible(product):
@@ -256,9 +260,10 @@ def collab(db, user):
     ensure_products(db)
     state = conditions(db, user)
     goal_id = goal_product_id(db, user.id)
+    products = {p.id: p for p in db.scalars(select(Product))}
 
     def find(pid):
-        product = db.get(Product, pid)
+        product = products.get(pid)
         return card(db, user, product, state, goal_id) if visible(product) else None
     picks = [{**item, 'pick_desc': desc, 'pick_image': catalog.COLLAB_PICK_IMAGES.get(item['id'])}
              for item, desc in ((find(pid), desc) for pid, desc in catalog.COLLAB_PICKS) if item]

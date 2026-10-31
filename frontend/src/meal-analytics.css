@@ -1,0 +1,18 @@
+.analysis-summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;align-items:stretch;margin-top:14px}
+.analysis-summary>.nutrition-grid{margin:0;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.analysis-summary>.nutrition-grid>div{min-width:0;padding:16px 18px}
+.analysis-summary>.nutrition-grid strong{font-size:24px;overflow-wrap:anywhere}
+.analysis-macro-card{border:1px solid #e5ede7;border-radius:20px;padding:22px;background:#fbfdfb;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.analysis-macro-card h3{margin:0 0 12px;font-size:17px;color:#194d3e}
+.analysis-macro-body{display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
+.analysis-macro-donut{width:clamp(150px,16vw,230px);max-width:100%;height:auto;flex:0 1 230px}
+.analysis-macro-donut .streamlit-chart{display:block;width:100%;border:0}
+.analysis-macro-center{font-size:20px;font-weight:700;fill:#194d3e}
+.analysis-macro-sub{font-size:11px;fill:#7b8c81}
+.analysis-macro-legend{list-style:none;padding:0;margin:0;flex:1 1 160px;min-width:0;display:grid;gap:16px}
+.analysis-macro-legend li{display:flex;align-items:center;gap:8px;font-size:13px;color:#395b49}
+.analysis-macro-legend i{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.analysis-macro-legend small{display:block;margin-top:3px;font-size:12px;color:#839085}
+.analysis-macro-legend b{margin-left:auto;font-size:16px;white-space:nowrap}
+.analysis-macro-card>p{margin:16px 0 0;font-size:11px;line-height:1.7;color:#839085}
+@media(max-width:760px){.analysis-summary{grid-template-columns:1fr;gap:16px}.analysis-summary>.nutrition-grid>div{padding:14px}.analysis-macro-card{padding:18px}.analysis-macro-donut{flex-basis:170px;width:170px}.analysis-macro-body{gap:14px}.analysis-macro-legend{flex-basis:120px}}

@@ -2,6 +2,15 @@
 
 ## 2026-10-31
 
+- 사용자 명시 승인: 챗봇 폴더의 모든 미커밋 변경(사진 분석 고화소 오류 수정, 코칭·리워드몰 로딩 개선, 같은 폴더의 동시 작업인 PC 사이드바 컴포넌트·식단 분석 도넛·메뉴 배경·리워드몰 CSS·그래프 서버 수정)을 GitHub main에 직접 반영. 이번 업로드에 한한 승인이며 force push는 사용하지 않음.
+- Account desktop subtabs: reduce the gap below hero navigation by 48px, moving following content with the tabs.
+
+- Account navigation: group hero actions into a compact segmented control and use aligned underline tabs for profile/health goals.
+
+- Sidebar: remove the decorative upper banner and the meal/points summary card at user request; keep grouped navigation and the rewards balance.
+
+- 사용자 제보 수정: 아이폰 고화소 사진(예: 4800만 화소)을 '사진 & 직접 기록'에서 분석하면 서버의 2500만 화소 제한으로 "정상 JPG/PNG 이미지를 선택해 주세요" 오류. 채팅에서 쓰던 업로드 전 축소(긴 변 2048px JPEG)를 `imageUpload.js`로 공용화해 사진 분석에도 적용. 서버 검증 기준은 그대로. 헤드리스 Chrome에서 8064×6048 → 2048×1536 변환 확인.
+- 사용자 요청: 코칭·리워드몰 로딩 개선. 요청마다 코치·콘텐츠 시드 동기화가 항목별로 조회(16회)되던 것을 한 번에 읽고 요청당 1회만 수행, 상품 시드 동기화도 요청당 1회, 코치별 사용 중 이용권 조회를 한 번으로, 콜라보 기획전 상품을 한 번에 조회. DB 조회 수: 코치 목록 30→13, 코칭 피드 22→8, 코치 상세 29→13, 상품 24→10, 기획전 목록 26→12, 콜라보 33→10. 백엔드 테스트 결과 동일.
 - 사용자 명시 승인: 모바일 채팅창 가로 잘림 수정과 상품 14종의 포장 일치 두 번째 사진 교체를 GitHub main에 직접 반영. 식당명·주소 줄바꿈, 입력창 3열 배치 적용. 갤러리 유틸 테스트 6개 통과, 320·360·390·430px 렌더링에서 가로 넘침 없음, 운영 사진 14개 응답 정상 확인. 이번 반영에 한한 승인이며 force push는 사용하지 않음.
 
 

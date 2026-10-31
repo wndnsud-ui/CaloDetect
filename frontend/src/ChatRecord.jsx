@@ -3,6 +3,7 @@
 // 영양값·합계·확정은 모두 서버 응답을 표시하며, 대화·사진·초안은 서버에 저장돼 시트를 닫았다 열어도 이어진다.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { newRequestId } from './ChatConsumptionEdit';
+import { MAX_SIDE, toJpeg } from './imageUpload';
 import './chat-record.css';
 
 export const COACH_FACE = '/jibang/f_happy.png';
@@ -19,23 +20,6 @@ const QUICK_QUESTIONS = [
 const kstDay = value => new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric', weekday:'long'}).format(value ? new Date(value) : new Date());
 const fmt = value => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('ko-KR', {maximumFractionDigits:1});
 const percent = ratio => `${Math.round(Number(ratio) * 100)}%`;
-const MAX_SIDE = 2048;
-
-// 업로드 전 긴 변 2048px 이하 JPEG로 변환한다(10MB·2500만 화소 초과와 HEIC 방지). 디코딩 실패면 원본을 보내지 않는다.
-async function toJpeg(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const image = await new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = url; });
-    const scale = Math.min(1, MAX_SIDE / Math.max(image.naturalWidth, image.naturalHeight));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(image.naturalWidth * scale); canvas.height = Math.round(image.naturalHeight * scale);
-    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-    if (!blob) throw new Error('encode');
-    return blob;
-  } finally { URL.revokeObjectURL(url); }
-}
-
 // 탐지 bbox로 원본 사진에서 음식 부분만 잘라 보여 준다. bbox가 없으면(이름으로 추가한 음식) 이름 첫 글자.
 function FoodThumb({src, bbox, name}) {
   const canvas = useRef(null);

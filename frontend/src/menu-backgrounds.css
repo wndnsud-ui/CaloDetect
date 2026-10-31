@@ -60,3 +60,21 @@
     mask-image:linear-gradient(to bottom,#000 48%,rgba(0,0,0,.96) 58%,rgba(0,0,0,.78) 69%,rgba(0,0,0,.4) 81%,rgba(0,0,0,.1) 93%,transparent 100%);
   }
 }
+
+
+/* Account navigation: primary segmented control, secondary underline tabs. */
+.member-page-content.menu-ambient-account .menu-hero-actions .section-tabs{display:inline-flex;width:auto;max-width:100%;gap:4px;padding:5px;border:1px solid #dce6dd;border-radius:16px;background:#ffffffb8;flex-wrap:wrap;overflow:visible}
+.member-page-content.menu-ambient-account .menu-hero-actions .section-tabs button{height:42px;min-height:42px;padding:9px 18px;border:0;border-radius:11px;background:transparent;color:#526c60;font-size:13px;line-height:24px;flex:0 1 auto;white-space:normal;word-break:keep-all}
+.member-page-content.menu-ambient-account .menu-hero-actions .section-tabs button.active{background:#176e55;color:#fff;box-shadow:0 2px 6px #174c3518}
+.member-page-content.menu-ambient-account>.sub-tabs{display:flex;gap:24px;margin:0 0 24px;padding:0 46px;border-bottom:1px solid #dde7e0;flex-wrap:wrap}
+.member-page-content.menu-ambient-account>.sub-tabs button{position:relative;flex:0 0 auto;min-height:44px;padding:10px 0 13px;border:0;border-radius:0;background:transparent;color:#75867c;font-size:14px;box-shadow:none}
+.member-page-content.menu-ambient-account>.sub-tabs button.active{background:transparent;color:#176e55;font-weight:700}
+.member-page-content.menu-ambient-account>.sub-tabs button.active:after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:#176e55}
+@media(max-width:760px){
+ .member-page-content.menu-ambient-account .menu-hero-actions .section-tabs{gap:2px;padding:4px;border-radius:13px}
+ .member-page-content.menu-ambient-account .menu-hero-actions .section-tabs button{padding:9px 10px;font-size:12px;min-height:44px;height:auto}
+ .member-page-content.menu-ambient-account>.sub-tabs{padding:0 22px;gap:24px;margin-bottom:20px}
+}
+
+/* Bring account subtabs closer to their parent navigation. */
+@media(min-width:761px){.member-page-content.menu-ambient-account>.sub-tabs{margin-top:-48px}}

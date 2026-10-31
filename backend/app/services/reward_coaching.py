@@ -84,11 +84,16 @@ def require_enabled():
 
 def ensure_coaches(db):
     """시연용 코치·콘텐츠 시드. 없으면 추가, 있으면 화면 데이터만 갱신(연락처는 자리표시 값으로 둔다)."""
+    # 요청마다 불리므로 한 요청(세션)에서는 한 번만 하고, 코치·콘텐츠는 한 번에 읽어 항목마다 조회하지 않는다.
+    if db.info.get('reward_coaches_synced'):
+        return
+    coaches = {c.id: c for c in db.scalars(select(Coach))}
+    contents = {c.id: c for c in db.scalars(select(Content))}
     for order, data in enumerate(COACHES):
         steps = {'steps': STEPS, 'how': data['how'], 'areas': data['areas'], 'includes': data['includes'],
                  'reviews': data['reviews'], 'tone': data['tone'], 'crumb': data['crumb'], 'sticky': data['sticky'],
                  'side_note': data.get('side_note')}
-        row = db.get(Coach, data['id'])
+        row = coaches.get(data['id'])
         if row is None:
             rewards.savepoint(db, lambda: (db.add(Coach(
                 id=data['id'], name=data['name'], headline=data['headline'], specialties=list(data['specialties']),
@@ -105,12 +110,13 @@ def ensure_coaches(db):
         for index, (kind, label, title, body) in enumerate(data['contents']):
             content_id = f"{data['id']}-{index + 1}"
             picture = pictures[index] if index < len(pictures) else None
-            item = db.get(Content, content_id)
+            item = contents.get(content_id)
             if item is None:
                 rewards.savepoint(db, lambda: (db.add(Content(id=content_id, coach_id=data['id'], kind=kind, label=label,
                                                               title=title, body=body, image_key=picture, sort_order=index)), db.flush()))
             else:
                 item.kind, item.label, item.title, item.body, item.image_key = kind, label, title, body, picture
+    db.info['reward_coaches_synced'] = True
 
 
 def seeded(db):
@@ -123,7 +129,10 @@ def product_of(db, coach_id):
 
 
 def in_use(db, user_id, coach_id):
-    return db.scalar(select(Pass).where(Pass.user_id == user_id, Pass.coach_id == coach_id, Pass.status == 'in_use'))
+    # 목록에서 코치마다 부르므로 사용 중 이용권을 한 번에 읽어 같은 요청 안에서 재사용한다.
+    passes = rewards.request_cache(db, ('coach_passes_in_use', user_id), lambda: {
+        p.coach_id: p for p in db.scalars(select(Pass).where(Pass.user_id == user_id, Pass.status == 'in_use'))})
+    return passes.get(coach_id)
 
 
 def coach_card(db, coach, user):

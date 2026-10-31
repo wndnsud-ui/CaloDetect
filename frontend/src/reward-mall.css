@@ -518,3 +518,17 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
   .coach-steps p{font-size:12px;line-height:1.35;word-break:keep-all}
   .coach-steps small{display:none}
 }
+
+/* Match the coaching banner palette across screen sizes. */
+@media(min-width:761px){
+  .coach-hero{display:grid;grid-template-columns:minmax(0,1.2fr) 96px minmax(260px,1fr);gap:24px;background:linear-gradient(135deg,#fff8ea,#fdf0d5);border:1px solid #f3e2bd;color:#193c32;padding:26px 28px}
+  .coach-hero>div:first-child{min-width:0}
+  .coach-hero h2{color:#193c32;word-break:keep-all;overflow-wrap:anywhere}
+  .coach-hero p,.coach-hero .mall-eyebrow.light{color:#60776f}
+  .coach-hero-art{display:block;width:96px;height:96px;object-fit:contain;padding:8px;background:#fff;border-radius:50%;box-shadow:0 3px 12px rgba(176,116,0,.1)}
+  .coach-hero .coach-offer{width:100%;min-width:0;border:1px solid #f0e3c6;box-sizing:border-box}
+}
+@media(min-width:761px) and (max-width:1100px){
+  .coach-hero{grid-template-columns:minmax(0,1fr) 96px;gap:18px}
+  .coach-hero .coach-offer{grid-column:1 / -1}
+}

@@ -1,9 +1,9 @@
 # 칼로티 코치 LLM 해석기 실제 호출 점검(개발용). .env의 OPENAI_API_KEY로 OpenAI를 부르며 DB는 쓰지 않는다.
-# 기존 규칙 해석기 검사 문장과 업무지시서 v1.2 CASE 문장을 LLM에 보내 의도·비율이 기대와 같은지 본다.
+# 서비스와 같은 interpret()(LLM + 규칙 보완)를 부른다. 기존 규칙 해석기 검사 문장과 업무지시서 v1.2 CASE 문장을 LLM에 보내 의도·비율이 기대와 같은지 본다.
 # 실행: .\.venv-backend\Scripts\python.exe -m backend.scripts.check_chat_llm
 import sys
 from backend.app.config import settings
-from backend.app.services.chat_llm import LlmUnavailable, interpret_with_llm
+from backend.app.services.chat_llm import LlmUnavailable, available, interpret
 from backend.app.services.nutrition import food_catalog
 
 FOODS = [(f['class_id'], f['food_name']) for f in food_catalog()]
@@ -45,24 +45,27 @@ CASES = [
     ('밥 조금 먹었어', 'amount', [{'id': 'r', 'food_name': '쌀밥'}], reason('vague_amount')),
     ('두 그릇 먹었어', 'amount', ONE, reason('serving_unit')),
     ('절반만 머겄어', 'amount', ONE, ratios(('g', 0.5))),  # 오탈자
-    ('오늘 저녁 뭐 먹지?', 'none', ONE, reason('unrelated')),
-    ('오늘 힘들다 ㅠㅠ', 'none', ONE, reason('unrelated')),
+    ('오늘 저녁 뭐 먹지?', 'none', ONE, lambda r: r['intent'] == 'general_chat' and bool(r['reply']) and not r['out_of_scope']),
+    ('오늘 힘들다 ㅠㅠ', 'none', ONE, lambda r: r['intent'] == 'general_chat' and bool(r['reply']) and not r['out_of_scope']),
+    ('안녕', 'none', [], lambda r: r['intent'] == 'general_chat' and bool(r['reply'])),
+    ('오늘 식사 어땠어?', 'none', [], lambda r: r['intent'] == 'general_chat' and bool(r['reply'])),
+    ('목표 칼로리 1500으로 바꿔줘', 'none', [], lambda r: r['intent'] == 'general_chat' and r['suggest_page'] == 'goal'),
 ]
 
 
 def main():
-    if not settings.openai_api_key:
-        print('OPENAI_API_KEY가 없습니다.'); return 1
+    if not available():
+        print('CHAT_LLM_ENABLED=true와 OPENAI_API_KEY가 필요합니다.'); return 1
     print(f'model={settings.openai_model}')
     failed = 0
     for text, question, targets, check in CASES:
         try:
-            result = interpret_with_llm(text, question, targets, None, FOODS)
+            result = interpret(text, question, targets, None, FOODS)
         except LlmUnavailable as error:
             print(f'ERROR  {text} -> {error}'); failed += 1; continue
         ok = check(result)
         failed += not ok
-        summary = {k: result[k] for k in ('intent', 'updates', 'save', 'meal_info', 'target_id', 'clarification_reason') if result.get(k)}
+        summary = {k: result[k] for k in ('intent', 'updates', 'save', 'meal_info', 'target_id', 'clarification_reason', 'reply', 'suggest_page') if result.get(k)}
         print(f'{"PASS" if ok else "FAIL"}  {text} -> {summary}')
     print(f'{len(CASES) - failed}/{len(CASES)} passed')
     return 1 if failed else 0

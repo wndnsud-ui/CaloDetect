@@ -48,3 +48,19 @@
   .history-serving:has(.history-chat-edit) .history-serving-text,.history-serving:has(.history-chat-edit) .history-ratio{display:none}
   .history-serving .history-chat-edit{margin:0}
 }
+
+/* Give desktop history rows a little room without truncating labels. */
+@media(min-width:761px){
+  .history-database .history-table-scroll{background:#f6f9f7;padding:0 12px 8px}
+  .history-database table{min-width:1180px;border-collapse:separate;border-spacing:0 8px}
+  .history-database thead th{padding:15px 18px;border:0;box-shadow:none;background:#f6f9f7;font-size:12px;line-height:1.6}
+  .history-database thead small{display:block;margin:2px 0 0;font-size:10px;line-height:1.4}
+  .history-database tbody td,.history-database tbody th{padding:16px 18px;font-size:13px;line-height:1.6;background:#fff;border-top:1px solid #e7eee9;border-bottom:1px solid #e7eee9}
+  .history-database tbody td:first-child{border-left:1px solid #e7eee9;border-radius:12px 0 0 12px}
+  .history-database tbody td:last-child{border-right:1px solid #e7eee9;border-radius:0 12px 12px 0}
+  .history-database tbody tr:hover>td,.history-database tbody tr:hover>th{background:#f0f8f3}
+  .history-database .history-meal-tag{min-width:48px;text-align:center;padding:6px 12px;border-radius:8px;box-sizing:border-box}
+  .history-database .history-serving{min-width:220px}
+  .history-database .history-chat-edit{margin-left:12px;padding:7px 12px;line-height:1.4}
+  .history-database .history-number{min-width:84px}
+}

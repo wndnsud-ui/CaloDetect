@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     app_env: Literal['development', 'production'] = 'production'
     # 명시적인 로컬 가입 테스트 허용 플래그. loopback 환경/요청 검사도 통과해야 한다.
     local_test_signup: bool = False
+    # Explicit opt-in for the deployed demo account; mutation endpoints still check identity.
+    test_account_demo_enabled: bool = False
     # 명시적인 로컬 사진 분석 테스트 플래그. 운영 이미지 보관 정책 승인과 다르다.
     local_test_image_analysis: bool = False
     # 허용할 브라우저 원본과 메일/소셜 인증 반환 주소의 기준.

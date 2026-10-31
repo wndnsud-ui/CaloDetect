@@ -13,6 +13,7 @@ from ..models import Detection, Food, ImageUpload, Meal, MealItem
 from ..config import settings
 from ..models_chat import (ChatAttachment, ChatLlmConsent, ChatLlmUsage, ChatMessage, Conversation, DraftItem, MealDraft,
                            MutationRequest)
+from .analytics import get_today_status
 from .chat_interpret import MEAL_LABELS, chips_for_meal_types
 from . import chat_llm
 from .consumption_record import ChatRecordError, preview_item, update_item_consumption
@@ -36,7 +37,8 @@ FAILED_TEXT = '음식을 확인하기 어려워요. 다시 찍거나 음식 이�
 NO_DRAFT_TEXT = '먼저 사진을 찍거나 앨범에서 선택해 주세요.'
 # 칼로티 코치 LLM(업무지시서 v1.2) 고정 문구.
 LLM_ERROR_TEXT = '지금 답변을 만들지 못했어요. 다시 질문해주세요.'
-UNRELATED_TEXT = '지금은 사진으로 식사를 기록하고 드신 양을 고치는 것을 도와드릴 수 있어요. 사진을 보내거나 드신 양을 말씀해 주세요.'
+CHAT_FALLBACK_TEXT = '저는 사진으로 식사를 기록하고 드신 양을 고치는 걸 도와드려요. 사진을 보내거나 드신 양을 말씀해 주세요.'
+NO_SAVED_TEXT = '이 대화에서 기록한 식사가 아직 없어요. 다른 화면에서 기록한 식사는 식단 관리의 \'챗으로 수정\'에서 바꿀 수 있어요.'
 LLM_NOTICE = '더 정확한 답변을 위해 식사 기록과 대화 내용이 외부 AI(LLM)로 전송돼요.'
 LIMIT_TEXT = '오늘 질문을 다 썼어요. 내일 다시 만나요!'
 
@@ -489,8 +491,6 @@ def clarify_reply(db, conversation, draft, result, reply_to):
     reason = result['clarification_reason']
     if result.get('llm_failed'):
         return bot(db, conversation, LLM_ERROR_TEXT, reply_to)
-    if reason == 'unrelated':
-        return bot(db, conversation, UNRELATED_TEXT, reply_to)
     if reason == 'vague_amount':
         # 말하지 않은 양은 정하지 않고 선택지로 되묻는다. 칩 문장은 규칙 해석기가 알아듣는 표현이다.
         target = result['candidates'][0] if len(result['candidates']) == 1 else None
@@ -526,13 +526,8 @@ def clarify_reply(db, conversation, draft, result, reply_to):
     return bot(db, conversation, '"절반", "4분의 1"처럼 말씀해 주시겠어요?', reply_to, chips=AMOUNT_CHIPS)
 
 
-def handle_draft(db, user, conversation, draft, message, request_id, use_llm=False):
+def handle_draft(db, user, conversation, draft, message, request_id, result):
     foods = food_rows(db)
-    targets = [{'id': i.id, 'food_name': foods[i.food_id].canonical_name} for i in draft.items]
-    result = chat_llm.interpret(message.text, draft.pending_question, targets, draft.pending_target_id,
-                                [(f.id, f.canonical_name) for f in foods.values()], use_llm=use_llm)
-    if result['source'] == 'llm':
-        count_usage(db, user)
     intent = result['intent']
     reply_to = message.id
     by_id = {i.id: i for i in draft.items}
@@ -594,16 +589,13 @@ def last_saved_meal(db, conversation):
 
 
 # 저장된 식사의 섭취량 정정(5.1과 같은 방식). A0 미리보기·수정 서비스를 재사용한다.
-def handle_saved(db, user, conversation, message, use_llm=False):
-    meal = last_saved_meal(db, conversation)
+def handle_saved(db, user, conversation, message, result, meal):
     reply_to = message.id
     if not meal:
-        return bot(db, conversation, NO_DRAFT_TEXT, reply_to)
-    targets = [{'id': i.id, 'food_name': i.corrected_label} for i in meal.items]
-    foods = [(f.id, f.canonical_name) for f in food_rows(db).values()]
-    result = chat_llm.interpret(message.text, conversation.pending_question, targets, None, foods, use_llm=use_llm)
-    if result['source'] == 'llm':
-        count_usage(db, user)
+        # 고칠 기록이 없어 안내만 하는 답은 질문 횟수에 넣지 않는다.
+        result['free'] = True
+        text = NO_SAVED_TEXT if result['source'] == 'llm' and result['intent'] != 'clarify' else NO_DRAFT_TEXT
+        return bot(db, conversation, text, reply_to)
     intent = result['intent']
     # "점심에 밥 반만 먹었어"처럼 저장된 그 식사를 가리키는 날짜·식사 종류는 변경 요청이 아니다.
     info = result.get('meal_info')
@@ -651,6 +643,55 @@ def apply_saved_updates(db, user, conversation, updates, message):
     return bot(db, conversation, '저장된 기록을 바꿨어요.', message.id, kind='corrected', cards=cards, chips=NAV_CHIPS)
 
 
+# 사진 기록 중이면 그 초안 음식, 아니면 이 대화에서 마지막으로 저장한 식사 음식을 대상으로 한 번만 해석하고 나눠 보낸다.
+# 질문 횟수는 LLM이 해석했고, 안내만 한 답(free)이 아닐 때만 센다.
+def handle_message(db, user, conversation, draft, message, request_id, use_llm):
+    foods = food_rows(db)
+    catalog = [(f.id, f.canonical_name) for f in foods.values()]
+    meal = None
+    if draft:
+        targets = [{'id': i.id, 'food_name': foods[i.food_id].canonical_name} for i in draft.items]
+        result = chat_llm.interpret(message.text, draft.pending_question, targets, draft.pending_target_id, catalog,
+                                    use_llm=use_llm, context=today_context(db, user) if use_llm else None)
+    else:
+        meal = last_saved_meal(db, conversation)
+        targets = [{'id': i.id, 'food_name': i.corrected_label} for i in meal.items] if meal else []
+        result = chat_llm.interpret(message.text, conversation.pending_question, targets, None, catalog,
+                                    use_llm=use_llm, context=today_context(db, user) if use_llm else None)
+    if result['intent'] == 'general_chat':
+        reply = general_chat_reply(db, conversation, result, message.id)
+    elif draft:
+        reply = handle_draft(db, user, conversation, draft, message, request_id, result)
+    else:
+        reply = handle_saved(db, user, conversation, message, result, meal)
+    if result['source'] == 'llm' and not result.get('free'):
+        count_usage(db, user)
+    return reply
+
+
+# 자유 대화용 오늘 기록 요약(서버 계산 값). 목표·섭취 합계·끼니별 음식만 넘기고 개인 신상은 넣지 않는다.
+def today_context(db, user):
+    status = get_today_status(db, user.id)
+    totals = status['totals']
+    lines = [f'날짜 {status["date"]}, 목표 칼로리 {status["target_calories"] or "미설정"}, '
+             f'섭취 {fmt(totals["cal"])}kcal (탄수화물 {fmt(totals["carbs"])}g · 단백질 {fmt(totals["protein"])}g · 지방 {fmt(totals["fat"])}g)']
+    for meal in status['meals']:
+        foods = ', '.join(f'{i["food_name"]} {fmt(i["nutrition"]["cal"])}kcal' for i in meal['items'])
+        lines.append(f'- {MEAL_LABELS.get(meal["meal_type"], meal["meal_type"])}: {foods}')
+    if not status['meals']:
+        lines.append('- 오늘 기록 없음')
+    return '\n'.join(lines)
+
+
+# 자유 대화(인사·기분 등)는 지방이 말투로 답한다. 챗봇에 없는 기능 요청은 해당 화면 버튼으로 안내하고 횟수에 넣지 않는다.
+def general_chat_reply(db, conversation, result, reply_to):
+    page = result.get('suggest_page')
+    if result.get('out_of_scope'):
+        result['free'] = True
+    chips = [{'label': chat_llm.PAGE_LABELS[page], 'action': 'navigate', 'page': chat_llm.PAGES[page]}] if page else []
+    return bot(db, conversation, result.get('reply') or CHAT_FALLBACK_TEXT, reply_to, **({'chips': chips} if chips else {}))
+
+
 def post_message(db, user, conversation_id, client_message_id, text, chip=False):
     require_consent(db, user)
     conversation = get_conversation(db, user, conversation_id, lock=True)
@@ -678,10 +719,8 @@ def post_message(db, user, conversation_id, client_message_id, text, chip=False)
         draft = active_draft(db, conversation, lock=True)
         if draft and draft.status == 'analyzing':
             reply = bot(db, conversation, '사진 속 음식을 확인하고 있어요. 잠시만 기다려 주세요.', message.id)
-        elif draft:
-            reply = handle_draft(db, user, conversation, draft, message, client_message_id, use_llm)
         else:
-            reply = handle_saved(db, user, conversation, message, use_llm)
+            reply = handle_message(db, user, conversation, draft, message, client_message_id, use_llm)
         message = db.get(ChatMessage, message.id)
         message.status = 'processed'
         db.commit()

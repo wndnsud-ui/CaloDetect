@@ -12,7 +12,8 @@ TARGETS = [{'id': 'a', 'food_name': '김치찌개'}, {'id': 'b', 'food_name': '�
 
 def raw(**values):
     data = {'intent': 'clarify', 'updates': [], 'save': False, 'meal_date': None, 'meal_type': None, 'target_id': None,
-            'food_name': None, 'clarification_reason': 'none', 'candidate_ids': [], 'unknown_text': None}
+            'food_name': None, 'clarification_reason': 'none', 'candidate_ids': [], 'unknown_text': None,
+            'reply': None, 'suggest_page': None, 'out_of_scope': False}
     data.update(values)
     return data
 
@@ -49,11 +50,15 @@ def test_food_must_be_in_catalog():
     assert unknown['unknown_text'] == '우주비빔면'
 
 
-def test_meal_info_and_unrelated():
+def test_meal_info_and_general_chat():
     info = chat_llm.to_result(raw(intent='set_meal_info', meal_date='yesterday', meal_type='dinner', save=True), TARGETS, None, FOODS)
     assert info['meal_info'] == {'date': 'yesterday', 'meal_type': 'dinner'} and info['save'] is True
     assert chat_llm.to_result(raw(intent='set_meal_info'), TARGETS, None, FOODS)['clarification_reason'] == 'unknown_meal_type'
-    assert chat_llm.to_result(raw(intent='unrelated'), TARGETS, None, FOODS)['clarification_reason'] == 'unrelated'
+    chat = chat_llm.to_result(raw(intent='general_chat', reply='오늘도 고생 많았어요.'), TARGETS, None, FOODS)
+    assert (chat['intent'], chat['reply'], chat['out_of_scope']) == ('general_chat', '오늘도 고생 많았어요.', False)
+    # 사용자 결정(2026-10-31): 자유 대화에서는 추천·대략 수치 언급을 허용한다. 화면 버튼은 붙여도 직접 답한 것으로 센다.
+    numbers = chat_llm.to_result(raw(intent='general_chat', reply='닭가슴살 샐러드 어때요? 대략 300kcal예요.', suggest_page='recommend'), TARGETS, None, FOODS)
+    assert numbers['reply'].endswith('300kcal예요.') and numbers['suggest_page'] == 'recommend' and numbers['out_of_scope'] is False
 
 
 def test_failure_falls_back_to_rules(monkeypatch):
@@ -81,6 +86,7 @@ def llm(env, monkeypatch):
 
     def fake(messages):
         calls['count'] += 1
+        calls['last'] = messages[-1]['content']
         if calls['reply'] is None:
             raise chat_llm.LlmUnavailable('down')
         reply = calls['reply']
@@ -168,7 +174,7 @@ def test_case18_daily_limit_blocks_without_llm_call(llm):
     client.post('/chat/consent')
     conversation = start(client)
     photo(client, conversation)
-    calls['reply'] = raw(intent='unrelated')
+    calls['reply'] = raw(intent='general_chat', reply='힘내요!')
     for _ in range(5):
         assert send(client, conversation, '오늘 힘들다').status_code == 200
     calls_before = calls['count']
@@ -183,7 +189,43 @@ def test_chip_flag_needs_matching_chip_text(llm):
     client.post('/chat/consent')
     conversation = start(client)
     photo(client, conversation)
-    calls['reply'] = raw(intent='unrelated')
+    calls['reply'] = raw(intent='general_chat', reply='네!')
     # 직전 봇 메시지가 제시하지 않은 문장은 chip=true여도 LLM·횟수 대상이다.
     body = send(client, conversation, '아무 말이나', chip=True).json()
     assert body['usage']['used'] == 1 and calls['count'] == 1
+
+
+def test_general_chat_and_out_of_scope_counting(llm, monkeypatch):
+    client, _, _, calls = llm
+    client.post('/chat/consent')
+    conversation = start(client)
+    calls['reply'] = raw(intent='general_chat', reply='안녕! 오늘도 같이 기록해요.')
+    hello = send(client, conversation, '안녕').json()
+    assert last_bot(hello)['text'] == '안녕! 오늘도 같이 기록해요.' and hello['usage']['used'] == 1
+    # 오늘 기록 요약이 프롬프트에 들어간다.
+    assert '[사용자 오늘 기록]' in calls['last'] and '오늘 기록 없음' in calls['last']
+    calls['reply'] = raw(intent='general_chat', reply='목표 칼로리 저장은 목표 설정 화면에서 할 수 있어요.', suggest_page='goal', out_of_scope=True)
+    ask = send(client, conversation, '목표 칼로리 1500으로 바꿔줘').json()
+    chips = last_bot(ask)['payload']['chips']
+    assert chips == [{'label': '목표 설정 열기', 'action': 'navigate', 'page': '목표 설정'}]
+    assert ask['usage']['used'] == 1
+
+
+def test_no_saved_meal_answer_is_free(llm):
+    client, _, _, calls = llm
+    client.post('/chat/consent')
+    conversation = start(client)
+    calls['reply'] = raw(intent='clarify', clarification_reason='vague_amount')
+    body = send(client, conversation, '방금 기록한 양 바꾸고 싶어').json()
+    assert '기록한 식사가 아직 없어요' in last_bot(body)['text'] or '사진' in last_bot(body)['text']
+    assert body['usage']['used'] == 0
+
+
+def test_rule_rescues_llm_clarify_on_exact_expression(monkeypatch):
+    monkeypatch.setattr(settings, 'chat_llm_enabled', True)
+    monkeypatch.setattr(settings, 'openai_api_key', 'test-key')
+    monkeypatch.setattr(chat_llm, 'call_openai', lambda messages: raw(intent='clarify', clarification_reason='vague_amount', candidate_ids=['a']))
+    rescued = chat_llm.interpret('4분의 1', 'amount', TARGETS[:1], None, FOODS)
+    assert rescued['intent'] == 'update_consumption' and rescued['updates'][0]['consumption_ratio'] == 0.25
+    vague = chat_llm.interpret('조금 먹었어', 'amount', TARGETS[:1], None, FOODS)
+    assert vague['intent'] == 'clarify' and vague['clarification_reason'] == 'vague_amount'

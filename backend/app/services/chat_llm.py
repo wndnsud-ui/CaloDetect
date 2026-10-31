@@ -12,9 +12,14 @@ from .consumption import food_key
 logger = logging.getLogger('calodetect')
 
 INTENTS = ['update_consumption', 'confirm_save', 'affirm', 'cancel', 'set_meal_info', 'change_food', 'add_food',
-           'select_target', 'clarify', 'unrelated']
+           'select_target', 'clarify', 'general_chat']
 REASONS = ['none', 'ambiguous_target', 'vague_amount', 'unknown_food', 'unknown_meal_type', 'serving_unit',
            'unsupported_expression']
+# 챗봇에 아직 없는 기능을 물으면 그 기능이 있는 화면으로 안내한다(서비스에 없는 기능을 있다고 하지 않는다).
+PAGES = {'recommend': '식사 추천', 'analysis': '식단 분석', 'goal': '목표 설정', 'history': '히스토리',
+         'rewards': '리워드', 'community': '커뮤니티'}
+PAGE_LABELS = {'recommend': '오늘 뭐먹지? 열기', 'analysis': '식단 분석 열기', 'goal': '목표 설정 열기',
+               'history': '식단 관리 열기', 'rewards': '리워드몰 열기', 'community': '커뮤니티 열기'}
 QUESTIONS = {'none': '없음', 'amount': '드신 양', 'food_check': '인식한 음식이 맞는지', 'food_name': '음식 이름',
              'target': '어떤 음식의 양을 바꿀지', 'save_confirm': '이대로 저장할지'}
 
@@ -22,7 +27,7 @@ QUESTIONS = {'none': '없음', 'amount': '드신 양', 'food_check': '인식한 
 SCHEMA = {
     'type': 'object', 'additionalProperties': False,
     'required': ['intent', 'updates', 'save', 'meal_date', 'meal_type', 'target_id', 'food_name',
-                 'clarification_reason', 'candidate_ids', 'unknown_text'],
+                 'clarification_reason', 'candidate_ids', 'unknown_text', 'reply', 'suggest_page', 'out_of_scope'],
     'properties': {
         'intent': {'type': 'string', 'enum': INTENTS},
         'updates': {'type': 'array', 'items': {
@@ -36,11 +41,22 @@ SCHEMA = {
         'clarification_reason': {'type': 'string', 'enum': REASONS},
         'candidate_ids': {'type': 'array', 'items': {'type': 'string'}},
         'unknown_text': {'type': ['string', 'null']},
+        'reply': {'type': ['string', 'null']},
+        'suggest_page': {'type': ['string', 'null'], 'enum': [*PAGES, None]},
+        'out_of_scope': {'type': 'boolean'},
     },
 }
 
 SYSTEM = """너는 식단 기록 앱 CaloDetect의 '칼로티 코치' 문장 해석기다. 사용자 한 문장을 읽고 JSON만 낸다.
-너는 해석만 한다. 칼로리·영양 수치는 절대 만들지 않는다.
+기록을 바꾸는 의도에서는 해석만 하고 칼로리·영양 수치를 만들지 않는다(수치는 서버가 계산한다).
+
+[판단 순서] 반드시 이 순서로 고른다.
+1. 현재 질문이 '이대로 저장할지'이고 긍정(응·네·맞아·좋아·그래)이면 confirm_save. 부정·취소면 cancel.
+2. 문장에 섭취 비율 표현(다·반·절반·4분의1·1/4·25%·안 먹음 등, 오탈자 포함)이 있고 대상 음식이 있으면 update_consumption.
+   비율 표현만 있는 짧은 답("4분의 1", "절반만 머겄어")도 update_consumption이다. vague_amount가 아니다.
+3. 날짜·식사 종류 변경, 음식 정정·추가, 대상 선택이면 그 의도.
+4. 기록과 관계없는 말(인사, 기분, 메뉴 추천, 음식 정보, 목표·포인트 등 앱 기능 질문)은 general_chat.
+   "목표 칼로리 바꿔줘"는 음식이 아니므로 unknown_food가 아니라 general_chat(suggest_page=goal, out_of_scope=true).
 
 [의도 intent]
 - update_consumption: 대상 음식의 섭취 비율을 말함. updates에 대상마다 {target_id, consumption_ratio}.
@@ -53,7 +69,18 @@ SYSTEM = """너는 식단 기록 앱 CaloDetect의 '칼로티 코치' 문장 해
 - add_food: 현재 질문이 '음식 이름'일 때 음식 이름을 말함. food_name을 채움.
 - select_target: 비율 없이 대상 음식만 고름("갈비구이는"). target_id를 채움.
 - clarify: 되물어야 함. clarification_reason을 고른다.
-- unrelated: 식사 기록과 관계없는 말(메뉴 추천, 잡담, 질문 등).
+- general_chat: 식사 기록·양 수정이 아닌 말(인사, 잡담, 기분, 질문, 메뉴 추천·분석 요청 등). reply에 답을 쓴다.
+
+[general_chat 답 reply] (사용자 결정 2026-10-31: 자유 추천·수치 언급 허용)
+- 너는 지방이다. 동글동글한 지방 캐릭터로, 다정하고 짧게(2~4문장, 250자 이내) 반말 섞인 존댓말로 답한다. 이모지는 쓰지 않는다.
+- 메뉴 추천, 음식 칼로리·영양 질문, 식단 조언, 잡담 모두 직접 답한다. 칼로리·영양 수치는 일반적인 1인분 기준 대략값으로 말해도 된다.
+- 아래 [사용자 오늘 기록]이 있으면 그 기록과 목표 칼로리를 바탕으로 답한다. 기록에 없는 내용을 사용자가 먹었다고 지어내지 않는다.
+  기록이 없으면 아직 오늘 기록이 없다고 말하고 일반적인 기준으로 답한다.
+- 질병 진단·치료·약 복용은 지시하지 않고 필요하면 전문가 상담을 권한다. 극단적인 단식·과도한 제한은 권하지 않는다.
+- 앱 화면이 더 도움이 되면 suggest_page로 버튼을 붙일 수 있다: 상세 추천=recommend, 기간별 분석=analysis, 목표 변경=goal,
+  지난 기록=history, 포인트=rewards, 커뮤니티=community. 그래도 reply에서는 질문에 먼저 직접 답한다.
+- out_of_scope는 이 챗봇이 직접 할 수 없는 앱 동작(목표 칼로리 저장, 포인트 사용, 글쓰기 등)을 요청받아 화면 안내만 할 때만 true.
+- general_chat이 아니면 reply=null, suggest_page=null, out_of_scope=false.
 
 [섭취 비율 규칙]
 - 다/전부/싹/남김없이 = 1, 반/절반/반만/50% = 0.5, 4분의1/1/4/25% = 0.25, 4분의3/3/4/75% = 0.75,
@@ -91,13 +118,14 @@ class LlmUnavailable(Exception):
     pass
 
 
-def build_prompt(text, pending_question, targets, pending_target_id, foods):
+def build_prompt(text, pending_question, targets, pending_target_id, foods, context=None):
     target_lines = '\n'.join(f'- id={t["id"]} 이름={t["food_name"]}' for t in targets) or '- (없음)'
     selected = next((t['food_name'] for t in targets if t['id'] == pending_target_id), None)
     return (f'현재 질문: {QUESTIONS.get(pending_question, "없음")}\n'
             f'선택된 대상: {selected or "없음"}\n'
             f'대상 음식(지금 기록 중인 음식):\n{target_lines}\n'
             f'음식 목록: {", ".join(name for _, name in foods)}\n'
+            f'[사용자 오늘 기록]\n{context or "(없음)"}\n'
             f'사용자 문장: {text}')
 
 
@@ -181,22 +209,33 @@ def to_result(raw, targets, pending_target_id, foods):
         if reason == 'unknown_food':
             return done(clarify('unknown_food', unknown_text=(raw.get('unknown_text') or '그 음식').strip()[:40]))
         return done(clarify(reason, candidates))
-    return done(clarify('unrelated'))
+    if intent == 'general_chat':
+        reply = (raw.get('reply') or '').strip()[:500] or None
+        page = raw.get('suggest_page') if raw.get('suggest_page') in PAGES else None
+        return done(base('general_chat', reply=reply, suggest_page=page, out_of_scope=bool(raw.get('out_of_scope'))))
+    return done(clarify('unsupported_expression'))
 
 
-def interpret_with_llm(text, pending_question='none', targets=(), pending_target_id=None, foods=()):
+def interpret_with_llm(text, pending_question='none', targets=(), pending_target_id=None, foods=(), context=None):
     targets, foods = list(targets), list(foods)
     raw = call_openai([{'role': 'system', 'content': SYSTEM},
-                       {'role': 'user', 'content': build_prompt(text, pending_question, targets, pending_target_id, foods)}])
+                       {'role': 'user', 'content': build_prompt(text, pending_question, targets, pending_target_id, foods, context)}])
     return to_result(raw, targets, pending_target_id, foods)
 
 
 # 해석 진입점. LLM을 쓸 수 있으면 LLM, 장애 때만 규칙 해석기(비상용).
 # 규칙 해석기도 알아듣지 못하면 llm_failed=True로 돌려 화면에 오류 문구를 보여 준다(기록 변경 없음).
-def interpret(text, pending_question='none', targets=(), pending_target_id=None, foods=(), use_llm=True):
+def interpret(text, pending_question='none', targets=(), pending_target_id=None, foods=(), use_llm=True, context=None):
     if use_llm and available():
         try:
-            return interpret_with_llm(text, pending_question, targets, pending_target_id, foods)
+            result = interpret_with_llm(text, pending_question, targets, pending_target_id, foods, context)
+            # LLM이 되묻기로 답했지만 규칙 해석기가 정확히 알아듣는 표현("4분의 1" 등)이면 규칙 결과를 쓴다.
+            if result['intent'] == 'clarify':
+                rule = interpret_chat(text, pending_question, targets, pending_target_id, foods)
+                if rule['intent'] != 'clarify':
+                    rule['source'] = 'llm'
+                    return rule
+            return result
         except LlmUnavailable:
             result = interpret_chat(text, pending_question, targets, pending_target_id, foods)
             if result['intent'] == 'clarify' and result['clarification_reason'] == 'unsupported_expression':

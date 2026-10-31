@@ -110,3 +110,23 @@
   .shell.integrated-app.has-mobile-shell.has-coach>main{padding-bottom:calc(var(--m-tabbar-h) + var(--m-safe-bottom) + 100px)}
   body.coach-sheet-open{overflow:hidden}
 }
+
+/* Compact mobile sheet; keep the conversation scrollable and composer visible. */
+@media(max-width:760px){
+  .coach-sheet{left:10px;right:10px;top:auto;bottom:calc(8px + env(safe-area-inset-bottom,0px));height:min(76dvh,660px);max-height:calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 24px);border-radius:22px}
+  .coach-sheet-head{gap:9px;padding:8px 8px 10px 14px}
+  .coach-sheet-head>img{width:38px;height:38px}
+  .coach-sheet-eyebrow{font-size:10px;letter-spacing:1px}
+  .coach-sheet-head h2{font-size:16px;line-height:1.5}
+  .coach-sheet-status{font-size:11px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+  .coach-sheet .chat-log{padding:12px 12px 16px}
+  .coach-welcome img{width:72px}
+  .coach-welcome strong{font-size:21px}
+  .coach-welcome p{font-size:12px}
+  .coach-quick{padding-left:0}
+  .coach-sheet .chat-input{gap:6px;padding:9px 10px 10px}
+  .coach-sheet .chat-input #chat-text{font-size:16px;padding:0 10px}
+  .coach-sheet .chat-input .primary{min-width:56px;padding:0 10px}
+  .coach-consent{padding:10px;overflow-y:auto;align-items:safe flex-end}
+  .coach-consent>div{padding:16px 14px;max-height:100%;overflow-y:auto}
+}

@@ -322,6 +322,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}
+    {page==='마이페이지'&&canUseDevDemo&&<button type="button" className="outline" onClick={()=>navigate('테스트')}>테스트 더미 설정</button>}
     {page==='테스트'&&canUseDevDemo&&<DevDemo api={api} status={devDemo} onChanged={loadRewards} onNavigate={navigate}/>}
     {page==='리워드'&&user&&<Rewards key={mallKey} api={api} me={rewards} tab="mall" showTabs={false} onTab={tab=>navigate('리워드',tab)} onChanged={loadRewards}/>}
     {page==='히스토리'&&user&&<MealHistory history={history} onAdd={()=>navigate('음식 추가')} api={api} onChanged={()=>loadAccount().catch(e=>setError(e.message))} onChatEdit={chatEnabled?edit=>openCoach(edit):undefined}/>}

@@ -35,7 +35,7 @@ app.include_router(admin_rewards_router)
 reward_exchange_startup_check()
 # 개발용 테스트 페이지(리워드 더미). 로컬 개발·테스트 가입 설정일 때만 경로가 생긴다.
 from backend.scripts.seed_local_test_account import local_test_account_enabled
-if local_test_account_enabled():
+if local_test_account_enabled() or settings.test_account_demo_enabled:
     from .dev_demo import router as dev_demo_router
     app.include_router(dev_demo_router)
 # 채팅 식사기록(섭취량 수정) 라우트는 기능 플래그가 켜졌을 때만 등록한다. 기본 false.

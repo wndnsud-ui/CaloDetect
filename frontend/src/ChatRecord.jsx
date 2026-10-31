@@ -6,8 +6,17 @@ import { newRequestId } from './ChatConsumptionEdit';
 import './chat-record.css';
 
 export const COACH_FACE = '/jibang/f_happy.png';
-// 업무지시서 v1.2 UI: 빠른 질문 5개. 누르면 일반 메시지로 보낸다.
-const QUICK_QUESTIONS = ['오늘 뭐 먹지?', '오늘 식사 어땠어?', '단백질 많은 메뉴 추천', '가볍게 먹을 메뉴', '방금 음식 기록 수정'];
+// 빠른 질문. text는 질문으로 보내고(하루 횟수에 포함), action은 화면 동작이라 횟수에 들어가지 않는다.
+// 자유 대화는 오늘 기록·목표를 바탕으로 LLM이 직접 답한다(사용자 결정 2026-10-31).
+const QUICK_QUESTIONS = [
+  {label: '오늘 뭐 먹지?', text: '오늘 뭐 먹지?'},
+  {label: '오늘 식사 어땠어?', text: '오늘 식사 어땠어?'},
+  {label: '단백질 많은 메뉴 추천', text: '단백질 많은 메뉴 추천해줘'},
+  {label: '가볍게 먹을 메뉴', text: '가볍게 먹을 메뉴 추천해줘'},
+  {label: '사진으로 식사 기록하기', action: 'photo'},
+  {label: '방금 기록한 양 바꾸기', text: '방금 기록한 양 바꾸고 싶어'},
+];
+const kstDay = value => new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric', weekday:'long'}).format(value ? new Date(value) : new Date());
 const fmt = value => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('ko-KR', {maximumFractionDigits:1});
 const percent = ratio => `${Math.round(Number(ratio) * 100)}%`;
 const MAX_SIDE = 2048;
@@ -183,6 +192,8 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
   function chip(item) {
     if (item.action === 'new_photo') { takePhoto(); return; }
     if (item.action === 'today') { onNavigate('홈'); return; }
+    if (item.action === 'navigate') { onNavigate(item.page); return; }
+    if (item.action === 'photo') { setPhotoMenu(true); return; }
     if (item.action === 'type') { input.current?.focus(); return; }
     send(item.text, undefined, true);
   }
@@ -199,7 +210,14 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
   // 빠른 질문은 진행 중인 사진 기록이 없고, 마지막 답에 답장 칩이 없을 때만 그 아래에 보여 준다.
   const showQuick = !!conversationId && !draft && !busy && !(lastBot?.payload?.chips?.length || lastBot?.payload?.meal_chips);
   const usage = llm.llm ? llm.usage : null, exhausted = !!usage && usage.remaining <= 0;
-  const dateText = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric', weekday:'long'}).format(new Date());
+  // 날짜 구분선은 메시지가 실제로 오간 날짜(한국 시각)가 바뀔 때마다 넣는다.
+  let lastDay = null;
+  const dayLine = message => {
+    const day = kstDay(message.created_at);
+    if (day === lastDay) return null;
+    lastDay = day;
+    return <li key={`day-${message.id}`} className="chat-date"><span>{day}</span></li>;
+  };
 
   return <div className="chat-record">
     <section className="chat-main" aria-label="칼로티 코치 대화">
@@ -209,12 +227,13 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
           <strong>안녕! 나 지방이야</strong>
           <p>식사 기록을 보고 메뉴 추천이나<br/>영양 분석을 도와줄게요.</p>
         </li>
-        <li className="chat-date"><span>{dateText}</span></li>
+        {!messages.length && <li className="chat-date"><span>{kstDay()}</span></li>}
         {messages.map(message => {
           const payload = message.payload || {};
           const isLast = lastBot && message.id === lastBot.id;
-          if (message.kind === 'photo') return <li key={message.id} className="chat-row chat-row-user"><img className="chat-photo" src={payload.image_url} alt="보낸 식사 사진"/></li>;
-          return <li key={message.id} className={`chat-row chat-row-${message.role}`}>
+          const day = dayLine(message);
+          if (message.kind === 'photo') return <React.Fragment key={message.id}>{day}<li className="chat-row chat-row-user"><img className="chat-photo" src={payload.image_url} alt="보낸 식사 사진"/></li></React.Fragment>;
+          return <React.Fragment key={message.id}>{day}<li className={`chat-row chat-row-${message.role}`}>
             {message.role === 'bot' && <img className="chat-avatar" src={COACH_FACE} alt=""/>}
             <div className={`chat-bubble chat-${message.role}${message.kind === 'saved' ? ' chat-done' : ''}${message.status === 'failed' ? ' chat-error' : ''}`}>
               {message.kind === 'saved' ? <SavedCard meal={payload.meal}/> : <p>{message.text}</p>}
@@ -225,11 +244,11 @@ export default function ChatRecord({api, onSaved, onNavigate}) {
                 {payload.meal_chips && mealTypes.map(item => <button type="button" key={item.value} className={`chip-meal${draft?.meal_type === item.value ? ' selected' : ''}`} aria-pressed={draft?.meal_type === item.value} onClick={() => send(item.text, undefined, true)} disabled={!!busy || draft?.meal_type === item.value}>{item.label}</button>)}
               </div>}
             </div>
-          </li>;
+          </li></React.Fragment>;
         })}
         {showQuick && <li className="coach-quick">
           <p>이렇게 물어볼 수 있어요</p>
-          <div className="reply-chips">{QUICK_QUESTIONS.map((question, index) => <button type="button" key={question} className={index === 0 ? 'chip-nav' : ''} onClick={() => send(question)} disabled={exhausted}>{question}</button>)}</div>
+          <div className="reply-chips">{QUICK_QUESTIONS.map((item, index) => <button type="button" key={item.label} className={index === 0 ? 'chip-nav' : ''} onClick={() => item.action ? chip(item) : send(item.text)} disabled={!item.action && exhausted}>{item.label}</button>)}</div>
         </li>}
         {busy && <li className="chat-row chat-row-bot"><img className="chat-avatar" src={COACH_FACE} alt=""/><div className="chat-bubble chat-bot chat-typing" role="status">{busy === 'upload' ? '사진을 올리고 있어요…' : busy === 'analysis' ? '사진 속 음식을 확인하고 있어요… (최대 1~2분)' : '확인하고 있어요…'}</div></li>}
       </ol>

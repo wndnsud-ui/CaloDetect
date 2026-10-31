@@ -3,6 +3,8 @@ import React, {useEffect, useState} from 'react';
 import SavedMeals from './SavedMeals';
 import Jibang, {JibangFigure} from './Jibang';
 import {Progress, StreakNotice, fmt} from './RewardHomeCard';
+import MobileHome from './MobileHome';
+import useIsMobile from './useIsMobile';
 import './dashboard.css';
 import './home-dashboard.css';
 
@@ -10,7 +12,8 @@ const MEALS = [['breakfast','아침'],['lunch','점심'],['dinner','저녁'],['s
 const percent = (value,target) => target > 0 ? Math.min(100,Math.max(0,Math.round(value/target*100))) : null;
 const display = value => Number.isFinite(value) ? value.toLocaleString('ko-KR',{maximumFractionDigits:2}) : '—';
 
-export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal,api,homeCard,me,onRewardsChanged}) {
+export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal,api,homeCard,me,onRewardsChanged,displayName}) {
+  const isMobile = useIsMobile();
   const parts = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
   const part = key => parts.find(p=>p.type===key).value;
   const todayDate = liveToday?.date || `${part('year')}-${part('month')}-${part('day')}`;
@@ -44,6 +47,15 @@ export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal
       <div className="hd-tip"><span aria-hidden="true">💡</span><div><strong>다음 한 끼도 건강하게 골라보세요.</strong><p>기록한 식단과 목표를 바탕으로 식사 후보를 확인해 보세요.</p></div><button type="button" className="outline" onClick={()=>onNavigate('식사 추천')}>메뉴 추천받기 →</button></div>
     </section>
   );
+  // 760px 이하에서는 모바일 전용 홈(시안 3안)을 그린다. 데이터와 날짜 상태는 위에서 만든 값을 그대로 넘긴다.
+  if (isMobile) {
+    const status = error ? <div role="alert"><p className="error">{error}</p><button type="button" className="m-link" onClick={()=>setRetry(n=>n+1)}>다시 불러오기</button></div>
+      : user&&!data ? <p role="status" className="muted">기록을 불러오고 있어요…</p> : null;
+    return <MobileHome user={user} me={me} displayName={displayName} liveToday={liveToday} totals={totals} meals={meals} target={target}
+      todayDate={todayDate} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentDay={currentDay} remaining={remaining}
+      onAddMeal={addMeal} onNavigate={onNavigate} homeCard={homeCard} status={status}
+      streak={me&&<StreakNotice api={api} streak={me.streak} onChanged={onRewardsChanged}/>}/>;
+  }
   return <div className="home-dashboard">
     {homeCard}
     <section className="hd-hero hd-hero--overview hd-overview-summary" aria-label="선택한 날의 기록 요약">

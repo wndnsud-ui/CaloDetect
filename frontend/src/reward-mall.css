@@ -415,3 +415,64 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
   .landing-promos .mall-slide-copy p{font-size:14px}
   .landing-promos .mall-slider-controls{position:static;margin:12px 24px 18px}
 }
+/* 모바일: 포인트 카드를 줄인다(지방이 원 축소, 보조 문구·영문 머리글 생략, 목표 카드 여백 축소) */
+@media(max-width:760px){
+  .mall-hero-card{padding:14px 16px;gap:10px 14px;border-radius:20px}
+  .mall-hero-me{width:68px;gap:4px}
+  .mall-hero-figure{width:64px;height:64px}
+  /* 지방이는 숨쉬기 애니메이션이 transform을 쓰므로 zoom으로 줄인다 */
+  .mall-hero-figure>.jb-figure{zoom:.68}
+  .mall-hero-label{font-size:12px}
+  .mall-hero-label small{display:none}
+  .mall-hero-points{flex:1 1 0;min-width:0;gap:4px}
+  .mall-hero-points .mall-eyebrow{display:none}
+  .mall-hero-balance{font-size:30px;letter-spacing:-1px}.mall-hero-balance span{font-size:16px}
+  .mall-hero-sub{font-size:12px;line-height:1.4}
+  .mall-hero-links{gap:6px;margin-top:2px}
+  .mall-hero-links button{min-height:30px;padding:0 12px;font-size:12px}
+  .mall-goal-card{flex-basis:100%;padding:10px 14px;gap:6px;border-radius:14px}
+  .mall-goal-head{font-size:13px}
+  .mall-goal-foot{font-size:11px}
+  .mall-goal-card .reward-bar{height:8px}
+}
+/* 모바일 '포인트 모으는 법' 접기 패널: 여백·글자를 줄여 한 줄 높이로 */
+@media(max-width:760px){
+  .mall-panel.mall-earn-toggle{padding:12px 16px;border-radius:16px}
+  .mall-earn-toggle>summary{min-height:24px;font-size:14px;line-height:1.7}
+  .mall-earn-content{margin-top:10px;gap:6px}
+}
+/* 모바일 상품 카드: 2열, 사진은 낮은 비율(5:3), 이름·가격과 상태 문구를 각각 한 줄로 줄여 카드 길이를 줄인다 */
+@media(max-width:760px){
+  .mall-grid-v5{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mall-grid-v5 .mall-card{padding:7px;gap:5px;border-radius:16px}
+  .mall-grid-v5 .mall-card-open{gap:5px}
+  .mall-grid-v5 .mall-card-art.fill{aspect-ratio:5 / 3;border-radius:10px}
+  .mall-grid-v5 .mall-card-title{gap:6px;align-items:baseline}
+  .mall-grid-v5 .mall-card-title span{min-width:0;font-size:12px;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mall-grid-v5 .mall-card-title b{font-size:13px}
+  .mall-grid-v5 .mall-bar{height:4px}
+  .mall-grid-v5 .mall-card-status{font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mall-grid-v5 .mall-exchange-button{min-height:30px;margin-top:auto;padding:0 6px;border-radius:9px;font-size:11px}
+}
+/* 코칭 상단 카드: 데스크톱은 기존 진녹색 그대로, 모바일은 포인트 카드와 구분되는 크림색 카드 + 응원 지방이로 줄인다 */
+.coach-hero-art{display:none}
+@media(max-width:760px){
+  .coach-hero{display:grid;grid-template-columns:minmax(0,1fr) 76px;align-items:center;gap:8px 10px;padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,#FFF8EA,#FDF0D5);border:1px solid #F3E2BD;color:var(--m-ink)}
+  .coach-hero>div:first-child{grid-column:1;gap:4px}
+  .coach-hero .mall-eyebrow{display:none}
+  .coach-hero h2{font-size:17px;letter-spacing:-.5px;line-height:1.35}
+  .coach-hero h2 br{display:none}
+  .coach-hero>div:first-child>p{font-size:12px;line-height:1.5;color:var(--m-sub)}
+  .coach-hero-art{display:block;grid-column:2;grid-row:1;width:76px;height:76px;object-fit:contain;padding:6px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(176,116,0,.12)}
+  .coach-hero .coach-offer{grid-column:1 / -1;padding:10px 12px;gap:6px;border-radius:12px;border:1px solid #F0E3C6}
+  .coach-hero .coach-offer .mall-goal-head{font-size:13px}
+  .coach-hero .coach-offer .mall-goal-foot{font-size:11px}
+}
+/* 모바일 코칭 3단계: 큰 카드 3장 대신 한 줄 3칸(번호 + 굵은 제목만, 설명은 생략) */
+@media(max-width:760px){
+  .coach-steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .coach-steps li{flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:14px;text-align:center}
+  .coach-steps li>span{width:22px;height:22px;font-size:11px}
+  .coach-steps p{font-size:12px;line-height:1.35;word-break:keep-all}
+  .coach-steps small{display:none}
+}

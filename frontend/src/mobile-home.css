@@ -1,0 +1,57 @@
+/* 모바일 홈 (시안 3안). mobile-shell.css의 --m-* 토큰을 사용한다. 이 파일은 .m-home 안에서만 적용된다. */
+.m-home{display:flex;flex-direction:column;gap:12px;color:var(--m-text);font-size:14px}
+.m-home button{font-family:inherit}
+
+.m-home-hero{display:flex;align-items:flex-end;gap:8px;margin:0 calc(-1 * var(--m-pad));padding:2px var(--m-pad) 6px;background:linear-gradient(180deg,#e6f0e4 0%,var(--m-ground) 100%)}
+.m-home-hello{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;padding-bottom:8px}
+.m-home-hello p{margin:0;font-size:13px;color:var(--m-sub)}
+.m-home-hello h1{margin:2px 0 0;font-size:22px;font-weight:800;letter-spacing:-.8px;line-height:1.35}
+.m-home-hello h1 span{white-space:pre-line}
+.m-home-level{display:flex;align-items:center;gap:8px;border:0;background:none;padding:0;min-height:32px;color:var(--m-text)}
+.m-home-level b{font-size:12px;font-weight:800;background:var(--m-green);color:#fff;padding:3px 8px;border-radius:8px}
+.m-home-level small{font-size:12px;color:var(--m-sub)}
+.m-home-xp{width:84px;height:6px;border-radius:3px;background:#d5e2d4;overflow:hidden}
+.m-home-xp>span{display:block;height:100%;border-radius:3px;background:#ffb039}
+.m-home-jibang{width:142px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;padding:0}
+/* 지방이 장식(김 등)이 그림 위로 튀어나오므로 말풍선을 조금 띄우고 장식보다 위에 그린다 */
+.m-home-bubble{position:relative;z-index:1;margin-bottom:14px;align-self:flex-start;margin-left:-14px;background:#fff;font-size:12px;font-weight:500;padding:7px 10px;border-radius:14px 14px 14px 4px;box-shadow:0 4px 12px rgba(31,58,49,.08);color:var(--m-text);line-height:1.4;text-align:center}
+
+.m-home-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.m-home-week button{height:50px;border:0;border-radius:14px;background:var(--m-card);color:var(--m-sub);font-size:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0}
+.m-home-week b{font-size:14px;color:var(--m-text)}
+.m-home-week button.is-active{background:var(--m-green);color:#d6e6dd}
+.m-home-week button.is-active b{color:#fff}
+
+.m-home-energy{background:var(--m-green);border-radius:var(--m-radius-lg);padding:16px 18px;color:#fff;display:flex;align-items:center;gap:16px}
+.m-home-ring{--m-ring:0%;width:108px;height:108px;flex-shrink:0;border-radius:50%;background:conic-gradient(#ffb039 0 var(--m-ring),rgba(255,255,255,.16) var(--m-ring) 100%);display:flex;align-items:center;justify-content:center}
+.m-home-ring>div{width:86px;height:86px;border-radius:50%;background:var(--m-green);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.m-home-ring strong{font-size:21px;font-weight:800;letter-spacing:-.5px}
+.m-home-ring small{font-size:11px;color:#cfe2d8}
+.m-home-macros{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px}
+.m-home-macros>div{display:flex;flex-direction:column;gap:4px}
+.m-home-macros>div>div{display:flex;justify-content:space-between;font-size:12px}
+.m-home-macros>div>div>span{color:#cfe2d8}
+.m-home-bar{height:6px;border-radius:3px;background:rgba(255,255,255,.16);overflow:hidden}
+.m-home-bar>span{display:block;height:100%;border-radius:3px}
+.is-carbs .m-home-bar>span{background:#9fd7a8}.is-protein .m-home-bar>span{background:#ffd27a}.is-fat .m-home-bar>span{background:#f4a98a}
+.m-home-goal{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:10px;font-size:12px;font-weight:700;min-height:36px;padding:0 10px;text-align:left}
+
+.m-home-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.m-home-head h2{margin:0;font-size:17px;font-weight:800;letter-spacing:-.5px}
+.m-link{border:0;background:none;color:var(--m-green);font-size:13px;font-weight:500;min-height:44px;padding:0 4px}
+.m-home-meal-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.m-meal{height:82px;border-radius:var(--m-radius-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0;color:var(--m-text)}
+.m-meal>span{font-size:12px;color:var(--m-sub)}
+.m-meal.is-done{border:0;background:var(--m-card)}
+.m-meal.is-done b{font-size:15px}
+.m-meal.is-done small{font-size:11px;color:#3f7a55}
+.m-meal.is-empty{border:1.5px dashed #b9cbbf;background:#fafcf8;color:var(--m-green)}
+.m-meal.is-empty b{font-size:22px;line-height:1}
+.m-meal.is-empty small{font-size:11px}
+
+.m-home-recommend{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border:0;border-radius:var(--m-radius-md);background:#fff8ea;color:var(--m-amber);text-align:left}
+.m-home-recommend>span:nth-of-type(1){flex:1;font-size:14px;font-weight:500;color:var(--m-text)}
+.m-home-recommend small{color:var(--m-sub);font-weight:400;font-size:13px}
+.m-home .error{margin:0}
+.m-home button:focus-visible{outline:3px solid #93c9b6;outline-offset:2px}
+@media(max-width:350px){.m-home-jibang{width:118px}.m-home-ring{width:96px;height:96px}.m-home-ring>div{width:76px;height:76px}}

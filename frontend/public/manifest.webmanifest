@@ -1,0 +1,13 @@
+{
+  "name": "CaloDetect · 칼로디텍트",
+  "short_name": "칼로디텍트",
+  "lang": "ko",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f0",
+  "theme_color": "#143e35",
+  "icons": [
+    {"src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png"},
+    {"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml"}
+  ]
+}

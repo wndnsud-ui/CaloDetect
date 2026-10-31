@@ -63,8 +63,8 @@ export default function CoachingTab({api, preview, onOpenCoach}) {
     <div className="mall-chips" role="tablist" aria-label="코칭 메뉴">{[['find', '코치 찾기'], ['feed', 'Coach Feed'], ['my', '내 이용권']].map(([key, label]) =>
       <button key={key} type="button" role="tab" aria-selected={sub === key} className={sub === key ? 'on' : ''} onClick={() => setSub(key)}>{label}</button>)}</div>
     {sub === 'my' ? <MyPasses api={api}/> : <>
-      <section className="coach-hero"><div><p className="mall-eyebrow light">COACHING</p><h2>나에게 맞는 코치와<br/>7회 코칭을 시작해요</h2>
-        <p>이용권을 사면 코치의 카카오톡이 열려요. 상담과 식단 피드백은 카카오톡에서 진행해요.</p></div><OfferCard offer={data.offer}/></section>
+      <section className="coach-hero"><div><p className="mall-eyebrow light">COACHING</p><h2>나에게 맞는 코치와 <br/>7회 코칭을 시작해요</h2>
+        <p>이용권을 사면 코치의 카카오톡이 열려요. 상담과 식단 피드백은 카카오톡에서 진행해요.</p></div><img className="coach-hero-art" src={MOOD_IMAGES.cheer} alt="" aria-hidden="true"/><OfferCard offer={data.offer}/></section>
       <ol className="coach-steps">{[['코치 고르기', '프로필과 활동 콘텐츠 확인'], ['700P로 이용권 구매', '총 7회 피드백·상담'], ['카카오톡으로 상담', '구매 후 연락처가 열려요']].map(([t, d], i) =>
         <li key={t}><span>{i + 1}</span><p><b>{t}</b><small>{d}</small></p></li>)}</ol>
       {sub === 'find' && <>

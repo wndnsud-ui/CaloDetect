@@ -59,3 +59,32 @@ button.community-card-media{display:block;width:100%;border:0;padding:0;margin:0
 .community-detail .community-reactions{padding-top:12px}
 .community-thread{margin-top:18px;border-top:1px solid #eef2ee;padding-top:16px}.community-thread h3{font-size:15px;margin:0 0 6px}
 @media(max-width:700px){.community-modal.is-wide{width:100%}}
+/* 모바일 타임라인 피드(.is-timeline은 760px 이하에서만 붙는다): 위는 공통 메뉴 배너, 아래는 왼쪽 프로필 + 오른쪽 본문, 큰 사진 카드, 글 사이 구분선. */
+.community-page.is-timeline{padding:0 0 24px;max-width:none}
+.community-tl-list{margin:0 calc(-1 * var(--m-pad,18px));background:#fff;border-top:1px solid #e9eee9}
+.community-tl{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;padding:18px var(--m-pad,18px) 12px;border-bottom:1px solid #e9eee9}
+.community-tl-avatar{width:44px;height:44px;flex:none;font-size:17px}
+.community-tl-main{min-width:0;display:flex;flex-direction:column;gap:6px}
+.community-tl-meta{display:flex;align-items:baseline;gap:6px;margin:0;font-size:15px}
+.community-tl-meta time{font-size:13px;color:#8b978f}
+.community-tl-title{margin:0;font-size:15px;font-weight:700;line-height:1.45;color:var(--m-text,#1f3a31);overflow-wrap:anywhere}
+.community-tl .community-comment{font-size:14px;line-height:1.6;color:#3f5349}
+.community-tl .community-text{align-self:flex-start;font-size:13px!important;padding:0;min-height:28px}
+.community-tl-card{position:relative;display:block;width:100%;margin-top:6px;padding:0;border:1px solid #e3e9e3;border-radius:18px;overflow:hidden;background:#fff;text-align:left;color:inherit}
+.community-tl-card>img{display:block;width:100%;aspect-ratio:4 / 3;object-fit:cover}
+.community-tl-card .community-card-placeholder{position:static;display:flex;align-items:center;justify-content:center;aspect-ratio:5 / 2;padding:0}
+.community-tl-card .community-card-placeholder strong{font-size:30px}
+.community-tl-info{display:flex;flex-direction:column;gap:2px;padding:12px 14px}
+.community-tl-info strong{font-size:14px;color:var(--m-text,#1f3a31)}
+.community-tl-info span{font-size:12px;color:#7b897f}
+.community-tl .community-reactions{border-top:0;padding-top:4px;gap:18px}
+.community-tl-card:focus-visible{outline:3px solid #93c9b6;outline-offset:2px}
+.is-timeline .community-empty{margin-top:4px}
+.is-timeline .community-feed{padding:0}
+.community-chip-label{display:none}
+/* 모바일 포인트·랭킹: 두 칸을 같은 폭의 흰 카드 버튼으로 (위 작은 라벨 + 굵은 값 + 오른쪽 화살표) */
+.is-timeline .community-heading{margin:0 0 12px;padding:0;display:block}
+.is-timeline .community-mobile-chips{display:grid;grid-template-columns:1fr 1fr;gap:8px;border:0;border-radius:0;overflow:visible;max-width:none}
+.is-timeline .community-mobile-chips button,.is-timeline .community-mobile-chips button+button{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:56px;padding:9px 30px 9px 14px;border:1px solid var(--m-line,#e3e9e1);border-radius:16px;background:#fff;color:var(--m-green,#194d3e);font-size:15px;font-weight:800;text-align:left}
+.is-timeline .community-mobile-chips button::after{content:'›';position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:20px;font-weight:400;color:#9aaba1}
+.is-timeline .community-chip-label{display:block;font-size:11px;font-weight:600;color:var(--m-sub,#5f7268)}

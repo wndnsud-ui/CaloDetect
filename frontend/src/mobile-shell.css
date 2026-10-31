@@ -1,0 +1,84 @@
+/* 모바일 앱 틀 (상단바 · 하단 탭바 · 기록 바텀시트)
+   기준 폭: 760px 이하 = 모바일. useIsMobile.js의 MOBILE_QUERY와 같은 값을 쓴다.
+   공통 토큰은 :root의 --m-* 변수로만 쓰고, 화면별 CSS에서도 이 변수를 재사용한다. */
+:root{
+  --m-green:#194d3e;--m-green-ink:#173e33;--m-ground:#f4f6f0;--m-card:#fff;--m-line:#e3e9e1;
+  --m-text:#1f3a31;--m-sub:#5f7268;--m-muted:#6b7d73;--m-amber:#b07400;--m-amber-bg:#fff3d6;
+  --m-radius-lg:22px;--m-radius-md:18px;--m-pad:18px;
+  --m-topbar-h:56px;--m-tabbar-h:64px;--m-safe-bottom:env(safe-area-inset-bottom,0px);
+}
+.m-topbar,.m-tabbar{display:none}
+
+@media(max-width:760px){
+  /* 데스크톱 사이드바·헤더·푸터는 모바일 틀이 켜졌을 때만 숨긴다 */
+  .shell.integrated-app.has-mobile-shell{display:block;background:var(--m-ground)}
+  .shell.integrated-app.has-mobile-shell>aside,
+  .shell.integrated-app.has-mobile-shell>main>header,
+  .shell.integrated-app.has-mobile-shell>main>footer{display:none}
+  .shell.integrated-app.has-mobile-shell>main{padding:0 var(--m-pad) calc(var(--m-tabbar-h) + var(--m-safe-bottom) + 28px);max-width:none}
+  .shell.integrated-app.has-mobile-shell:has(.home-dashboard)>main{padding-bottom:calc(var(--m-tabbar-h) + var(--m-safe-bottom) + 28px)}
+
+  .has-mobile-shell .m-topbar{display:flex;position:sticky;top:0;z-index:40;height:var(--m-topbar-h);margin:0 calc(-1 * var(--m-pad));padding:0 10px 0 var(--m-pad);
+    align-items:center;justify-content:space-between;background:color-mix(in srgb,var(--m-ground) 92%,transparent);backdrop-filter:blur(10px);padding-top:env(safe-area-inset-top,0px)}
+  .has-mobile-shell:has(.m-home) .m-topbar{background:#e6f0e4}
+  .has-mobile-shell .m-topbar .brand{font-size:20px;gap:6px;min-height:44px}
+  .has-mobile-shell .m-topbar .brand svg{width:28px;height:28px}
+  .m-topbar-actions{display:flex;align-items:center;gap:4px}
+  .m-points{height:32px;padding:0 12px;border:0;border-radius:16px;background:var(--m-amber-bg);color:#8a5a00;font-size:13px;font-weight:700}
+  .m-auth{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 12px 0 10px;border:1px solid #cfe0d4;border-radius:16px;background:var(--m-card);color:var(--m-green);font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(25,77,62,.08)}
+  .m-auth:active{background:#eef5ef}
+  .m-auth.is-login{padding:0 14px;border-color:var(--m-green);background:var(--m-green);color:#fff;font-size:13px}
+  .m-auth:disabled{opacity:.5}
+  /* 좁은 폭(380px 이하)에서는 포인트·로그아웃·내 정보가 한 줄에 들어가도록 로고와 간격을 줄인다 */
+  @media(max-width:380px){.has-mobile-shell .m-topbar .brand{font-size:17px;gap:5px}.has-mobile-shell .m-topbar .brand svg{width:24px;height:24px}.m-topbar-actions{gap:2px}.m-points{padding:0 9px}.m-icon-button{width:40px}}
+  .m-auth:focus-visible,.m-points:focus-visible{outline:3px solid #93c9b6;outline-offset:2px}
+  .m-icon-button{width:44px;height:44px;border:0;background:none;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#2f4a40}
+  .m-icon-button.is-active{color:var(--m-green);background:#e3ece3}
+
+  .has-mobile-shell .m-tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;position:fixed;left:0;right:0;bottom:0;z-index:45;
+    height:calc(var(--m-tabbar-h) + var(--m-safe-bottom));padding:6px 6px var(--m-safe-bottom);background:#fff;border-top:1px solid var(--m-line)}
+  .m-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:48px;border:0;background:none;color:var(--m-muted);font-size:11px;padding:0}
+  .m-tab.is-active{color:var(--m-green);font-weight:700}
+  .m-record{justify-self:center;width:58px;height:58px;margin-top:-26px;border:0;border-radius:50%;background:var(--m-green);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(25,77,62,.32)}
+  .m-record.is-active{box-shadow:0 0 0 4px #cfe2d6,0 8px 18px rgba(25,77,62,.32)}
+  .m-tab:focus-visible,.m-record:focus-visible,.m-icon-button:focus-visible{outline:3px solid #93c9b6;outline-offset:2px}
+
+  /* 탭바는 <nav> 안의 <button>이라 style.css의 모바일 nav 규칙(span 숨김, margin 등)을 되돌린다 */
+  .has-mobile-shell .m-tabbar{margin:0;overflow:visible;gap:0}
+  .has-mobile-shell .m-tabbar .m-tab span{display:inline;font-size:11px;opacity:1}
+  .has-mobile-shell .m-tabbar .m-tab,.has-mobile-shell .m-tabbar .m-record{white-space:nowrap}
+
+  /* 본문 영역: 기존 위쪽 여백 대신 모바일 여백, 홈에서는 장식 배경 이미지를 끈다 */
+  .has-mobile-shell .member-page-content{padding:12px 0 24px}
+  .has-mobile-shell .member-page-content:has(.m-home){padding-top:0}
+  .has-mobile-shell .member-page-content.menu-ambient:has(.m-home)::before{display:none}
+
+  /* 메뉴 상단 배너(식단 관리·식사 추천·식단 기록·내 정보): 고정 높이를 풀고 글·버튼을 줄여 화면을 적게 차지한다.
+     배경 그림도 배너 높이에 맞춰 줄이고, 영문 머리글은 생략한다. */
+  .has-mobile-shell .member-page-content .menu-page-hero{height:auto;min-height:0;padding:16px 16px 14px;margin:0 0 12px;border-radius:var(--m-radius-md)}
+  .has-mobile-shell .member-page-content .menu-page-hero .menu-hero-eyebrow{display:none}
+  .has-mobile-shell .member-page-content .menu-page-hero .menu-hero-title{font-size:20px;letter-spacing:-.6px;line-height:1.35}
+  .has-mobile-shell .member-page-content .menu-page-hero .menu-hero-description{margin:4px 0 12px;font-size:13px;line-height:1.5}
+  .has-mobile-shell .member-page-content .menu-page-hero .menu-hero-actions .section-tabs{gap:6px}
+  .has-mobile-shell .member-page-content .menu-page-hero .menu-hero-actions button{height:38px;min-height:38px;padding:0 12px;border-radius:11px;font-size:12px;line-height:1}
+  .has-mobile-shell .management-hero-actions{flex-wrap:nowrap;gap:6px;overflow-x:auto;scrollbar-width:none}
+  /* 모바일에는 하단 ＋기록 버튼이 있으므로 식단 관리 배너의 '+ 식단 추가하기'는 숨긴다 */
+  .has-mobile-shell .management-hero-actions>.primary{display:none}
+  .has-mobile-shell .menu-ambient::before{height:190px;opacity:.55}
+
+  /* 하단 탭바와 겹치는 기존 떠 있는 버튼 위치 보정 */
+  .has-mobile-shell .community-fab{bottom:calc(var(--m-tabbar-h) + var(--m-safe-bottom) + 16px)}
+}
+
+.m-sheet-backdrop{position:fixed;inset:0;z-index:70;background:rgba(18,34,28,.42);display:flex;align-items:flex-end;justify-content:center}
+.m-sheet{width:100%;max-width:520px;background:#fff;border-radius:24px 24px 0 0;padding:10px 20px calc(16px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;animation:m-sheet-up .22s ease-out}
+.m-sheet-handle{align-self:center;width:40px;height:4px;border-radius:3px;background:#dce4d8;margin-bottom:6px}
+.m-sheet h2{font-size:18px;margin:0 0 6px;color:var(--m-text,#1f3a31)}
+.m-sheet-option{display:flex;align-items:center;gap:14px;text-align:left;border:1px solid #e6ece4;background:#fafcf8;border-radius:18px;padding:14px;min-height:64px;color:#1f3a31}
+.m-sheet-option strong{display:block;font-size:15px}
+.m-sheet-option small{display:block;font-size:12px;color:#5f7268;margin-top:2px}
+.m-sheet-icon{width:44px;height:44px;flex-shrink:0;border-radius:14px;background:#e3ece3;color:#194d3e;display:inline-flex;align-items:center;justify-content:center}
+.m-sheet-icon.is-chat{background:#fff3d6;color:#b07400}
+.m-sheet-cancel{border:0;background:none;color:#5f7268;font-size:14px;min-height:44px}
+@keyframes m-sheet-up{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.m-sheet{animation:none}}

@@ -1,0 +1,107 @@
+/* 소개(초기) 페이지 모바일 보정. 760px 이하에서만 적용하고, 웹앱 모바일 틀(mobile-shell.css)의 --m-* 토큰과 같은 색·모서리·여백을 쓴다.
+   토큰이 아직 로드되지 않은 경우를 위해 기본값을 함께 적는다. 데스크톱 화면은 바꾸지 않는다. */
+@media(max-width:760px){
+  .landing{--page-gutter:var(--m-pad,18px);background:var(--m-ground,#f4f6f0);color:var(--m-text,#1f3a31)}
+
+  /* 상단바: 웹앱 m-topbar와 같은 높이·배경·고정 위치 */
+  .landing .landing-header{position:sticky;top:0;z-index:40;height:var(--m-topbar-h,56px);padding:env(safe-area-inset-top,0px) 10px 0 var(--page-gutter);
+    background:color-mix(in srgb,var(--m-ground,#f4f6f0) 92%,transparent);backdrop-filter:blur(10px)}
+  .landing .landing-header .brand{font-size:20px;gap:6px;min-height:44px}
+  .landing .landing-header .brand svg{width:28px;height:28px}
+  .landing .landing-account{max-width:none;flex-wrap:nowrap;gap:6px}
+  .landing .landing-header .welcome-message{display:none}
+  .landing .landing-header .header-actions button{min-height:36px;padding:0 14px;border-radius:18px;font-size:13px;font-weight:700}
+  .landing .landing-header .header-actions .primary{background:var(--m-green,#194d3e);box-shadow:none}
+  .landing .landing-header .header-actions .outline{border-color:var(--m-line,#e3e9e1);background:var(--m-card,#fff);color:var(--m-green,#194d3e)}
+
+  /* 히어로: 웹앱 홈 카드와 같은 모서리, 버튼은 엄지로 누르기 쉬운 전체 폭 */
+  /* 모바일에서는 히어로 사진을 쓰지 않고 웹앱 홈과 같은 연녹색 그라데이션만 둔다. */
+  .landing .hero-with-background{border-radius:var(--m-radius-lg,22px);margin-top:4px;background:linear-gradient(180deg,#e6f0e4 0%,#f8faf4 100%)}
+  .landing .hero-with-background .hero-copy{padding:18px 18px 16px;background:none}
+  /* 첫 화면을 짧게: 제목·설명을 줄이고 버튼 두 개를 한 줄에 둔다. 버튼 아래 보조 문구는 모바일에서 생략한다. */
+  .landing .hero-copy .pill{background:#e3ece3;color:var(--m-green,#194d3e);font-size:11px;padding:4px 10px}
+  .landing .hero-with-background .hero-copy h1{font-size:24px;letter-spacing:-.8px;line-height:1.3;margin:10px 0 6px;color:var(--m-green-ink,#173e33)}
+  .landing .hero-copy p{font-size:13px;line-height:1.6;margin:0;color:var(--m-sub,#5f7268);word-break:keep-all}
+  .landing .hero-copy p br{display:none}
+  .landing .hero-actions{flex-direction:row;flex-wrap:nowrap;gap:8px;margin:14px 0 0}
+  .landing .hero-actions button{min-height:46px;padding:0 12px;border-radius:14px;font-size:14px;font-weight:700;white-space:nowrap}
+  .landing .hero-actions .primary{flex:1.5 1 0;background:var(--m-green,#194d3e);box-shadow:none}
+  .landing .hero-actions .outline{flex:1 1 0;background:var(--m-card,#fff);border-color:var(--m-line,#e3e9e1);color:var(--m-green,#194d3e)}
+  .landing .hero-copy>small{display:none}
+
+  /* 주요 기능: 바깥 상자 대신 페이지 바탕 위에 흰 카드만 남겨 웹앱 카드 목록처럼 보이게 한다 */
+  .landing .fx{background:none;padding:0;border-radius:0;gap:12px}
+  .landing .fx-top{padding:4px 62px 0 2px}
+  .landing .fx-top h2{font-size:24px;line-height:1.3;color:var(--m-green-ink,#173e33);word-break:keep-all}
+  .landing .fx-kicker{font-size:13px;color:var(--m-sub,#5f7268)}
+  .landing .fx-sub{font-size:13px;color:var(--m-sub,#5f7268);word-break:keep-all}
+  .landing .fx-row{gap:10px}
+  /* 기능 카드는 한 화면에 여러 장 보이도록 여백·글자·그림을 줄인다. 누르는 버튼은 높이 40px 이상을 유지한다. */
+  .landing .fx-card{border-radius:var(--m-radius-md,18px);padding:14px;gap:10px;border:0;box-shadow:0 2px 10px rgba(31,58,49,.05)}
+  .landing .fx-head{gap:8px}
+  .landing .fx-icon{width:32px;height:32px;border-radius:10px}
+  .landing .fx-icon svg{width:17px;height:17px}
+  .landing .fx-head h3{font-size:16px;letter-spacing:-.4px}
+  .landing .fx-go{width:40px;height:40px}
+  .landing .fx-go svg{width:18px;height:18px}
+  .landing .fx-body{gap:10px}
+  .landing .fx h4{font-size:14px;line-height:1.4;margin:0;word-break:keep-all}
+  .landing .fx-copy{gap:4px}
+  .landing .fx-copy p,.landing .fx-side>p{font-size:12px;line-height:1.55;margin:0;color:var(--m-sub,#5f7268);word-break:keep-all}
+  .landing .fx-scan{flex:0 0 28%;width:28%;height:88px;max-height:88px;border-radius:12px}
+  .landing .fx-menu-art{flex:0 0 24%}
+  .landing .fx-menu-art img{height:60px}
+  .landing .fx-menus{gap:6px}
+  .landing .fx-menus button{padding:5px;border-radius:12px}
+  .landing .fx-menus img{height:38px;border-radius:8px}
+  .landing .fx-menus span{font-size:9px}
+  .landing .fx-menus strong,.landing .fx-menus b{font-size:10px}
+  /* 작은 휴대폰 그림에는 링만 남긴다(막대까지 넣으면 틀 밖으로 넘친다) */
+  .landing .fx-phone{flex:0 0 84px;width:84px;height:auto;padding:4px;border-radius:16px}
+  .landing .fx-phone-screen{padding:8px 5px;gap:4px;border-radius:12px;align-items:center}
+  .landing .fx-phone-screen>strong{font-size:8px;white-space:nowrap}
+  .landing .fx-phone .fx-bar{display:none}
+  .landing .fx-ring,.landing .fx-ring svg{width:56px;height:56px}
+  .landing .fx-ring b{font-size:13px}
+  .landing .fx-side{gap:8px}
+  .landing .fx-post img{height:64px}
+  .landing .fx-post p{font-size:10px;line-height:1.45}
+  .landing .fx-reward-me img{width:36px;max-height:56px}
+  .landing .fx-reward-me div{padding:6px 12px;border-radius:12px}
+  .landing .fx-reward-me span{font-size:11px}
+  .landing .fx-reward-me strong{font-size:16px}
+  .landing .fx-rewards img{height:34px}
+  .landing .fx-chips{gap:6px}
+  .landing .fx-chips button{min-height:40px;padding:0 12px;border-radius:12px;font-size:12px}
+  .landing .fx-chips svg{width:15px;height:15px}
+  .landing .fx-cta{width:100%;min-height:42px;border-radius:12px;font-size:13px}
+
+  /* 리워드몰 배너·FAQ·푸터 */
+  .landing .landing-promos{margin-top:20px;padding-top:0}
+  /* 리워드몰 배너: 사진 위·글 아래로 쌓지 않고 사진 왼쪽·글 오른쪽의 가로형 카드로 줄인다 */
+  .landing .landing-promos .mall-slider{gap:4px}
+  .landing .landing-promos .mall-slider-frame{border-radius:var(--m-radius-md,18px)}
+  .landing .landing-promos .mall-slide{display:grid;grid-template-columns:36% minmax(0,1fr);align-items:stretch}
+  .landing .landing-promos .mall-slide-art{order:-1;height:auto;min-height:0;max-height:none;aspect-ratio:auto}
+  .landing .landing-promos .mall-slide-art .mall-art{object-fit:cover}
+  .landing .landing-promos .mall-slide-copy{padding:14px 14px 14px 12px;gap:5px}
+  .landing .landing-promos .mall-eyebrow{font-size:9px;letter-spacing:1.5px;margin:0}
+  .landing .landing-promos .mall-slide-copy h2{font-size:16px;line-height:1.3;letter-spacing:-.5px}
+  .landing .landing-promos .mall-slide-copy p{font-size:11px;line-height:1.45;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .landing .landing-promos .mall-slide-chip{font-size:10px;padding:3px 8px}
+  .landing .landing-promos .mall-slide-cta{min-height:36px;padding:0 12px;border-radius:10px;font-size:12px;margin-top:2px}
+  .landing .landing-promos .mall-slider-controls{margin:0 0 0 auto;padding:0 2px;transform:scale(.85);transform-origin:right center}
+  .landing .faq{margin-top:20px;padding-top:0}
+  .landing .faq h2{font-size:20px;color:var(--m-green-ink,#173e33)}
+  .landing .faq details{background:var(--m-card,#fff);border:0;border-radius:var(--m-radius-md,18px);padding:0 16px;margin-top:8px}
+  .landing .faq summary{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;list-style:none}
+  .landing .faq summary::-webkit-details-marker{display:none}
+  .landing .faq summary::after{content:'+';flex-shrink:0;font-size:20px;font-weight:400;color:var(--m-green,#194d3e)}
+  .landing .faq details[open] summary::after{content:'−'}
+  .landing .faq details p{margin:0 0 16px;font-size:13px;line-height:1.7}
+  .landing>footer{flex-direction:column;align-items:flex-start;gap:6px;padding:24px 0 calc(28px + env(safe-area-inset-bottom,0px))}
+  .landing>footer .brand{font-size:17px;gap:6px}
+  .landing>footer .brand svg{width:24px;height:24px}
+  .landing>footer .brand-wordmark{font-size:17px}
+  .landing>footer>span{font-size:11px;color:var(--m-muted,#6b7d73)}
+}

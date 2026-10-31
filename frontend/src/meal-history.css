@@ -21,3 +21,30 @@
 @media(max-width:700px){.history-pagination{flex-direction:column;padding:16px 12px;gap:12px}.history-count small{text-align:left}.history-pagination nav{gap:3px}.history-pagination button{min-width:32px;padding:6px 8px}.history-pagination .history-page-direction{padding:6px 8px}}
 /* 아래 조건의 화면 폭에서는 모바일/반응형 배치 규칙을 덮어쓴다. */
 @media(max-width:700px){.meal-history .history-heading{align-items:flex-start;flex-direction:column;gap:18px}.history-toolbar{flex-wrap:wrap;padding:18px;gap:12px}.history-search{flex-basis:100%;max-width:none}.history-toolbar label:not(.history-search){flex:1}.history-count{width:100%;margin:0;padding:0}.history-table-note{padding:16px 18px;line-height:1.7}}
+.history-date-short{display:none}
+/* history-date-full/short: 데스크톱/모바일 표기 전환(날짜 10/28, 섭취량 열 머리글 '수정'에 함께 쓴다).
+   모바일: 날짜는 월/일만, 열은 섭취량까지만 보여 표가 화면 폭 안에 들어오게 한다. 영양 열은 영양 분석 리포트에서 확인한다. */
+@media(max-width:760px){
+  .history-database table{min-width:0;font-size:13px;text-align:center}
+  .history-database thead th,.history-database tbody th,.history-database td{text-align:center}
+  .history-database th,.history-database td{padding:12px 8px}
+  .history-database th:first-child,.history-database td:first-child{padding-left:14px}
+  .history-database th:last-child,.history-database td:last-child{padding-right:14px}
+  .history-database .history-number{display:none}
+  .history-date-full{display:none}
+  .history-date-short{display:inline}
+  .history-database tbody th{min-width:0;white-space:normal;word-break:keep-all}
+  .history-database .history-serving{white-space:normal;font-size:11px;line-height:1.5}
+  .history-meal-tag{white-space:nowrap}
+  /* 검색·필터 영역: 라벨 글자는 화면에서만 감추고(font-size:0, 읽기 프로그램은 그대로 읽음) 입력칸을 낮춰 두 줄로 줄인다 */
+  .meal-history .history-toolbar{padding:12px 14px;gap:8px}
+  .meal-history .history-toolbar label{font-size:0}
+  .meal-history .history-toolbar input,.meal-history .history-toolbar select{margin:0;min-height:40px;height:40px;padding:0 12px;font-size:13px;border-radius:10px}
+  .meal-history .history-toolbar label:not(.history-search){flex:1 1 0;min-width:0}
+  .meal-history .history-count{width:auto;flex:0 0 auto;align-self:center;font-size:12px}
+  .meal-history .history-count strong{font-size:14px}
+  .meal-history .history-count small{display:none}
+  /* 수정 버튼이 있는 행은 기준량·섭취 비율 글자를 빼고 버튼만 둔다(버튼이 없으면 기준량을 그대로 보여준다) */
+  .history-serving:has(.history-chat-edit) .history-serving-text,.history-serving:has(.history-chat-edit) .history-ratio{display:none}
+  .history-serving .history-chat-edit{margin:0}
+}

@@ -498,3 +498,19 @@
 .mall-try.is-trying .mall-item-art{outline:2px solid #178366;outline-offset:-2px;background:#EAF5EE}
 .mall-try:focus-visible{outline:3px solid #79BC95;outline-offset:3px}
 @media(max-width:1000px){.mall-summary{grid-template-columns:auto 1fr;gap:20px}.mall-summary>.mall-goal{grid-column:1 / -1}}
+/* 모바일 꾸미기 카드: 3열, 그림은 4:3 비율로 고정, 가격·상태를 한 줄로 묶어 높이를 줄인다 */
+@media(max-width:760px){
+  .mall-deco-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .mall-deco-grid .mall-item{flex-direction:row;flex-wrap:wrap;align-items:baseline;align-content:flex-start;padding:7px;gap:2px 4px;border-radius:14px}
+  .mall-deco-grid .mall-item>*{flex:0 0 100%;min-width:0}
+  .mall-deco-grid .mall-item.is-equipped{padding:6px}
+  .mall-deco-grid .mall-item-art{height:auto;aspect-ratio:4 / 3;border-radius:10px}
+  .mall-deco-grid .mall-item-art .jb-figure{zoom:.6}
+  .mall-deco-grid .mall-try{border-radius:10px}
+  .mall-deco-grid .mall-item h3{margin:4px 0 0;font-size:12px;line-height:1.3;word-break:keep-all;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mall-deco-grid .mall-item .mall-price{flex:0 0 auto;margin:0;font-size:11px}
+  .mall-deco-grid .mall-item .mall-price+.reward-small{flex:1 1 0;margin:0;font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mall-deco-grid .mall-item .mall-price+.reward-small::before{content:'· '}
+  .mall-deco-grid .mall-item .reward-small{margin:0;font-size:10px;line-height:1.4}
+  .mall-deco-grid .mall-item .primary,.mall-deco-grid .mall-item .outline{min-height:30px;margin-top:4px;padding:0 4px;border-radius:9px;font-size:11px;white-space:nowrap}
+}

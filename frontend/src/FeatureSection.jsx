@@ -103,7 +103,7 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-community">
         <div className="fx-side">
           <CardHead icon="people" title="커뮤니티"/>
-          <h4>함께 기록하고<br/>식단 경험을 나눠요</h4>
+          <h4>함께 기록하고 <br/>식단 경험을 나눠요</h4>
           <p>다른 사용자와 식단을 공유하고 건강한 습관을 서로 응원해보세요.</p>
           <button type="button" className="fx-cta" onClick={() => onOpen('커뮤니티')}>커뮤니티 둘러보기</button>
         </div>
@@ -118,7 +118,7 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-reward">
         <div className="fx-side">
           <CardHead icon="gift" title="리워드몰"/>
-          <h4>꾸준히 쌓은 포인트로<br/>나를 위한 리워드 받기</h4>
+          <h4>꾸준히 쌓은 포인트로 <br/>나를 위한 리워드 받기</h4>
           <p>식단 기록으로 포인트를 모아 지방이를 꾸미고, 다양한 상품과 코칭 이용권으로 교환해보세요.</p>
           <button type="button" className="fx-cta" onClick={() => onOpen('리워드')}>리워드몰 바로가기</button>
         </div>

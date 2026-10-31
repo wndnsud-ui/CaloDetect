@@ -9,6 +9,20 @@
 }
 .m-topbar,.m-tabbar{display:none}
 
+@media(min-width:761px){
+  .shell.integrated-app>main>header{min-height:64px;height:auto;gap:16px;align-items:flex-end;padding-bottom:8px}
+  .shell.integrated-app>main>header>span{padding-bottom:10px}
+  .integrated-app>main>header .m-topbar-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .integrated-app>main>header .m-points{height:36px;padding:0 15px;border:0;border-radius:20px;background:var(--m-amber-bg);color:#8a5a00;font-size:13px;font-weight:700}
+  .integrated-app>main>header .m-auth{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 16px;border:1px solid #cfe0d4;border-radius:20px;background:#fff;color:var(--m-green);font-size:13px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(25,77,62,.08)}
+  .integrated-app>main>header .m-auth.is-login{background:var(--m-green);border-color:var(--m-green);color:#fff}
+  .integrated-app>main>header .m-icon-button{width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:transparent;color:var(--m-green)}
+  .integrated-app>main>header .m-icon-button.is-active{background:#e3ece3}
+  .integrated-app>main>header .m-auth:disabled{opacity:.5;cursor:wait}
+  .integrated-app>main>header .m-topbar-actions button:hover{filter:brightness(.96)}
+  .integrated-app>main>header .m-topbar-actions button:focus-visible{outline:3px solid #93c9b6;outline-offset:3px}
+}
+
 @media(max-width:760px){
   /* 데스크톱 사이드바·헤더·푸터는 모바일 틀이 켜졌을 때만 숨긴다 */
   .shell.integrated-app.has-mobile-shell{display:block;background:var(--m-ground)}

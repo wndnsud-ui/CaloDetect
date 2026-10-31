@@ -12,7 +12,7 @@ const MEALS = [['breakfast','아침'],['lunch','점심'],['dinner','저녁'],['s
 const percent = (value,target) => target > 0 ? Math.min(100,Math.max(0,Math.round(value/target*100))) : null;
 const display = value => Number.isFinite(value) ? value.toLocaleString('ko-KR',{maximumFractionDigits:2}) : '—';
 
-export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal,api,homeCard,me,onRewardsChanged,displayName}) {
+export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal,api,homeCard,me,onRewardsChanged,displayName,onOpenCoach}) {
   const isMobile = useIsMobile();
   const parts = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
   const part = key => parts.find(p=>p.type===key).value;
@@ -53,7 +53,7 @@ export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal
       : user&&!data ? <p role="status" className="muted">기록을 불러오고 있어요…</p> : null;
     return <MobileHome user={user} me={me} displayName={displayName} liveToday={liveToday} totals={totals} meals={meals} target={target}
       todayDate={todayDate} selectedDate={selectedDate} onSelectDate={setSelectedDate} currentDay={currentDay} remaining={remaining}
-      onAddMeal={addMeal} onNavigate={onNavigate} homeCard={homeCard} status={status}
+      onAddMeal={addMeal} onNavigate={onNavigate} onOpenCoach={onOpenCoach} homeCard={homeCard} status={status}
       streak={me&&<StreakNotice api={api} streak={me.streak} onChanged={onRewardsChanged}/>}/>;
   }
   return <div className="home-dashboard">
@@ -61,7 +61,7 @@ export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal
     <section className="hd-hero hd-hero--overview hd-overview-summary" aria-label="선택한 날의 기록 요약">
       <div className="hd-hero-content">
       <div className="hd-room"><Jibang equipment={me?.equipment} level={me?.level||1} background="bg_lv1" bubble="오늘도 잘 하고 있어요!" figureWidth={230} className="hd-hero-scene"/></div>
-        <div className="hd-date"><strong>{date.getUTCMonth()+1}.{date.getUTCDate()} {['일','월','화','수','목','금','토'][date.getUTCDay()]}</strong><button type="button" aria-label="이전 날짜 기록 보기" onClick={previousDay}>‹</button><button type="button" className="hd-today" onClick={()=>setSelectedDate(todayDate)}>{currentDay?'오늘':'오늘로'}</button></div>
+        <div className="hd-date"><strong>{date.getUTCMonth()+1}.{date.getUTCDate()} {['일','월','화','수','목','금','토'][date.getUTCDay()]}</strong><button type="button" aria-label="이전 날짜 기록 보기" onClick={previousDay}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg></button><button type="button" className="hd-today" onClick={()=>setSelectedDate(todayDate)}>{currentDay?'오늘':'오늘로'}</button></div>
         <div className="hd-stats"><div><i aria-hidden="true">🔥</i><span>섭취 칼로리<strong>{display(totals?.cal)} <small>/ {display(target)} kcal</small></strong></span></div><div><i className="hd-check" aria-hidden="true">✓</i><span>기록 현황<strong>{4-remaining.length}끼 기록 완료</strong></span></div><div><i aria-hidden="true">🍴</i><span>남은 기록<strong>{remaining.map(([,label])=>label).join(' · ')||'모두 완료!'}</strong></span></div></div>
         <button type="button" className="hd-record" onClick={()=>addMeal()}>＋ 식사 기록하기 <span aria-hidden="true">→</span></button>
       </div>

@@ -24,6 +24,8 @@ class ChatMessageRequest(RequestModel):
     conversation_id: str = Field(min_length=1, max_length=36)
     client_message_id: UUID
     text: str = Field(min_length=1, max_length=200)
+    # 답장 칩을 눌러 보낸 문장. 서버가 직전 칩 문장과 같은지 확인한 뒤에만 LLM·횟수에서 뺀다.
+    chip: bool = False
 
 
 def failure(error: ChatRecordError):
@@ -32,8 +34,14 @@ def failure(error: ChatRecordError):
 
 # 기능 사용 가능 여부. 플래그가 꺼지면 라우트 자체가 없어 404가 되고 프론트는 메뉴를 숨긴다. 쓰기 없음.
 @router.get('/chat/status')
-def status(user: CurrentUser):
-    return {'enabled': True, 'meal_types': chat_record.chips_for_meal_types()}
+def status(user: CurrentUser, db: DB):
+    return {'enabled': True, 'meal_types': chat_record.chips_for_meal_types(), **chat_record.llm_state(db, user)}
+
+
+# 외부 AI(LLM) 전송 고지 동의(업무지시서 v1.2). 처음 한 번만 받고 시각을 계정에 남긴다. 재요청은 같은 결과.
+@router.post('/chat/consent')
+def consent(user: CurrentUser, db: DB):
+    return chat_record.save_consent(db, user)
 
 
 # 진행 중 대화를 복원하거나 새로 만든다. 프론트는 이 경로의 404로 기능 꺼짐을 판단한다.
@@ -72,6 +80,6 @@ def analyze(attachment_id: str, request: Request, user: CurrentUser, db: DB):
 @router.post('/chat/messages')
 def message(body: ChatMessageRequest, user: CurrentUser, db: DB):
     try:
-        return chat_record.post_message(db, user, body.conversation_id, body.client_message_id, body.text)
+        return chat_record.post_message(db, user, body.conversation_id, body.client_message_id, body.text, body.chip)
     except ChatRecordError as error:
         return failure(error)

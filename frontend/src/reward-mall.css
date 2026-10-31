@@ -89,6 +89,14 @@
 .mall-tabs{display:flex;gap:4px;background:#E6EDE7;padding:4px;border-radius:14px;flex-wrap:wrap}
 .mall-tabs button{flex:1 1 90px;min-height:44px;border:0;border-radius:10px;font-size:14px;background:transparent;color:#5E7265;cursor:pointer}
 .mall-tabs button.on{background:#fff;color:#174735;font-weight:700}
+
+/* 코칭 분야 5개는 모바일에서도 같은 폭으로 한 줄에 표시한다. */
+.coach-tab>.mall-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));flex-wrap:nowrap}
+.coach-tab>.mall-tabs button{min-width:0;padding:0 4px;white-space:nowrap}
+@media(max-width:760px){
+  .coach-tab>.mall-tabs{gap:2px;padding:4px;border-radius:14px}
+  .coach-tab>.mall-tabs button{min-height:40px;font-size:12px;letter-spacing:-.4px}
+}
 .mall-chips{display:flex;gap:6px;flex-wrap:wrap}
 .mall-chips button{min-height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--m-line);background:#fff;color:#5E7265;font-size:13px;cursor:pointer}
 .mall-chips button.on{border-color:var(--m-main);background:var(--m-main);color:#fff;font-weight:700}
@@ -272,14 +280,28 @@
 .coach-detail{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
 .coach-detail-main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px}
 .coach-detail-side{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:16px}
-.coach-profile-top{display:flex;flex-wrap:wrap;gap:24px 32px;align-items:flex-start}
-.coach-profile-top>div{flex:1 1 300px;display:flex;flex-direction:column;gap:10px;position:relative}
+.coach-profile{gap:22px}
+.coach-profile-top{display:grid;grid-template-columns:140px minmax(0,1fr);gap:24px;align-items:center}
+.coach-profile-top .coach-avatar.xl{width:140px;height:140px;border:4px solid #F4F1E8}
+.coach-profile-top>.coach-identity{min-width:0;display:flex;flex-direction:column;gap:10px}
+.coach-ai-note{color:#7b8980;font-size:11px;line-height:1.5}
+.coach-profile-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:16px 0;border-top:1px solid #edf1eb;border-bottom:1px solid #edf1eb}
+.coach-profile-stats>div{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
+.coach-profile-stats>div+div{border-left:1px solid #e3e9e1}
+.coach-profile-stats>div>span{font-size:12px;color:#708278}
+.coach-profile-stats b{font-size:22px;line-height:1.3;color:#194d3e}
+.coach-profile-stats b small{font-size:12px;font-weight:500;margin-left:3px}
 .coach-headline{align-self:flex-start;font-size:13px;font-weight:700;color:#1E5B42;background:#E3F1E6;border-radius:999px;padding:6px 14px}
 .coach-profile h1{font-size:clamp(30px,3.2vw,42px);font-weight:900;letter-spacing:-1.5px}
-.coach-philosophy{margin:6px 0 0;background:#EFF5E8;border-radius:22px;padding:20px 22px;font-size:clamp(16px,1.5vw,20px);font-weight:800;line-height:1.6;white-space:pre-line}
+.coach-philosophy{margin:0;background:#EFF5E8;border-radius:18px;padding:18px 20px;font-size:clamp(16px,1.5vw,20px);font-weight:800;line-height:1.6;white-space:pre-line}
+.coach-philosophy>small{display:block;margin-bottom:6px;color:#6e8273;font-size:11px;font-weight:500}
 .mall-hand.sticky{align-self:flex-start;background:#E7F0DD;border-radius:24px;padding:10px 14px;font-size:17px;line-height:1.35;color:#2E5A3A;white-space:pre-line;transform:rotate(-3deg)}
-.coach-profile-facts{display:flex;flex-wrap:wrap;gap:20px;padding-top:6px}
-.coach-profile-facts>div{flex:1 1 180px;display:flex;flex-direction:column;gap:8px;font-size:14px}
+.coach-profile-facts{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding-top:0}
+.coach-profile-facts>div{min-width:0;display:flex;flex-direction:column;gap:10px;font-size:14px;background:#f7f9f5;border-radius:16px;padding:16px}
+.coach-profile-facts h2{font-size:15px;margin:0}
+.coach-specialty-tags{display:flex;flex-wrap:wrap;gap:6px}
+.coach-specialty-tags>span{font-size:12px;line-height:1.5;background:#e8f0e7;color:#315b43;border-radius:8px;padding:5px 8px}
+.coach-career>span{font-size:13px;line-height:1.5}
 .coach-profile-facts small{font-size:12px;color:#6E7D74}
 .coach-profile>p{font-size:15px;line-height:1.75;color:#3D4F47}
 .coach-how{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:18px}
@@ -356,6 +378,23 @@
   .mall-detail-info{padding:18px}.mall-detail-info h1{font-size:22px}
   .mall-features{grid-template-columns:1fr 1fr 1fr}
   .coach-avatar.xl{width:120px;height:120px;font-size:44px}
+  .coach-profile{padding:20px 16px;gap:18px;border-radius:22px}
+  .coach-profile-top{grid-template-columns:96px minmax(0,1fr);gap:14px}
+  .coach-profile-top .coach-avatar.xl{width:96px;height:96px;border-width:3px}
+  .coach-profile-top>.coach-identity{gap:7px}
+  .coach-profile .coach-headline{font-size:11px;line-height:1.5;padding:4px 8px;white-space:normal}
+  .coach-profile h1{font-size:25px;letter-spacing:-1px;line-height:1.25;margin:0}
+  .coach-ai-note{font-size:10px}
+  .coach-profile-stats{padding:13px 0}
+  .coach-profile-stats b{font-size:20px}
+  .coach-profile-stats>div>span{font-size:11px}
+  .coach-philosophy{font-size:15px;padding:15px 16px;line-height:1.65;white-space:normal}
+  .coach-profile-facts{gap:10px}
+  .coach-profile-facts>div{padding:13px 11px;gap:9px}
+  .coach-profile-facts h2{font-size:14px}
+  .coach-specialty-tags>span{font-size:11px;padding:4px 6px}
+  .coach-profile-facts small{font-size:10px;line-height:1.6}
+  .coach-intro-row>p{font-size:13px;line-height:1.75}
 }
 .mall-sum div{padding:0;border:0;margin:0;background:none}.mall-sum .total{border-top:1px solid var(--m-line);padding-top:8px}
 
@@ -374,10 +413,13 @@
 .collab-official:hover>span[aria-hidden]{background:#3F2D24}
 .collab-official:focus-visible{outline:3px solid #178366;outline-offset:4px}
 img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
-.coach-intro-row{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end}
-.coach-intro-row>p{flex:1 1 320px;font-size:15px;line-height:1.75;color:#3D4F47;margin:0}
-.coach-side-photo{flex:0 0 220px;position:relative}
-.coach-side-photo img{display:block;width:220px;height:280px;object-fit:cover;border-radius:20px}
+.coach-intro-row{display:flex;flex-wrap:wrap;gap:28px;align-items:center;padding-top:20px;border-top:1px solid #edf1eb}
+.coach-intro-copy{flex:1 1 320px;min-width:0}
+.coach-intro-copy h2{font-size:17px;margin:0 0 12px;color:#194d3e}
+.coach-intro-copy p{max-width:60ch;font-size:15px;line-height:1.9;color:#3D4F47;margin:0;word-break:keep-all;overflow-wrap:anywhere}
+.coach-side-photo{flex:0 0 220px;position:relative;margin:0}
+.coach-side-photo img{display:block;width:220px;height:240px;object-fit:cover;object-position:center;border-radius:18px}
+.coach-side-photo figcaption{margin-top:10px;text-align:center;font-size:12px;line-height:1.6;color:#6c8274;white-space:normal;text-wrap:balance}
 .coach-side-photo .mall-hand{position:absolute;left:-10px;top:14px;font-size:19px;line-height:1.3;white-space:pre-line;transform:rotate(-8deg);text-shadow:0 0 6px #fff,0 0 2px #fff;margin:0}
 .coach-activity .has-image{flex-direction:row;gap:10px}
 .coach-activity .has-image>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
@@ -387,7 +429,7 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
 .coach-pass-art img{position:absolute;right:-22px;bottom:-4px;width:140px;height:138px;object-fit:cover;border-radius:50% 0 0 50%}
 .coach-pass-art .note{position:absolute;right:-6px;top:-4px;margin:0;font-size:15px;line-height:1.3;background:#E7F0DD;border-radius:18px;padding:6px 10px;transform:rotate(-6deg);color:#2E5A3A}
 .coach-side-banner{display:block;width:100%;border-radius:24px;object-fit:cover}
-@media(max-width:760px){.coach-side-photo{flex-basis:100%}.coach-side-photo img{width:100%;height:240px}}
+@media(max-width:760px){.coach-intro-row{gap:16px;padding-top:16px}.coach-intro-copy{flex-basis:100%}.coach-intro-copy h2{font-size:15px;margin-bottom:8px}.coach-intro-copy p{font-size:13px;line-height:1.8}.coach-side-photo{flex-basis:100%}.coach-side-photo img{width:100%;height:240px}}
 .coach-locked{font-size:13px;flex-wrap:wrap;word-break:keep-all;padding:8px 12px}
 .mall-crumbs button:hover{color:var(--m-ink);text-decoration:underline}
 .mall-crumbs .mall-back{width:36px;height:36px;justify-content:center;border-radius:50%;background:#fff;border:1px solid var(--m-line);color:var(--m-ink);font-size:16px;margin-right:4px}

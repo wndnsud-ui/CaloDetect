@@ -34,7 +34,8 @@ function Compare({before, after, unit}) {
   </div>;
 }
 
-export default function ChatConsumptionEdit({api, meal, item, onClose, onSaved}) {
+// 수정 대화 본문(대화 목록·입력창·안내). 칼로티 코치 시트 안에서도 이 본문을 그대로 쓴다.
+export function ConsumptionEditChat({api, item, onSaved}) {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -114,9 +115,7 @@ export default function ChatConsumptionEdit({api, meal, item, onClose, onSaved})
     }
   }
 
-  return <div className="chat-edit-backdrop" role="presentation" onClick={event => event.target === event.currentTarget && onClose()}>
-    <section className="chat-edit" role="dialog" aria-modal="true" aria-labelledby="chat-edit-title">
-      <header><div><p className="eyebrow">CHAT EDIT</p><h2 id="chat-edit-title">챗으로 수정 · {item.food_name}</h2><p className="muted">{meal.meal_date} {mealNames[meal.meal_type] || meal.meal_type}</p></div><button type="button" className="text-button" onClick={onClose} aria-label="닫기">닫기 ✕</button></header>
+  return <>
       <ol className="chat-edit-log" ref={listRef} aria-live="polite">
         {messages.map(message => <li key={message.id} className={`chat-bubble chat-${message.role}${message.tone ? ` chat-${message.tone}` : ''}`}>
           <p>{message.text}</p>
@@ -130,6 +129,15 @@ export default function ChatConsumptionEdit({api, meal, item, onClose, onSaved})
         <button className="primary" disabled={sending || !text.trim()}>전송</button>
       </form>
       <p className="chat-edit-note">말로만 수정해요. "저장해줘" 또는 확인 질문 뒤의 "응"이 있어야 기록이 바뀌어요. 영양값은 서버가 CSV 기준으로 계산합니다.</p>
+  </>;
+}
+
+// 칼로티 코치 시트를 쓸 수 없는 곳을 위한 단독 모달.
+export default function ChatConsumptionEdit({api, meal, item, onClose, onSaved}) {
+  return <div className="chat-edit-backdrop" role="presentation" onClick={event => event.target === event.currentTarget && onClose()}>
+    <section className="chat-edit" role="dialog" aria-modal="true" aria-labelledby="chat-edit-title">
+      <header><div><p className="eyebrow">CHAT EDIT</p><h2 id="chat-edit-title">챗으로 수정 · {item.food_name}</h2><p className="muted">{meal.meal_date} {mealNames[meal.meal_type] || meal.meal_type}</p></div><button type="button" className="text-button" onClick={onClose} aria-label="닫기">닫기 ✕</button></header>
+      <ConsumptionEditChat api={api} item={item} onSaved={onSaved}/>
     </section>
   </div>;
 }

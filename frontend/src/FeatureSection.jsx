@@ -58,12 +58,12 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-record">
         <CardHead icon="camera" title="식단 기록" goLabel="식단 기록 바로가기" onGo={() => onOpen('음식 추가')}/>
         <div className="fx-body">
-          <div className="fx-copy"><h4>사진 한 장부터 대화까지, 간편하게 식단 기록</h4><p>사진으로 바로 기록하거나, 칼로T코치에게 먹은 내용을 이야기해 간편하게 남겨보세요.</p></div>
+          <div className="fx-copy"><h4>사진 한 장부터 대화까지, 간편하게 식단 기록</h4><p>사진으로 바로 기록하거나, 칼로티 코치에게 먹은 내용을 이야기해 간편하게 남겨보세요.</p></div>
           <img className="fx-scan" src={`${IMG}scan.jpg`} alt="비빔밥을 찍어 칼로리를 분석하는 앱 화면" loading="lazy" width="900" height="675"/>
         </div>
         <div className="fx-chips">
           <button type="button" onClick={() => onOpen('음식 추가')}><Icon name="camera"/>사진 &amp; 직접 기록</button>
-          <button type="button" className="is-coach" onClick={() => onOpen('채팅으로 식사기록')}><Icon name="chat"/>칼로T코치</button>
+          <button type="button" className="is-coach" onClick={() => onOpen('채팅으로 식사기록')}><Icon name="chat"/>칼로티 코치</button>
         </div>
       </article>
 

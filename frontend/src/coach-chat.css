@@ -1,0 +1,112 @@
+/* 칼로티 코치 플로팅 버튼·채팅 시트. 대화 안의 말풍선·칩·음식 카드는 chat-record.css를 그대로 쓰고,
+   여기서는 시트 틀과 시트 안 배치만 정한다. 색은 시안(#00836D·#1C4B3A·#233B34)과 chat-record.css 값을 따른다. */
+@import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap');
+
+/* 플로팅 버튼: 모든 화면 같은 자리. 그 자리는 화면 하단 여백(약 100px)으로 항상 비워 둔다. */
+.coach-fab-wrap{position:fixed;right:24px;bottom:24px;z-index:42;display:flex;align-items:flex-end}
+.coach-fab{width:70px;height:70px;padding:0;border:3px solid #00836d;border-radius:50%;background:#fff;box-shadow:0 8px 22px rgba(0,97,79,.3);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:transform .15s ease}
+.coach-fab img{width:54px;height:auto;margin-top:8px;pointer-events:none}
+.coach-fab:hover{transform:translateY(-2px)}
+.coach-fab:focus-visible{outline:3px solid #93c9b6;outline-offset:3px}
+.coach-fab-hint{position:absolute;right:calc(100% + 10px);bottom:26px;margin:0;padding:10px 16px;background:#fff;color:#087354;border-radius:18px 18px 4px 18px;
+  box-shadow:0 6px 20px rgba(36,78,54,.18);font-family:Gaegu,cursive;font-size:17px;line-height:1.3;white-space:nowrap;animation:coach-pop .25s ease-out}
+.shell.has-coach>main{padding-bottom:120px}
+.has-coach .community-fab{bottom:118px}
+
+/* 시트 */
+.coach-sheet-layer{position:fixed;inset:0;z-index:60}
+.coach-sheet-layer[hidden]{display:none}
+.coach-sheet-backdrop{position:absolute;inset:0;background:rgba(20,40,34,.42)}
+.coach-sheet{position:absolute;left:0;right:0;bottom:0;top:max(60px,calc(env(safe-area-inset-top,0px) + 44px));display:flex;flex-direction:column;overflow:hidden;
+  background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -12px 40px rgba(18,48,40,.18);color:#233b34;transition:transform .2s ease;animation:coach-up .22s ease-out}
+.coach-sheet-grab{touch-action:none;flex-shrink:0;cursor:grab}
+.coach-sheet-handle{display:block;width:40px;height:4px;margin:8px auto 0;border-radius:2px;background:#d5e3dc}
+.coach-sheet-head{display:flex;align-items:center;gap:12px;padding:10px 10px 14px 18px;border-bottom:1px solid #e8eeeb}
+.coach-sheet-head>img{width:46px;height:46px;flex-shrink:0;border-radius:50%;object-fit:cover;background:#e4f1ea}
+.coach-sheet-head>div{flex:1;min-width:0}
+.coach-sheet-eyebrow{margin:0;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#4f6e44}
+.coach-sheet-head h2{margin:0;font-size:17px;font-weight:700;color:#233b34;letter-spacing:-.3px}
+.coach-sheet-head h2 span{font-size:13px;font-weight:500;color:#5f7468}
+.coach-sheet-status{margin:0;font-size:12px;color:#5f7468;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coach-sheet-close{width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:none;color:#5f7468;cursor:pointer}
+.coach-sheet-close:hover{background:#f1f6f3}
+.coach-sheet-close:focus-visible{outline:3px solid #93c9b6;outline-offset:2px}
+
+/* 비로그인 안내 */
+.coach-login{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px 28px 40px;background:#f8faf7;text-align:center}
+.coach-login img{width:110px;height:auto;margin-bottom:6px}
+.coach-login strong{font-size:17px;color:#233b34}
+.coach-login p{margin:0 0 12px;font-size:13px;line-height:1.6;color:#5f7468}
+.coach-login .primary{min-height:48px;padding:0 28px;margin:0;border-radius:12px}
+
+/* 시트 안 대화: develop 채팅 페이지 틀(고정 높이·테두리·제목)을 풀고 시트 높이를 채운다 */
+.coach-chat,.coach-edit{flex:1;min-height:0;display:flex;flex-direction:column}
+.coach-chat[hidden]{display:none}
+.coach-sheet .chat-record{display:flex;flex-direction:column;flex:1;min-height:0}
+.coach-sheet .chat-main{flex:1;height:auto;min-height:0;border:0;border-radius:0}
+.coach-sheet .chat-log{padding:18px 18px 20px}
+.coach-sheet .chat-row .chat-bubble{max-width:calc(100% - 40px)}
+.coach-sheet img.chat-avatar{object-fit:cover;background:#e4f1ea}
+.coach-sheet .reply-chips button{min-height:36px}
+.coach-welcome{display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 0 6px;text-align:center}
+.coach-welcome img{width:104px;height:auto}
+.coach-welcome strong{font-family:Gaegu,cursive;font-size:24px;font-weight:700;color:#087354}
+.coach-welcome p{margin:0;font-size:13px;line-height:1.6;color:#5f7468}
+.coach-quick{padding-left:40px}
+.coach-quick>p{margin:4px 0 0;font-size:12px;font-weight:700;color:#5f7468}
+.coach-quick .reply-chips{margin-top:8px}
+.coach-quick .reply-chips button{min-height:44px;padding:0 14px;font-size:13px}
+
+/* 입력창: 사진 버튼 + 입력 + 보내기 한 줄. chat-record.css의 모바일 줄바꿈 규칙을 시트 안에서는 되돌린다. */
+.coach-sheet .chat-input{flex-wrap:nowrap;gap:8px;padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px));border-top:1px solid #e8eeeb}
+.coach-sheet .chat-input #chat-text{order:0;flex:1 1 auto;flex-basis:auto;min-width:0;height:44px;min-height:44px;border:1px solid #dce3d8;border-radius:10px;background:#fcfdfb;padding:0 14px;font-size:15px}
+.coach-sheet .chat-input .primary{order:0;flex:0 0 auto;min-width:64px;height:44px;min-height:44px;padding:0 14px;border-radius:10px;background:#1c4b3a;font-size:14px}
+.coach-photo{position:relative;flex-shrink:0}
+.coach-photo-button{width:44px;height:44px;display:flex;align-items:center;justify-content:center;padding:0;border:1px solid #dce3d8;border-radius:10px;background:#fcfdfb;color:#4d7a66;cursor:pointer}
+.coach-photo-button[aria-expanded=true]{background:#1c4b3a;border-color:#1c4b3a;color:#fff}
+.coach-photo-button:disabled{opacity:.5;cursor:default}
+.coach-photo-menu{position:absolute;left:0;bottom:calc(100% + 8px);z-index:2;display:flex;flex-direction:column;min-width:150px;padding:6px;background:#fff;border:1px solid #e1ebe6;border-radius:12px;box-shadow:0 10px 28px rgba(18,48,40,.16)}
+.coach-photo-menu button{min-height:44px;padding:0 12px;border:0;border-radius:8px;background:none;color:#233b34;font-size:14px;text-align:left;cursor:pointer}
+.coach-photo-menu button:hover{background:#f1f6f3}
+
+/* 오늘 남은 질문(하루 제한)과 외부 AI 전송 고지 동의 */
+.coach-usage{margin:0;padding:6px 16px;background:#f8faf7;font-size:12px;color:#5f7468;text-align:right}
+.coach-usage b{color:#00735f}
+.coach-usage.is-empty{text-align:center;color:#8a6420;font-weight:600}
+.coach-sheet .chat-record{position:relative}
+.coach-consent{position:absolute;inset:0;z-index:3;display:flex;align-items:flex-end;justify-content:center;padding:16px;background:rgba(248,250,247,.86);backdrop-filter:blur(2px)}
+.coach-consent>div{width:100%;max-width:380px;padding:22px 20px calc(18px + env(safe-area-inset-bottom,0px));background:#fff;border:1px solid #e1ebe6;border-radius:18px;box-shadow:0 12px 32px rgba(18,48,40,.16);text-align:center}
+.coach-consent img{width:56px;height:56px;border-radius:50%;object-fit:cover;background:#e4f1ea}
+.coach-consent h3{margin:8px 0 6px;font-size:17px;color:#233b34}
+.coach-consent p{margin:0 0 16px;font-size:14px;line-height:1.6;color:#4d6359;word-break:keep-all}
+.coach-consent .primary{width:100%;min-height:48px;margin:0;border-radius:12px;background:#1c4b3a}
+
+/* 시트 안 '챗으로 수정' */
+.coach-edit-back{align-self:flex-start;min-height:40px;margin:8px 10px 0;padding:0 10px;border:0;border-radius:8px;background:none;color:#00735f;font-size:13px;font-weight:600;cursor:pointer}
+.coach-edit .chat-edit-log{flex:1;min-height:0}
+.coach-edit .chat-edit-input{padding-bottom:10px}
+.coach-edit .chat-edit-note{padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))}
+
+@keyframes coach-up{from{transform:translateY(32px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes coach-pop{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.coach-sheet,.coach-fab-hint{animation:none}.coach-fab{transition:none}}
+
+/* 데스크톱: 화면 전체를 덮지 않고 버튼 자리 위에 뜨는 채팅 창 */
+@media(min-width:761px){
+  .coach-sheet-backdrop{background:rgba(20,40,34,.18)}
+  .coach-sheet{left:auto;top:auto;right:24px;bottom:24px;width:420px;height:min(740px,calc(100vh - 48px));border-radius:20px;box-shadow:0 20px 60px rgba(18,48,40,.25)}
+  .coach-sheet-handle{display:none}
+  .coach-sheet-grab{cursor:default}
+  .coach-sheet-head{padding-top:14px}
+}
+
+/* 모바일: 하단 탭바 위에 버튼을 두고, 화면 하단 여백을 버튼 높이만큼 늘린다 */
+@media(max-width:760px){
+  .coach-fab-wrap{right:14px;bottom:calc(var(--m-tabbar-h,64px) + var(--m-safe-bottom,0px) + 12px)}
+  .coach-fab{width:62px;height:62px}
+  .coach-fab img{width:48px;margin-top:7px}
+  .coach-fab-hint{font-size:16px;bottom:22px}
+  .shell.integrated-app.has-mobile-shell.has-coach>main{padding-bottom:calc(var(--m-tabbar-h) + var(--m-safe-bottom) + 100px)}
+  body.coach-sheet-open{overflow:hidden}
+}

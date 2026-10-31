@@ -7,11 +7,14 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from ..models import Detection, Food, ImageUpload, Meal, MealItem
-from ..models_chat import ChatAttachment, ChatMessage, Conversation, DraftItem, MealDraft, MutationRequest
-from .chat_interpret import MEAL_LABELS, chips_for_meal_types, interpret_chat
+from ..config import settings
+from ..models_chat import (ChatAttachment, ChatLlmConsent, ChatLlmUsage, ChatMessage, Conversation, DraftItem, MealDraft,
+                           MutationRequest)
+from .chat_interpret import MEAL_LABELS, chips_for_meal_types
+from . import chat_llm
 from .consumption_record import ChatRecordError, preview_item, update_item_consumption
 from .correction import apply_correction
 from .nutrition import calculate_nutrition
@@ -31,6 +34,11 @@ YES_NO = [{'label': '응', 'text': '응'}, {'label': '아니야', 'text': '아�
 NAV_CHIPS = [{'label': '다른 사진도 기록하기', 'action': 'new_photo'}, {'label': '오늘의 식사 보기', 'action': 'today'}]
 FAILED_TEXT = '음식을 확인하기 어려워요. 다시 찍거나 음식 이름을 말씀해 주세요.'
 NO_DRAFT_TEXT = '먼저 사진을 찍거나 앨범에서 선택해 주세요.'
+# 칼로티 코치 LLM(업무지시서 v1.2) 고정 문구.
+LLM_ERROR_TEXT = '지금 답변을 만들지 못했어요. 다시 질문해주세요.'
+UNRELATED_TEXT = '지금은 사진으로 식사를 기록하고 드신 양을 고치는 것을 도와드릴 수 있어요. 사진을 보내거나 드신 양을 말씀해 주세요.'
+LLM_NOTICE = '더 정확한 답변을 위해 식사 기록과 대화 내용이 외부 AI(LLM)로 전송돼요.'
+LIMIT_TEXT = '오늘 질문을 다 썼어요. 내일 다시 만나요!'
 
 
 def not_found():
@@ -175,7 +183,81 @@ def active_draft(db, conversation, lock=False):
     return db.scalars(query).first()
 
 
+# ---- 칼로티 코치 LLM: 외부 전송 고지 동의·하루 질문 횟수·대화 보관 기간 ----
+
+def llm_on():
+    return chat_llm.available()
+
+
+def consent_row(db, user):
+    return db.get(ChatLlmConsent, user.id)
+
+
+def save_consent(db, user):
+    if not consent_row(db, user):
+        db.add(ChatLlmConsent(user_id=user.id, notice_text=LLM_NOTICE))
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+    return llm_state(db, user)
+
+
+def require_consent(db, user):
+    if llm_on() and not consent_row(db, user):
+        raise ChatRecordError(403, 'consent_required', '대화를 시작하려면 외부 AI 전송 안내에 동의해 주세요.')
+
+
+def usage_row(db, user, lock=False):
+    query = select(ChatLlmUsage).where(ChatLlmUsage.user_id == user.id, ChatLlmUsage.day == now_kst().date())
+    return db.scalar(query.with_for_update() if lock else query)
+
+
+def usage_state(db, user):
+    limit = settings.chat_daily_limit
+    row = usage_row(db, user)
+    used = min(limit, row.count if row else 0)
+    return {'used': used, 'limit': limit, 'remaining': limit - used}
+
+
+# LLM이 실제로 해석한 질문만 센다. 같은 트랜잭션에서 저장하므로 처리 실패 시 함께 취소된다.
+def count_usage(db, user):
+    row = usage_row(db, user, lock=True)
+    if not row:
+        row = ChatLlmUsage(user_id=user.id, day=now_kst().date(), count=0)
+        db.add(row)
+    row.count = (row.count or 0) + 1
+    db.flush()
+
+
+def llm_state(db, user):
+    if not llm_on():
+        return {'llm': False, 'consent_required': False, 'notice': None, 'usage': None}
+    row = consent_row(db, user)
+    return {'llm': True, 'consent_required': row is None, 'notice': LLM_NOTICE, 'usage': usage_state(db, user)}
+
+
+# 보관 기간이 지난 대화 메시지를 지운다. 식사 기록·사진·초안은 지우지 않는다.
+def purge_old_messages(db, user):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=settings.chat_retention_days)
+    result = db.execute(delete(ChatMessage).where(ChatMessage.user_id == user.id, ChatMessage.created_at < cutoff))
+    if result.rowcount:
+        db.commit()
+
+
+# 답장 칩: 직전 봇 메시지가 제시한 문장 그대로면 규칙 해석기로 처리하고 질문 횟수에 넣지 않는다.
+def is_chip_text(db, conversation, text):
+    last = db.scalar(select(ChatMessage).where(ChatMessage.conversation_id == conversation.id, ChatMessage.author_role == 'bot')
+                     .order_by(ChatMessage.sequence.desc()))
+    payload = (last.payload or {}) if last else {}
+    texts = {c.get('text') for c in payload.get('chips') or [] if c.get('text')}
+    if payload.get('meal_chips'):
+        texts |= {c['text'] for c in chips_for_meal_types()}
+    return text in texts
+
+
 def conversation_state(db, user, before=None, limit=50):
+    purge_old_messages(db, user)
     conversation = get_conversation(db, user)
     query = select(ChatMessage).where(ChatMessage.conversation_id == conversation.id)
     if before:
@@ -185,7 +267,7 @@ def conversation_state(db, user, before=None, limit=50):
     rows = list(reversed(rows[:limit]))
     return {'conversation_id': conversation.id, 'messages': [message_json(m) for m in rows], 'has_more': has_more,
             'draft': draft_json(db, active_draft(db, conversation)), 'meal_types': chips_for_meal_types(),
-            'pending_question': conversation.pending_question}
+            'pending_question': conversation.pending_question, **llm_state(db, user)}
 
 
 # ---- 사진 업로드·분석 ----
@@ -214,6 +296,7 @@ def attachment_state(db, attachment):
 
 
 def upload_photo(db, user, conversation_id, upload_request_id, content):
+    require_consent(db, user)
     conversation = get_conversation(db, user, conversation_id, lock=True)
     checksum = hashlib.sha256(content).hexdigest()
     existing = db.scalar(select(ChatAttachment).where(ChatAttachment.user_id == user.id,
@@ -404,6 +487,23 @@ def confirm_draft(db, user, conversation, draft, request_id, reply_to):
 
 def clarify_reply(db, conversation, draft, result, reply_to):
     reason = result['clarification_reason']
+    if result.get('llm_failed'):
+        return bot(db, conversation, LLM_ERROR_TEXT, reply_to)
+    if reason == 'unrelated':
+        return bot(db, conversation, UNRELATED_TEXT, reply_to)
+    if reason == 'vague_amount':
+        # 말하지 않은 양은 정하지 않고 선택지로 되묻는다. 칩 문장은 규칙 해석기가 알아듣는 표현이다.
+        target = result['candidates'][0] if len(result['candidates']) == 1 else None
+        prefix = topic(target['food_name']) + ' ' if target else ''
+        if draft:
+            draft.pending_question = 'amount'
+            if target:
+                draft.pending_target_id = target['id']
+        chips = [{'label': label, 'text': f'{prefix}{amount} 먹었어'} for label, amount in
+                 (('1/4 정도', '4분의 1'), ('절반 정도', '절반'), ('3/4 정도', '4분의 3'))]
+        chips.append({'label': '직접 입력', 'action': 'type'})
+        question = f'{topic(target["food_name"])} 어느 정도 드셨어요?' if target else '어느 정도 드셨어요?'
+        return bot(db, conversation, question, reply_to, chips=chips)
     if reason == 'ambiguous_target':
         if draft:
             draft.pending_question = 'target'
@@ -426,11 +526,13 @@ def clarify_reply(db, conversation, draft, result, reply_to):
     return bot(db, conversation, '"절반", "4분의 1"처럼 말씀해 주시겠어요?', reply_to, chips=AMOUNT_CHIPS)
 
 
-def handle_draft(db, user, conversation, draft, message, request_id):
+def handle_draft(db, user, conversation, draft, message, request_id, use_llm=False):
     foods = food_rows(db)
     targets = [{'id': i.id, 'food_name': foods[i.food_id].canonical_name} for i in draft.items]
-    result = interpret_chat(message.text, draft.pending_question, targets, draft.pending_target_id,
-                            [(f.id, f.canonical_name) for f in foods.values()])
+    result = chat_llm.interpret(message.text, draft.pending_question, targets, draft.pending_target_id,
+                                [(f.id, f.canonical_name) for f in foods.values()], use_llm=use_llm)
+    if result['source'] == 'llm':
+        count_usage(db, user)
     intent = result['intent']
     reply_to = message.id
     by_id = {i.id: i for i in draft.items}
@@ -492,15 +594,22 @@ def last_saved_meal(db, conversation):
 
 
 # 저장된 식사의 섭취량 정정(5.1과 같은 방식). A0 미리보기·수정 서비스를 재사용한다.
-def handle_saved(db, user, conversation, message):
+def handle_saved(db, user, conversation, message, use_llm=False):
     meal = last_saved_meal(db, conversation)
     reply_to = message.id
     if not meal:
         return bot(db, conversation, NO_DRAFT_TEXT, reply_to)
     targets = [{'id': i.id, 'food_name': i.corrected_label} for i in meal.items]
     foods = [(f.id, f.canonical_name) for f in food_rows(db).values()]
-    result = interpret_chat(message.text, conversation.pending_question, targets, None, foods)
+    result = chat_llm.interpret(message.text, conversation.pending_question, targets, None, foods, use_llm=use_llm)
+    if result['source'] == 'llm':
+        count_usage(db, user)
     intent = result['intent']
+    # "점심에 밥 반만 먹었어"처럼 저장된 그 식사를 가리키는 날짜·식사 종류는 변경 요청이 아니다.
+    info = result.get('meal_info')
+    if intent == 'update_consumption' and info and info['meal_type'] == meal.meal_type and meal.meal_date == (
+            now_kst().date() - timedelta(days=1) if info['date'] == 'yesterday' else now_kst().date()):
+        result['meal_info'] = None
     if intent in ('set_meal_info', 'change_food', 'add_food') or (intent == 'update_consumption' and result['meal_info']):
         return bot(db, conversation, '저장된 식사의 날짜·식사 종류·음식은 아직 여기서 바꿀 수 없어요. 드신 양만 바꿀 수 있어요.', reply_to)
     if intent == 'cancel':
@@ -542,11 +651,16 @@ def apply_saved_updates(db, user, conversation, updates, message):
     return bot(db, conversation, '저장된 기록을 바꿨어요.', message.id, kind='corrected', cards=cards, chips=NAV_CHIPS)
 
 
-def post_message(db, user, conversation_id, client_message_id, text):
+def post_message(db, user, conversation_id, client_message_id, text, chip=False):
+    require_consent(db, user)
     conversation = get_conversation(db, user, conversation_id, lock=True)
     client_message_id = str(client_message_id)
     message = db.scalar(select(ChatMessage).where(ChatMessage.user_id == user.id,
         ChatMessage.conversation_id == conversation.id, ChatMessage.client_message_id == client_message_id))
+    # 직접 입력한 문장은 LLM이 해석하고 하루 횟수에 넣는다. 다 쓰면 메시지를 저장하지 않고 LLM도 부르지 않는다.
+    use_llm = llm_on() and not (chip and is_chip_text(db, conversation, text))
+    if use_llm and not message and usage_state(db, user)['remaining'] <= 0:
+        raise ChatRecordError(429, 'daily_limit', LIMIT_TEXT)
     if message:
         if message.text != text:
             raise ChatRecordError(409, 'request_id_conflict', '같은 메시지 ID로 다른 내용을 보낼 수 없어요.')
@@ -554,7 +668,7 @@ def post_message(db, user, conversation_id, client_message_id, text):
             replies = db.scalars(select(ChatMessage).where(ChatMessage.reply_to_id == message.id)
                                  .order_by(ChatMessage.sequence)).all()
             return {'messages': [message_json(message)] + [message_json(m) for m in replies],
-                    'draft': draft_json(db, active_draft(db, conversation)), 'replayed': True}
+                    'draft': draft_json(db, active_draft(db, conversation)), 'replayed': True, **llm_state(db, user)}
     else:
         # 수신한 사용자 메시지를 먼저 커밋한다. 이후 처리가 실패해도 원문은 남고 상태만 failed가 된다.
         message = add_message(db, conversation, 'user', 'text', text, client_message_id=client_message_id, status='received')
@@ -565,9 +679,9 @@ def post_message(db, user, conversation_id, client_message_id, text):
         if draft and draft.status == 'analyzing':
             reply = bot(db, conversation, '사진 속 음식을 확인하고 있어요. 잠시만 기다려 주세요.', message.id)
         elif draft:
-            reply = handle_draft(db, user, conversation, draft, message, client_message_id)
+            reply = handle_draft(db, user, conversation, draft, message, client_message_id, use_llm)
         else:
-            reply = handle_saved(db, user, conversation, message)
+            reply = handle_saved(db, user, conversation, message, use_llm)
         message = db.get(ChatMessage, message.id)
         message.status = 'processed'
         db.commit()
@@ -588,7 +702,8 @@ def post_message(db, user, conversation_id, client_message_id, text):
         raise ChatRecordError(503, 'save_failed', '아직 저장되지 않았어요. 다시 시도해 주세요.')
     replies = db.scalars(select(ChatMessage).where(ChatMessage.reply_to_id == message.id).order_by(ChatMessage.sequence)).all()
     return {'messages': [message_json(message)] + [message_json(m) for m in replies],
-            'draft': draft_json(db, active_draft(db, get_conversation(db, user, conversation.id))), 'replayed': False}
+            'draft': draft_json(db, active_draft(db, get_conversation(db, user, conversation.id))), 'replayed': False,
+            **llm_state(db, user)}
 
 
 def mark_failed(db, user, message_id):

@@ -7,12 +7,24 @@ import {Progress, etaText, fmt} from './RewardHomeCard';
 import {imageUrl} from './rewardMallUtils';
 
 const SPECS = [['', '전체'], ['nutrition', '영양'], ['diet', '다이어트'], ['exercise', '운동'], ['lifestyle', '생활습관']];
-const NOTICE = '코치 정보는 시연용이에요. 코칭은 영양·생활습관 조언이며 질병 진단이나 처방은 제공하지 않아요.';
+const NOTICE = '코치 정보와 AI 생성 프로필 사진은 시연용이에요. 코칭은 영양·생활습관 조언이며 질병 진단이나 처방은 제공하지 않아요.';
 const day = value => value ? new Date(value).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. ?/g, '.').replace(/\.$/, '') : '—';
 const newKey = () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
-function Avatar({coach, size = 'md', photo}) {
-  if (photo && coach.profile_image) return <img className={`coach-avatar ${size} photo`} src={imageUrl(coach.profile_image)} alt={`${coach.name} 프로필 사진`}/>;
+const COACH_PORTRAITS = {
+  kim: '/images/coaches/kim-ai.webp',
+  park: '/images/coaches/park-ai.webp',
+  lee: '/images/coaches/lee-ai.webp',
+  choi: '/images/coaches/choi-ai.webp',
+};
+const COACH_NAMES = {'김지윤 코치': 'kim', '박재현 코치': 'park', '이수민 코치': 'lee', '최하은 코치': 'choi'};
+
+function Avatar({coach, size = 'md'}) {
+  const [failed, setFailed] = useState(false);
+  const portrait = COACH_PORTRAITS[coach.coach_id || coach.id || COACH_NAMES[coach.name || coach.coach_name]];
+  const source = portrait || (coach.profile_image && imageUrl(coach.profile_image));
+  useEffect(() => setFailed(false), [source]);
+  if (source && !failed) return <img className={`coach-avatar ${size} photo`} src={source} alt={`${coach.name || coach.coach_name} AI 생성 시연용 프로필`} loading="lazy" onError={() => setFailed(true)}/>;
   return <span className={`coach-avatar ${size} tone-${coach.tone || 'nutrition'}`} aria-hidden="true">{coach.name?.slice(0, 1) || coach.coach_name?.slice(0, 1)}</span>;
 }
 
@@ -138,16 +150,20 @@ export function CoachDetail({api, id, onBack, onChanged, onCategory}) {
       <div className="coach-detail-main">
         <section className="mall-panel coach-profile" aria-label="코치 프로필">
           <div className="coach-profile-top"><Avatar coach={data} size="xl" photo/>
-            <div><span className="coach-headline">{data.headline}</span><h1>{data.name}</h1>
-              <p className="mall-small"><span aria-hidden="true" className="star">★</span> <b>{data.rating_text}</b> · 누적 코칭 {fmt(data.coaching_count)}회 · 시연용</p>
-              <blockquote className="coach-philosophy">{data.philosophy}</blockquote>
-              {data.sticky && <p className="mall-hand sticky">{data.sticky}</p>}</div></div>
-          <div className="coach-profile-facts">
-            <div><h2>전문 분야</h2>{data.areas.map(([, t]) => <span key={t}>✓ {t}</span>)}</div>
-            <div><h2>경력</h2>{data.career.map(t => <span key={t}>{t}</span>)}<small>[자격·경력 증빙은 실제 코치 등록 시 확인]</small></div>
+            <div className="coach-identity"><span className="coach-headline">{data.headline}</span><h1>{data.name}</h1>
+              <small className="coach-ai-note">AI 생성 프로필 · 시연용 코치</small></div></div>
+          <div className="coach-profile-stats" aria-label="코치 활동 요약">
+            <div><span>만족도</span><b><span className="star" aria-hidden="true">★</span> {data.rating_text}</b></div>
+            <div><span>누적 코칭</span><b>{fmt(data.coaching_count)}<small>회</small></b></div>
+            <div><span>이용권</span><b>7<small>회 코칭</small></b></div>
           </div>
-          <div className="coach-intro-row"><p>{data.introduction}</p>
-            {data.side_image && <div className="coach-side-photo">{data.side_note && <p className="mall-hand">{data.side_note}</p>}<img src={imageUrl(data.side_image)} alt={`${data.name} 상담 사진`}/></div>}</div>
+          <blockquote className="coach-philosophy"><small>코칭 방향</small>{data.philosophy}</blockquote>
+          <div className="coach-profile-facts">
+            <div className="coach-specialties"><h2>전문 분야</h2><div className="coach-specialty-tags">{data.areas.map(([, t]) => <span key={t}>{t}</span>)}</div></div>
+            <div className="coach-career"><h2>경력</h2>{data.career.map(t => <span key={t}>{t}</span>)}<small>시연용 경력 · 실제 등록 시 증빙 확인</small></div>
+          </div>
+          <div className="coach-intro-row"><div className="coach-intro-copy"><h2>코치 소개</h2><p>{data.introduction}</p></div>
+            {COACH_PORTRAITS[data.id] && <figure className="coach-side-photo"><img src={COACH_PORTRAITS[data.id]} alt={`${data.name} AI 생성 시연용 사진`}/>{data.side_note && <figcaption>{data.side_note}</figcaption>}</figure>}</div>
         </section>
         <section className="mall-panel" aria-labelledby="coach-how"><div className="mall-section-head"><h2 id="coach-how" className="bar">이렇게 관리해요</h2><span className="mall-small">{data.how}</span></div>
           <ol className="coach-how">{data.steps.map(([, title, desc], i) => <li key={title}><span>{i + 1}</span><b>{title}</b><small>{desc}</small></li>)}</ol></section>
@@ -179,7 +195,6 @@ export function CoachDetail({api, id, onBack, onChanged, onCategory}) {
           <p className="mall-small">상담과 식단 피드백은 카카오톡에서 진행해요.<br/>CaloDetect는 대화 내용을 보지 않아요.</p></section>
         <section className="mall-panel coach-cheer"><div className="mall-cheer"><img src={MOOD_IMAGES.cheer} alt={`응원하는 ${CHARACTER_NAME}`}/><p>지속하는 포인트로<br/>코치를 만나보세요!</p></div>
           <p className="mall-small">이용권을 구매하면 코치 연락 채널이 열려요. 구매 즉시 연락처가 공개되어 취소할 수 없어요. 코칭은 영양·생활습관 조언이며 질병 진단이나 처방은 제공하지 않아요.</p></section>
-        <img className="coach-side-banner" src={imageUrl('coaches/side_banner.png')} alt="좋은 식습관이 좋은 일상을 만들어요. CaloDetect와 함께 건강한 변화를 시작하세요."/>
       </div>
     </div>
     <p className="mall-small">{data.notice}</p>

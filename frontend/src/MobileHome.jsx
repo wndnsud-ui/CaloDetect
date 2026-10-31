@@ -22,7 +22,7 @@ function headline({currentDay, date, remaining, recordedCount}) {
 }
 
 export default function MobileHome({user, me, displayName, liveToday, totals, meals, target, todayDate, selectedDate, onSelectDate,
-  currentDay, remaining, onAddMeal, onNavigate, homeCard, status, streak}) {
+  currentDay, remaining, onAddMeal, onNavigate, onOpenCoach, homeCard, status, streak}) {
   const date = new Date(`${selectedDate}T12:00:00+09:00`);
   const week = Array.from({length: 7}, (_, i) => shift(todayDate, i - 6));
   const eaten = totals?.cal || 0;
@@ -44,7 +44,8 @@ export default function MobileHome({user, me, displayName, liveToday, totals, me
           <small>{Math.round((me.level_progress || 0) * 100)}%</small>
         </button>}
       </div>
-      <button type="button" className="m-home-jibang" onClick={() => onNavigate(user ? '리워드' : '로그인', 'room')} aria-label="지방이 방 보기">
+      {/* 홈 히어로 지방이는 칼로티 코치의 두 번째 진입점이다(업무지시서 v1.2). 코치를 쓸 수 없으면 기존처럼 지방이 방으로 간다. */}
+      <button type="button" className="m-home-jibang" onClick={() => onOpenCoach ? onOpenCoach() : onNavigate(user ? '리워드' : '로그인', 'room')} aria-label={onOpenCoach ? '칼로티 코치와 대화하기' : '지방이 방 보기'}>
         <span className="m-home-bubble">{bubble}</span>
         <JibangFigure equipment={me?.equipment} level={me?.level || 1} width={112}/>
       </button>

@@ -1,12 +1,13 @@
-// 채팅으로 식사 기록하기(A1). 사진 촬영·선택 → 서버 분석 → 대화로 섭취량을 말하면 서버가 자동으로 기록한다.
-// 비율 버튼·조정 패널·저장 버튼은 없다(R14). 답장 칩은 정해진 문장을 일반 메시지로 보낼 뿐이다.
-// 영양값·합계·확정은 모두 서버 응답을 표시하며, 대화·사진·초안은 서버에 저장돼 재접속해도 복원된다.
+// 칼로티 코치 대화 본문(develop A1 채팅 식사기록 이식). 플로팅 채팅 시트(CoachChat.jsx) 안에 들어가며 별도 페이지는 없다.
+// 사진 촬영·선택 → 서버 분석 → 대화로 섭취량을 말하면 서버가 기록한다. 비율 버튼·저장 버튼은 없다(R14).
+// 영양값·합계·확정은 모두 서버 응답을 표시하며, 대화·사진·초안은 서버에 저장돼 시트를 닫았다 열어도 이어진다.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { newRequestId } from './ChatConsumptionEdit';
-import StreamlitChart from './StreamlitChart';
 import './chat-record.css';
 
-const mealNames = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간식'};
+export const COACH_FACE = '/jibang/f_happy.png';
+// 업무지시서 v1.2 UI: 빠른 질문 5개. 누르면 일반 메시지로 보낸다.
+const QUICK_QUESTIONS = ['오늘 뭐 먹지?', '오늘 식사 어땠어?', '단백질 많은 메뉴 추천', '가볍게 먹을 메뉴', '방금 음식 기록 수정'];
 const fmt = value => value == null || !Number.isFinite(Number(value)) ? '—' : Number(value).toLocaleString('ko-KR', {maximumFractionDigits:1});
 const percent = ratio => `${Math.round(Number(ratio) * 100)}%`;
 const MAX_SIDE = 2048;
@@ -76,91 +77,8 @@ function CompareCards({cards}) {
   return <div className="compare-cards">{cards.map((card, index) => <p key={index}><b>{card.food_name}</b> {percent(card.before.consumption_ratio)} ({fmt(card.before.nutrition.cal)} kcal) → <b>{percent(card.after.consumption_ratio)}</b> ({fmt(card.after.nutrition.cal)} kcal)</p>)}</div>;
 }
 
-// 서버 기본값과 같은 시각 규칙(05~10 아침, 11~15 점심, 16~21 저녁, 그 외 간식, Asia/Seoul).
-function currentMealType() {
-  const hour = Number(new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Seoul', hour:'numeric', hourCycle:'h23'}).format(new Date()));
-  return hour >= 5 && hour < 11 ? 'breakfast' : hour >= 11 && hour < 16 ? 'lunch' : hour >= 16 && hour < 22 ? 'dinner' : 'snack';
-}
-
-const mealRows = [['breakfast', '아침', '🌅'], ['lunch', '점심', '☀️'], ['dinner', '저녁', '🌙'], ['snack', '간식', '🍪']];
-
-// 우측 "오늘" 카드: 목표 대비 % 도넛, 총 섭취·목표 kcal, 아침·점심·저녁·간식별 kcal(서버 저장값 합계).
-// 강조 행은 지금 기록 중인 식사 종류(없으면 현재 시각 기준). 행을 누르면 그 식사의 음식이 펼쳐진다.
-function TodayMiniSummary({today, activeType, onRefresh, onCalendar}) {
-  const [open, setOpen] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const eaten = Number(today?.totals?.cal || 0), target = Number(today?.target_calories || 0);
-  const ratio = target > 0 ? eaten / target : 0;
-
-  const day = today?.date ? new Date(`${today.date}T12:00:00+09:00`) : new Date();
-  const dateText = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', year:'numeric', month:'long', day:'numeric'}).format(day);
-  const weekday = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', weekday:'short'}).format(day);
-  const byType = Object.fromEntries(mealRows.map(([type]) => {
-    const meals = (today?.meals || []).filter(meal => meal.meal_type === type);
-    const items = meals.flatMap(meal => meal.items);
-    return [type, {items, cal: items.reduce((sum, item) => sum + Number(item.nutrition?.cal || 0), 0)}];
-  }));
-  async function refresh() {
-    if (refreshing) return;
-    setRefreshing(true);
-    try { await onRefresh?.(); } finally { setRefreshing(false); }
-  }
-  return <section className="chat-side-card today-card" aria-label="오늘의 식사">
-    <div className="today-head">
-      <button type="button" className={`icon-button${refreshing ? ' spinning' : ''}`} onClick={refresh} aria-label="오늘 기록 새로고침">↻</button>
-      <h3>오늘</h3><span className="today-date">{dateText} ({weekday})</span>
-      <button type="button" className="icon-button today-calendar" onClick={onCalendar} aria-label="홈 주간 달력 보기">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>
-      </button>
-    </div>
-    <div className="today-overview">
-      <div className="today-donut">
-        <StreamlitChart kind="ring_percent" data={{value: eaten, target}} height={118} title={target ? `목표 대비 섭취 ${Math.round(ratio * 100)}%` : "목표 미설정"}/>
-      </div>
-      <div className="today-total">
-        <small>총 섭취 칼로리</small>
-        <p><b>{fmt(eaten)}</b> kcal</p>
-        <small>{target ? `목표 ${fmt(target)} kcal` : '목표를 설정해 주세요'}</small>
-      </div>
-    </div>
-    <ul className="today-meals-list">
-      {mealRows.map(([type, label, icon]) => {
-        const row = byType[type];
-        const expanded = open === type;
-        return <li key={type} className={`${type === activeType ? 'active' : ''}${expanded ? ' expanded' : ''}`}>
-          <button type="button" onClick={() => setOpen(expanded ? null : type)} aria-expanded={expanded}>
-            <span className={`meal-icon meal-icon-${type}`} aria-hidden="true">{icon}</span>
-            <span className="meal-name">{label}</span>
-            <span className="meal-kcal">{fmt(row.cal)} kcal</span>
-            <span className="meal-chevron" aria-hidden="true">›</span>
-          </button>
-          {expanded && (row.items.length ? <ul className="meal-foods">{row.items.map(item => <li key={item.id}><span>{item.food_name}{item.consumption_ratio != null && item.consumption_ratio !== 1 && <small> {Math.round(item.consumption_ratio * 100)}%</small>}</span><span>{fmt(item.nutrition?.cal)} kcal</span></li>)}</ul>
-            : <p className="meal-empty">아직 기록이 없어요.</p>)}
-        </li>;
-      })}
-    </ul>
-  </section>;
-}
-
-// 사진이 없거나 파일을 불러오지 못하면 깨진 이미지 대신 기본 아이콘을 보여 준다.
-function RecentThumb({src}) {
-  const [failed, setFailed] = useState(false);
-  return src && !failed ? <img src={src} alt="" onError={() => setFailed(true)}/> : <span className="recent-thumb" aria-hidden="true">🍽</span>;
-}
-
-function RecentMealsMini({history}) {
-  const rows = history.slice(0, 5);
-  return <section className="chat-side-card" aria-label="최근 식사 히스토리">
-    <h3>최근 식사 히스토리</h3>
-    {rows.length ? <ul className="recent-meals">{rows.map(meal => <li key={meal.id}>
-      <RecentThumb src={meal.image_urls?.[0]}/>
-      <div><b>{meal.items.map(item => item.food_name).join(', ')}</b><small>{meal.meal_date} · {mealNames[meal.meal_type] || meal.meal_type}</small></div>
-      <span>{fmt(meal.items.reduce((sum, item) => sum + item.nutrition.cal, 0))}<small>kcal</small></span>
-    </li>)}</ul> : <p className="muted">아직 기록이 없어요.</p>}
-  </section>;
-}
-
-export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
+// 시트 안의 대화 본문. 첫 화면에는 지방이 인사와 빠른 질문을 두고, 그 아래로 서버 대화를 이어 붙인다.
+export default function ChatRecord({api, onSaved, onNavigate}) {
   const [conversationId, setConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState(null);
@@ -170,8 +88,13 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
   const [error, setError] = useState('');
   const [failed, setFailed] = useState(null);
   const [shooting, setShooting] = useState(false);
+  const [photoMenu, setPhotoMenu] = useState(false);
+  // LLM 사용 상태(업무지시서 v1.2): 외부 AI 전송 고지 동의 여부와 오늘 남은 질문 수. 서버가 정하고 센다.
+  const [llm, setLlm] = useState({llm: false, consent_required: false, notice: null, usage: null});
+  const [agreeing, setAgreeing] = useState(false);
   const album = useRef(null), log = useRef(null), input = useRef(null);
 
+  const takeLlm = useCallback(data => { if (data && 'llm' in data) setLlm({llm: data.llm, consent_required: data.consent_required, notice: data.notice, usage: data.usage}); }, []);
   // 서버 메시지를 sequence 기준으로 합친다(중복 제거). 화면은 시간값이 아니라 서버 순서를 따른다.
   const merge = useCallback(list => setMessages(current => {
     const map = new Map(current.map(m => [m.id, m]));
@@ -182,7 +105,7 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
   const restore = useCallback(async () => {
     const state = await api('/chat/conversation');
     setConversationId(state.conversation_id); setMealTypes(state.meal_types); setDraft(state.draft);
-    setMessages(state.messages);
+    setMessages(state.messages); takeLlm(state);
   }, [api]);
   useEffect(() => { restore().catch(e => setError(e.message)); }, [restore]);
   // 포커스 복귀 시 최신 대화·초안을 다시 불러온다(다른 탭·기기 반영 보조. 실시간 푸시는 B 범위).
@@ -193,18 +116,21 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
   }, [restore, busy]);
   useEffect(() => { log.current?.scrollTo?.({top: log.current.scrollHeight, behavior: 'smooth'}); }, [messages, busy]);
 
-  async function send(sentence, retryId) {
+  // chip=true는 직전 답장 칩을 누른 경우다. 서버가 칩 문장과 같은지 확인하고 질문 횟수에서 뺀다.
+  async function send(sentence, retryId, chip = false) {
     const value = sentence.trim();
     if (!value || busy || !conversationId) return;
     const clientId = retryId || newRequestId();
     setBusy('message'); setError(''); setFailed(null);
     try {
-      const result = await api('/chat/messages', {conversation_id: conversationId, client_message_id: clientId, text: value});
-      merge(result.messages); setDraft(result.draft);
+      const result = await api('/chat/messages', {conversation_id: conversationId, client_message_id: clientId, text: value, chip});
+      merge(result.messages); setDraft(result.draft); takeLlm(result);
       if (result.messages.some(m => m.kind === 'saved' || m.kind === 'corrected')) onSaved?.(result.messages.find(m => m.kind === 'saved')?.payload?.meal?.meal_id);
     } catch (e) {
+      if (e.status === 429) { setError(e.message); setLlm(current => ({...current, usage: current.usage && {...current.usage, used: current.usage.limit, remaining: 0}})); return; }
+      if (e.status === 403) { setLlm(current => ({...current, consent_required: true})); return; }
       // 서버에 도착하지 않았거나 처리 실패: 저장 완료로 표시하지 않고 같은 ID로 다시 보낼 수 있게 한다.
-      setFailed({text: value, id: clientId});
+      setFailed({text: value, id: clientId, chip});
       setError(e.status === 409 ? '기록이 변경됐어요. 최신 내용을 확인해 주세요.' : '아직 저장되지 않았어요. 다시 시도해 주세요.');
       if (e.status === 409) restore().catch(() => {});
     } finally { setBusy(''); }
@@ -225,11 +151,13 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
 
   // 터치 여부와 관계없이 실제 카메라 촬영 창을 연다.
   function takePhoto() {
+    setPhotoMenu(false);
     if (!navigator.mediaDevices?.getUserMedia || !window.isSecureContext) {
       setError('카메라 촬영은 HTTPS 또는 localhost에서 지원됩니다. 보안 연결로 접속하거나 앨범에서 사진을 선택해 주세요.'); return;
     }
     setError(''); setShooting(true);
   }
+  function pickAlbum() { setPhotoMenu(false); album.current?.click(); }
 
   async function uploadFile(file) {
     if (!file || busy || !conversationId) return;
@@ -255,50 +183,82 @@ export default function ChatRecord({api, today, history, onSaved, onNavigate}) {
   function chip(item) {
     if (item.action === 'new_photo') { takePhoto(); return; }
     if (item.action === 'today') { onNavigate('홈'); return; }
-    send(item.text);
+    if (item.action === 'type') { input.current?.focus(); return; }
+    send(item.text, undefined, true);
+  }
+
+  async function agree() {
+    if (agreeing) return;
+    setAgreeing(true); setError('');
+    try { takeLlm(await api('/chat/consent', {})); }
+    catch (e) { setError(e.message); }
+    finally { setAgreeing(false); }
   }
 
   const lastBot = [...messages].reverse().find(m => m.role === 'bot');
-  const dateText = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric', weekday:'short'}).format(new Date());
+  // 빠른 질문은 진행 중인 사진 기록이 없고, 마지막 답에 답장 칩이 없을 때만 그 아래에 보여 준다.
+  const showQuick = !!conversationId && !draft && !busy && !(lastBot?.payload?.chips?.length || lastBot?.payload?.meal_chips);
+  const usage = llm.llm ? llm.usage : null, exhausted = !!usage && usage.remaining <= 0;
+  const dateText = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul', month:'long', day:'numeric', weekday:'long'}).format(new Date());
 
   return <div className="chat-record">
-    <section className="chat-main" aria-label="채팅으로 식사 기록하기">
-      <div className="chat-title"><div><p className="eyebrow">CHAT MEAL LOG</p><h1>칼로T코치에게 뭐 먹었는지 남겨볼래?</h1></div><p className="muted">사진을 보내고 드신 양을 말하면 칼로T코치가 바로 기록해요.</p></div>
+    <section className="chat-main" aria-label="칼로티 코치 대화">
       <ol className="chat-log" ref={log} aria-live="polite">
+        <li className="coach-welcome">
+          <img src="/jibang/front.png" alt=""/>
+          <strong>안녕! 나 지방이야</strong>
+          <p>식사 기록을 보고 메뉴 추천이나<br/>영양 분석을 도와줄게요.</p>
+        </li>
         <li className="chat-date"><span>{dateText}</span></li>
         {messages.map(message => {
           const payload = message.payload || {};
           const isLast = lastBot && message.id === lastBot.id;
           if (message.kind === 'photo') return <li key={message.id} className="chat-row chat-row-user"><img className="chat-photo" src={payload.image_url} alt="보낸 식사 사진"/></li>;
           return <li key={message.id} className={`chat-row chat-row-${message.role}`}>
-            {message.role === 'bot' && <span className="chat-avatar" aria-hidden="true">🥗</span>}
+            {message.role === 'bot' && <img className="chat-avatar" src={COACH_FACE} alt=""/>}
             <div className={`chat-bubble chat-${message.role}${message.kind === 'saved' ? ' chat-done' : ''}${message.status === 'failed' ? ' chat-error' : ''}`}>
               {message.kind === 'saved' ? <SavedCard meal={payload.meal}/> : <p>{message.text}</p>}
               {payload.draft && <FoodCards draft={isLast && draft?.id === payload.draft.id ? draft : payload.draft}/>}
               {payload.cards && <CompareCards cards={payload.cards}/>}
               {isLast && (payload.chips?.length > 0 || payload.meal_chips) && <div className="reply-chips">
                 {payload.chips?.map(item => <button type="button" key={item.label} className={item.action ? 'chip-nav' : ''} onClick={() => chip(item)} disabled={!!busy}>{item.label}</button>)}
-                {payload.meal_chips && mealTypes.map(item => <button type="button" key={item.value} className={`chip-meal${draft?.meal_type === item.value ? ' selected' : ''}`} aria-pressed={draft?.meal_type === item.value} onClick={() => send(item.text)} disabled={!!busy || draft?.meal_type === item.value}>{item.label}</button>)}
+                {payload.meal_chips && mealTypes.map(item => <button type="button" key={item.value} className={`chip-meal${draft?.meal_type === item.value ? ' selected' : ''}`} aria-pressed={draft?.meal_type === item.value} onClick={() => send(item.text, undefined, true)} disabled={!!busy || draft?.meal_type === item.value}>{item.label}</button>)}
               </div>}
             </div>
           </li>;
         })}
-        {busy && <li className="chat-row chat-row-bot"><span className="chat-avatar" aria-hidden="true">🥗</span><div className="chat-bubble chat-bot chat-typing" role="status">{busy === 'upload' ? '사진을 올리고 있어요…' : busy === 'analysis' ? '사진 속 음식을 확인하고 있어요… (최대 1~2분)' : '확인하고 있어요…'}</div></li>}
+        {showQuick && <li className="coach-quick">
+          <p>이렇게 물어볼 수 있어요</p>
+          <div className="reply-chips">{QUICK_QUESTIONS.map((question, index) => <button type="button" key={question} className={index === 0 ? 'chip-nav' : ''} onClick={() => send(question)} disabled={exhausted}>{question}</button>)}</div>
+        </li>}
+        {busy && <li className="chat-row chat-row-bot"><img className="chat-avatar" src={COACH_FACE} alt=""/><div className="chat-bubble chat-bot chat-typing" role="status">{busy === 'upload' ? '사진을 올리고 있어요…' : busy === 'analysis' ? '사진 속 음식을 확인하고 있어요… (최대 1~2분)' : '확인하고 있어요…'}</div></li>}
       </ol>
-      {error && <div className="chat-alert" role="alert">{error}{failed && <button type="button" onClick={() => send(failed.text, failed.id)}>다시 시도</button>}</div>}
+      {error && <div className="chat-alert" role="alert">{error}{failed && <button type="button" onClick={() => send(failed.text, failed.id, failed.chip)}>다시 시도</button>}</div>}
+      {usage && <p className={`coach-usage${exhausted ? ' is-empty' : ''}`} role="status">{exhausted ? '오늘 질문을 다 썼어요. 내일 다시 만나요!' : <>오늘 남은 질문 <b>{usage.remaining}/{usage.limit}</b></>}</p>}
       <form className="chat-input" onSubmit={submit}>
         <input ref={album} type="file" accept="image/jpeg,image/png" hidden onChange={upload}/>
-        <button type="button" className="chat-tool" onClick={takePhoto} disabled={!!busy}>📷 사진 찍기</button>
-        <button type="button" className="chat-tool" onClick={() => album.current?.click()} disabled={!!busy}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false" style={{verticalAlign:'middle',marginRight:6}}><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>앨범에서 선택</button>
+        <div className="coach-photo">
+          <button type="button" className="coach-photo-button" onClick={() => setPhotoMenu(open => !open)} disabled={!!busy || !conversationId} aria-label="음식 사진 보내기" aria-expanded={photoMenu}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          </button>
+          {photoMenu && <div className="coach-photo-menu">
+            <button type="button" onClick={takePhoto}>사진 찍기</button>
+            <button type="button" onClick={pickAlbum}>앨범에서 선택</button>
+          </div>}
+        </div>
         <label className="sr-only" htmlFor="chat-text">메시지</label>
-        <input id="chat-text" ref={input} maxLength={200} value={text} onChange={e => setText(e.target.value)} placeholder='예: 절반만 먹었어 올려줘' disabled={!conversationId}/>
-        <button className="primary" disabled={!!busy || !text.trim()}>전송</button>
+        <input id="chat-text" ref={input} maxLength={200} value={text} onChange={e => setText(e.target.value)} placeholder={exhausted ? '내일 다시 물어봐 주세요.' : '오늘 뭐 먹을지 물어보세요.'} disabled={!conversationId || exhausted}/>
+        <button className="primary" disabled={!!busy || !text.trim() || exhausted}>보내기</button>
       </form>
     </section>
-    <div className="chat-side">
-      <TodayMiniSummary today={today} activeType={draft?.meal_type || currentMealType()} onRefresh={onSaved} onCalendar={() => onNavigate('홈')}/>
-      <RecentMealsMini history={history}/>
-    </div>
+    {llm.llm && llm.consent_required && <div className="coach-consent" role="dialog" aria-modal="true" aria-labelledby="coach-consent-title">
+      <div>
+        <img src={COACH_FACE} alt=""/>
+        <h3 id="coach-consent-title">지방이와 대화하기 전에</h3>
+        <p>{llm.notice}</p>
+        <button type="button" className="primary" onClick={agree} disabled={agreeing}>{agreeing ? '저장하고 있어요…' : '동의하고 시작'}</button>
+      </div>
+    </div>}
     {shooting && <WebcamCapture onClose={() => setShooting(false)}
       onCapture={blob => { setShooting(false); uploadFile(blob); }}
       onUnavailable={message => { setShooting(false); setError(message); }}/>}

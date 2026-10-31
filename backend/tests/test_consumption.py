@@ -55,6 +55,8 @@ def build_env(monkeypatch, tmp_path, enabled):
     monkeypatch.setattr(settings, 'recommendation_enabled', True)
     monkeypatch.setattr(settings, 'recent_meal_window', 3)
     monkeypatch.setattr(settings, 'chat_record_enabled', enabled)
+    # 개인 .env에 LLM을 켜 두어도 기존 검사는 규칙 해석기로만 돈다(외부 호출 없음). LLM 검사는 test_chat_llm.py.
+    monkeypatch.setattr(settings, 'chat_llm_enabled', False)
     # 개인 .env에서 플래그를 켜 두었어도 테스트는 on/off 상태를 직접 만든다(앱 import 시점 등록과 무관).
     from backend.app.chat_api import router as chat_router
     routes = list(app.router.routes)

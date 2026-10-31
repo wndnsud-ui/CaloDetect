@@ -21,7 +21,7 @@ import NutritionSummary from './NutritionSummary';
 import GoalSetup from './GoalSetup';
 import MealAnalytics from './MealAnalytics';
 import MealHistory from './MealHistory';
-import ChatRecord from './ChatRecord';
+import {CoachFab, CoachSheet} from './CoachChat';
 import Community from './Community';
 import Rewards from './Rewards';
 import RewardGrantPanel from './RewardGrantPanel';
@@ -32,7 +32,7 @@ import NicknamePromptCard from './NicknamePromptCard';
 import DevDemo from './DevDemo';
 import AdminPage from './AdminPage';
 import { readApiResponse } from './apiResponse';
-import {MobileTopBar, MobileTabBar, RecordSheet} from './MobileShell';
+import {AccountActions, MobileTopBar, MobileTabBar, RecordSheet} from './MobileShell';
 import useIsMobile from './useIsMobile';
 import './style.css';
 import './reference.css';
@@ -85,7 +85,7 @@ function Nutrition({data}) {return <NutritionSummary data={data}/>}
 export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [resetToken, setResetToken] = useState(takeResetToken);
   const [authLoading,setAuthLoading] = useState(true);
-  const [page,setPage] = useState(initialPage==='회원가입'?'로그인':initialPage), [user,setUser] = useState(null), [policy,setPolicy] = useState(null);
+  const [page,setPage] = useState(initialPage==='회원가입'?'로그인':initialPage==='채팅으로 식사기록'?'홈':initialPage), [user,setUser] = useState(null), [policy,setPolicy] = useState(null);
   const [mallKey,setMallKey] = useState(0), [signedUpEmail,setSignedUpEmail] = useState('');
   const [foods,setFoods] = useState([]), [today,setToday] = useState(null), [history,setHistory] = useState([]);
   const [profile,setProfile] = useState(null), [recommendation,setRecommendation] = useState(null);
@@ -101,6 +101,11 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [communityMeal,setCommunityMeal] = useState(null);
   // 모바일(760px 이하) 앱 틀: 하단 탭바의 ＋기록 바텀시트 열림 상태.
   const isMobile = useIsMobile(), [recordSheet,setRecordSheet] = useState(false);
+  // 칼로티 코치 채팅 시트(업무지시서 v1.2): 예전 '채팅으로 식사기록' 페이지 대신 어느 화면에서나 같은 시트를 연다.
+  // coachEdit는 식단 기록의 '챗으로 수정' 대상 {meal, item}이며 같은 시트 안에서 수정 대화를 보여 준다.
+  const [coachOpen,setCoachOpen] = useState(initialPage==='채팅으로 식사기록'), [coachEdit,setCoachEdit] = useState(null);
+  const closeCoach = React.useCallback(()=>setCoachOpen(false),[]);
+  function openCoach(edit=null){setCoachEdit(edit);setRecordSheet(false);setCoachOpen(true);}
   const recordPages = ['음식 추가', '채팅으로 식사기록'];
   const managementPages = ['히스토리', '식단 분석'];
   const accountPages = ['마이페이지', '목표 설정'];
@@ -185,6 +190,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const closeRecordSheet = React.useCallback(()=>setRecordSheet(false),[]);
   // 상위 화면 선택을 바꾸고 페이지별 메시지/오류 상태를 정리한다.
   function navigate(p,tab){
+    if(p==='채팅으로 식사기록'){openCoach();return;}
     const personalReward=p==='리워드'&&['room','growth','coupons','ledger'].includes(tab);
     setPage(personalReward?'마이페이지':p);setError('');setMessage('');
     // 리워드몰 메뉴를 다시 누르면 상품 상세·기획전·코치 상세에서 몰 첫 화면으로 돌아간다.
@@ -220,7 +226,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 선택한 테마를 다시 눌러도 새 추천을 요청하고 진행 중에는 늦은 응답 경합을 방지한다.
   async function changeRecommendTheme(theme){if(busy)return;setRecommendTheme(theme);setRecommendation(null);await generate(theme);}
   // 서버 세션을 종료하고 회원·사진·식단·추천 상태와 CSRF를 비운 뒤 로그인 화면으로 이동한다(홈은 로그인 후 화면).
-  async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setRewards(null);setNicknameStep(null);setGrantMeal(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setSignup(false);setPage('로그인')})}
+  async function logout(){await run(async()=>{await api('/auth/logout',{});csrf='';setUser(null);setRewards(null);setNicknameStep(null);setGrantMeal(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setSignup(false);setCoachOpen(false);setCoachEdit(null);setPage('로그인')})}
   // 비밀번호 변경으로 무효화된 회원 상태를 비우고 새 비밀번호 로그인 화면을 표시한다.
   function passwordChanged(text){csrf='';setResetToken(null);setUser(null);setToday(null);setHistory([]);setProfile(null);setFile(null);setRows([]);setImage(null);setRecommendation(null);setSignup(false);setPage('로그인');setError('');setMessage(text);}
   // 인증 화면은 header를 숨기므로 오류를 폼 안에 직접 표시한다.
@@ -231,10 +237,12 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 화면에 보이는 회원 이름은 닉네임으로 통일한다. 닉네임을 불러오기 전에만 계정 이름을 쓴다.
   const displayName = rewards?.nickname?.nickname || user?.name;
   const menuBackground = accountPages.includes(page) ? 'account' : {'홈':'home','식사 추천':'recommend','히스토리':'management','식단 분석':'management','커뮤니티':'community','리워드':'rewards'}[page];
-  const recordTabs = <div className="section-tabs" role="group" aria-label="식단 기록 방식"><button type="button" className={page==='음식 추가'?'active':''} aria-pressed={page==='음식 추가'} onClick={()=>navigate('음식 추가')}>사진 & 직접 기록</button>{chatEnabled&&<button type="button" className={page==='채팅으로 식사기록'?'active':''} aria-pressed={page==='채팅으로 식사기록'} onClick={()=>navigate('채팅으로 식사기록')}>칼로T코치</button>}</div>;
+  const recordTabs = <div className="section-tabs" role="group" aria-label="식단 기록 방식"><button type="button" className={page==='음식 추가'?'active':''} aria-pressed={page==='음식 추가'} onClick={()=>navigate('음식 추가')}>사진 & 직접 기록</button>{chatEnabled&&<button type="button" onClick={()=>openCoach()}>칼로티 코치</button>}</div>;
   const managementTabs = <div className="section-tabs" role="group" aria-label="식단 관리 메뉴">{[['히스토리','나의 기록'],['식단 분석','영양 분석 리포트']].map(([target,label])=><button type="button" key={target} className={page===target?'active':''} aria-pressed={page===target} onClick={()=>navigate(target)}>{label}</button>)}</div>;
-  const authLayout = page === '로그인' || (!user && ['커뮤니티', '히스토리', '식사 추천', '식단 분석', '마이페이지', '채팅으로 식사기록', '리워드'].includes(page));
-  return <div className={'shell integrated-app' + (authLayout ? ' auth-layout' : ' has-mobile-shell')}><aside><Brand onClick={onHomepage}/><p className="aside-caption">식사 기록에서 다음 선택까지.</p><nav aria-label="웹앱 메뉴">{mainMenus.map(([target,label,pages])=><button key={target} className={pages.includes(page)?'active':''} aria-current={pages.includes(page)?'page':undefined} onClick={()=>navigate(target)}><MenuIcon page={target}/>{label}{target==='리워드'&&user&&rewards&&<span className="menu-points">{rewards.balance.toLocaleString()}P</span>}</button>)}</nav><div className="app-utilities" aria-label="내 정보 및 도구"><button type="button" className={accountPages.includes(page)?'utility-account active':'utility-account'} aria-current={accountPages.includes(page)?'page':undefined} onClick={()=>navigate(user?'마이페이지':'로그인')}><MenuIcon page="마이페이지"/><span>{user?'내 정보 & 설정':'로그인 / 회원가입'}</span></button>{user?.role==='admin'&&<button type="button" onClick={()=>navigate('관리자')}>관리자</button>}{canUseDevDemo&&<button type="button" onClick={()=>navigate('테스트')}>테스트</button>}</div><div className="aside-bottom">{user?displayName:'나의 식단과 영양을 기록하세요.'}{user&&<button className="text-button" onClick={logout} disabled={busy}>로그아웃</button>}<p>Asia/Seoul · 칼로디텍트</p><button className="text-button" onClick={onHomepage}>홈페이지 ↗</button></div></aside><main>{!authLayout&&<MobileTopBar user={user} rewards={rewards} page={page} busy={busy} onNavigate={navigate} onHomepage={onHomepage} onLogout={logout}/>}<header><span className={page==='마이페이지'&&user?'account-page-title':undefined}>{user?(page==='마이페이지'?`${displayName}님의 계정`:`${displayName}님의 식단 기록`):'오늘 뭘 먹지? 데이터로 확인하세요.'}</span><button className="text-button" onClick={()=>navigate(user?'마이페이지':'로그인')}>{user?'내 계정':'로그인 / 회원가입'}</button></header><div className={user?`member-page-content${menuBackground ? ` menu-ambient menu-ambient-${menuBackground}` : ''}`:"page-content-pass-through"}>{error&&<div className="error" role="alert">{error}</div>}{message&&<div className="notice" role="status">{message}</div>}{busy&&<p role="status" className="muted">처리 중입니다. 사진 분석은 잠시 시간이 걸릴 수 있습니다.</p>}
+  const authLayout = page === '로그인' || (!user && ['커뮤니티', '히스토리', '식사 추천', '식단 분석', '마이페이지', '리워드'].includes(page));
+  // 지방이 버튼은 앱 화면 어디에나 둔다. 비로그인은 로그인 안내, 로그인 회원은 서버 채팅 기능이 켜졌을 때만.
+  const coachAvailable = !authLayout && (!user || chatEnabled);
+  return <div className={'shell integrated-app' + (authLayout ? ' auth-layout' : ' has-mobile-shell') + (coachAvailable ? ' has-coach' : '')}><aside><Brand onClick={onHomepage}/><p className="aside-caption">식사 기록에서 다음 선택까지.</p><nav aria-label="웹앱 메뉴">{mainMenus.map(([target,label,pages])=><button key={target} className={pages.includes(page)?'active':''} aria-current={pages.includes(page)?'page':undefined} onClick={()=>navigate(target)}><MenuIcon page={target}/>{label}{target==='리워드'&&user&&rewards&&<span className="menu-points">{rewards.balance.toLocaleString()}P</span>}</button>)}</nav><div className="app-utilities" aria-label="내 정보 및 도구"><button type="button" className={accountPages.includes(page)?'utility-account active':'utility-account'} aria-current={accountPages.includes(page)?'page':undefined} onClick={()=>navigate(user?'마이페이지':'로그인')}><MenuIcon page="마이페이지"/><span>{user?'내 정보 & 설정':'로그인 / 회원가입'}</span></button>{user?.role==='admin'&&<button type="button" onClick={()=>navigate('관리자')}>관리자</button>}{canUseDevDemo&&<button type="button" onClick={()=>navigate('테스트')}>테스트</button>}</div><div className="aside-bottom"><p>Asia/Seoul · 칼로디텍트</p><button className="text-button" onClick={onHomepage}>홈페이지 ↗</button></div></aside><main>{!authLayout&&<MobileTopBar user={user} rewards={rewards} page={page} busy={busy} onNavigate={navigate} onHomepage={onHomepage} onLogout={logout}/>}<header><span className={page==='마이페이지'&&user?'account-page-title':undefined}>{user?(page==='마이페이지'?`${displayName}님의 계정`:`${displayName}님의 식단 기록`):'오늘 뭘 먹지? 데이터로 확인하세요.'}</span><AccountActions user={user} rewards={rewards} page={page} busy={busy} onNavigate={navigate} onLogout={logout}/></header><div className={user?`member-page-content${menuBackground ? ` menu-ambient menu-ambient-${menuBackground}` : ''}`:"page-content-pass-through"}>{error&&<div className="error" role="alert">{error}</div>}{message&&<div className="notice" role="status">{message}</div>}{busy&&<p role="status" className="muted">처리 중입니다. 사진 분석은 잠시 시간이 걸릴 수 있습니다.</p>}
     {user&&menuBackground&&!['community','rewards','account'].includes(menuBackground)&&!(isMobile&&page==='홈')&&<MenuPageHero kind={menuBackground}>
       {menuBackground==='home'&&<button type="button" className="primary" onClick={()=>navigate('음식 추가')}>＋ 식단 기록하기</button>}
       {menuBackground==='management'&&<div className="management-hero-actions">{managementTabs}{page==='히스토리'&&<button type="button" className="primary" onClick={()=>navigate('음식 추가')}>+ 식단 추가하기</button>}</div>}
@@ -242,7 +250,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
     </MenuPageHero>}
     {recordPages.includes(page)&&(user?<MealScanHero>{recordTabs}</MealScanHero>:recordTabs)}
     {user&&accountPages.includes(page)&&<><MenuPageHero kind="account"><div className="section-tabs" role="group" aria-label="내 정보 및 설정 메뉴"><button type="button" className={page==='목표 설정'||accountTab==='profile'?'active':''} aria-pressed={page==='목표 설정'||accountTab==='profile'} onClick={()=>navigate('마이페이지')}>회원정보 & 건강 목표</button><button type="button" className={page==='마이페이지'&&['room','growth'].includes(accountTab)?'active':''} aria-pressed={page==='마이페이지'&&['room','growth'].includes(accountTab)} onClick={()=>navigate('리워드','growth')}>지방이 성장</button>{rewards?.exchange&&<button type="button" className={page==='마이페이지'&&['coupons','ledger'].includes(accountTab)?'active':''} aria-pressed={page==='마이페이지'&&['coupons','ledger'].includes(accountTab)} onClick={()=>navigate('리워드','coupons')}>쿠폰함</button>}</div></MenuPageHero>{(page==='목표 설정'||accountTab==='profile')&&<div className="section-tabs sub-tabs" role="group" aria-label="회원정보 및 건강 목표"><button type="button" className={page==='마이페이지'?'active':''} aria-pressed={page==='마이페이지'} onClick={()=>navigate('마이페이지')}>회원정보</button><button type="button" className={page==='목표 설정'?'active':''} aria-pressed={page==='목표 설정'} onClick={()=>navigate('목표 설정')}>건강 목표</button></div>}</>}
-    {page==='홈'&&<Dashboard user={user} displayName={displayName} today={today} api={api} me={user?rewards:null} onRewardsChanged={loadRewards} onNavigate={navigate} onAddMeal={type=>{setMealType(type);navigate('음식 추가')}}
+    {page==='홈'&&<Dashboard user={user} displayName={displayName} today={today} api={api} me={user?rewards:null} onRewardsChanged={loadRewards} onNavigate={navigate} onOpenCoach={coachAvailable?()=>openCoach():undefined} onAddMeal={type=>{setMealType(type);navigate('음식 추가')}}
       homeCard={user&&rewards?.nickname_prompt==='card'&&<NicknamePromptCard api={api} nickname={rewards.nickname.nickname} onChoose={()=>{setNicknameEdit(true);navigate('마이페이지')}} onDismissed={loadRewards}/>}/>}
     {(page==='로그인'||(!user&&['커뮤니티','히스토리','식사 추천','식단 분석','마이페이지','채팅으로 식사기록','리워드'].includes(page)))&&<div className={signup ? 'auth-card auth-card-signup' : 'auth-card auth-card-login'}><div className="auth-visual"><Brand onClick={onHomepage}/><h1>오늘의 한 끼가<br/>내일의 나를 만듭니다.</h1><p>나를 위한 건강한 선택, 지금 시작하세요.</p><img className="auth-bowl" src="/images/cta-poke.webp.png" alt="신선한 채소와 토핑을 담은 포케 보울"/></div><div className="auth-form"><p className="eyebrow">WELCOME TO CALODETECT</p><h2>{signup?'회원가입':'로그인'}</h2><p className="muted">만 {policy?.age_min||18}세 이상부터 이용할 수 있습니다.</p><div className="segmented" role="group" aria-label="인증 방식"><button type="button" className={!signup?'selected':''} aria-pressed={!signup} disabled={busy} onClick={()=>{setSignup(false);setError('')}}>로그인</button><button type="button" className={signup?'selected':''} aria-pressed={signup} disabled={busy} onClick={()=>{setSignup(true);setError('')}}>회원가입</button></div><SocialLogin signup={signup} api={api} policy={policy} disabled={busy} onAuthenticated={async (result,registered)=>{signupFlow.current=true;setUser(result.user);setPage(file?'음식 추가':'홈');await run(async()=>{const account=await loadAccount();if(registered&&earnedSignupPoints(account))setFirstDecorate('signup')})}}/>{authForm}</div></div>}
     {page==='음식 추가'&&!user&&<><p className="notice">가입 전에는 음식 선택과 영양 계산을 사용할 수 있습니다. 사진 분석과 저장은 로그인이 필요합니다.</p><section className="panel"><h2>사진으로 식단 기록하기</h2><PhotoInput file={file} busy={busy} onChange={selectPhoto}/><p className="muted">선택한 사진은 로그인 후 분석할 수 있습니다. 사진을 선택하면 미리보기를 확인할 수 있습니다.</p><button className="primary" onClick={()=>{setSignup(false);navigate('로그인')}}>로그인하고 사진 분석하기</button></section><div className="calculator-content"><Calculators initialTab="음식 추가"/></div></>}
@@ -312,12 +320,11 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
       </article>;
     })}</div></>}</>}
     {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
-    {page==='채팅으로 식사기록'&&user&&chatEnabled&&<ChatRecord api={api} today={today} history={history} onNavigate={navigate} onSaved={mealId=>{if(mealId)setGrantMeal(mealId);loadAccount().catch(e=>setError(e.message))}}/>}
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}
     {page==='테스트'&&canUseDevDemo&&<DevDemo api={api} status={devDemo} onChanged={loadRewards} onNavigate={navigate}/>}
     {page==='리워드'&&user&&<Rewards key={mallKey} api={api} me={rewards} tab="mall" showTabs={false} onTab={tab=>navigate('리워드',tab)} onChanged={loadRewards}/>}
-    {page==='히스토리'&&user&&<MealHistory history={history} onAdd={()=>navigate('음식 추가')} api={api} onChanged={()=>loadAccount().catch(e=>setError(e.message))}/>}
+    {page==='히스토리'&&user&&<MealHistory history={history} onAdd={()=>navigate('음식 추가')} api={api} onChanged={()=>loadAccount().catch(e=>setError(e.message))} onChatEdit={chatEnabled?edit=>openCoach(edit):undefined}/>}
     {page==='마이페이지'&&user&&<>
       {accountTab!=='profile'&&<Rewards api={api} me={rewards} tab={accountTab} showTabs={false} onTab={tab=>tab==='mall'?navigate('리워드','mall'):setAccountTab(tab)} onChanged={loadRewards}/>}
     </>}
@@ -334,5 +341,9 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   </main>
     {!authLayout&&<MobileTabBar page={page} onNavigate={navigate} onRecord={()=>setRecordSheet(true)}/>}
     {!authLayout&&<RecordSheet open={recordSheet} chatEnabled={chatEnabled} onClose={closeRecordSheet} onNavigate={navigate}/>}
+    {coachAvailable&&<CoachFab hidden={coachOpen||recordSheet} onOpen={()=>openCoach()}/>}
+    {coachAvailable&&<CoachSheet open={coachOpen} user={user} api={api} editTarget={coachEdit} onClose={closeCoach} onBackToChat={()=>setCoachEdit(null)}
+      onLogin={()=>{setCoachOpen(false);navigate('로그인');}} onNavigate={navigate}
+      onSaved={mealId=>{if(mealId)setGrantMeal(mealId);loadAccount().catch(e=>setError(e.message))}}/>}
   </div>
 }

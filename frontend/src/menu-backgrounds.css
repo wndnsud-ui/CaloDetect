@@ -33,3 +33,30 @@
 
 /* Keep the illustration bleed within the page so it cannot add horizontal scrolling. */
 .menu-ambient::before{left:0;right:0}
+
+/* PC 메뉴 배경은 계정 헤더부터 환영 배너까지 연결한다. 상세는 제외한다. */
+@media(min-width:761px){
+  .shell.integrated-app>main:has(.menu-ambient .menu-page-hero){position:relative;isolation:isolate}
+  .shell.integrated-app>main:has(.menu-ambient-home){--connected-menu-background:url('/images/features/01_home.png')}
+  .shell.integrated-app>main:has(.menu-ambient-recommend){--connected-menu-background:url('/images/features/03_today_menu.png')}
+  .shell.integrated-app>main:has(.menu-ambient-management){--connected-menu-background:url('/images/features/04_meal_management.png')}
+  .shell.integrated-app>main:has(.menu-ambient-community){--connected-menu-background:url('/images/features/05_community.png')}
+  .shell.integrated-app>main:has(.menu-ambient-rewards){--connected-menu-background:url('/images/features/06_rewards_points.png')}
+  .shell.integrated-app>main:has(.menu-ambient-account){--connected-menu-background:url('/images/menu-backgrounds/account-illustrated.png')}
+  .shell.integrated-app>main:has(.menu-ambient .menu-page-hero)::before{content:'';position:absolute;inset:0 0 auto;height:490px;z-index:-1;pointer-events:none;background:var(--connected-menu-background) right center/cover no-repeat;mask-image:linear-gradient(to bottom,#000 78%,transparent 100%)}
+  .shell.integrated-app>main:has(.menu-ambient .menu-page-hero)>header{border-bottom:1px solid rgba(49,91,74,.13);background:transparent;align-items:flex-end;padding-bottom:8px}
+  .shell.integrated-app>main:has(.menu-ambient .menu-page-hero)>header>span{padding-bottom:10px}
+  .member-page-content.menu-ambient:has(.menu-page-hero)::before{display:none}
+  .member-page-content.menu-ambient .menu-page-hero{background:transparent}
+  .member-page-content.menu-ambient .menu-page-hero,
+  .member-page-content .meal-scan-hero{transform:translateY(-40px)}
+  .member-page-content .menu-page-hero{margin-bottom:-16px}
+  .shell.integrated-app>main:has(.meal-scan-hero){position:relative;isolation:isolate}
+  .shell.integrated-app>main:has(.meal-scan-hero)::before{content:'';position:absolute;inset:0 0 auto;height:490px;z-index:-1;pointer-events:none;background:url('/images/features/02_meal_record.png') right center/cover no-repeat;mask-image:linear-gradient(to bottom,#000 78%,transparent 100%)}
+  .shell.integrated-app>main:has(.meal-scan-hero)>header{border-bottom:1px solid rgba(49,91,74,.13);background:transparent}
+  .shell.integrated-app>main .meal-scan-hero::before{display:none}
+  .shell.integrated-app>main:has(.menu-ambient .menu-page-hero)::before,
+  .shell.integrated-app>main:has(.meal-scan-hero)::before{
+    mask-image:linear-gradient(to bottom,#000 48%,rgba(0,0,0,.96) 58%,rgba(0,0,0,.78) 69%,rgba(0,0,0,.4) 81%,rgba(0,0,0,.1) 93%,transparent 100%);
+  }
+}

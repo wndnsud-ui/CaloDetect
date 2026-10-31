@@ -125,3 +125,23 @@ class DraftItem(Base):
     bbox: Mapped[list | None] = mapped_column(JSON)
     __table_args__ = (CheckConstraint('consumption_ratio >= 0 AND consumption_ratio <= 1', name='ck_draft_items_ratio'),
                       CheckConstraint('serving_multiplier = 1', name='ck_draft_items_base'))
+
+
+# ---- 칼로티 코치 LLM(챗봇 업무지시서 v1.2) ----
+
+# ChatLlmConsent: 외부 AI(LLM) 전송 고지 동의. 회원당 한 행이며, 동의한 시각과 문구를 남겨 다시 묻지 않는다.
+class ChatLlmConsent(Base):
+    __tablename__ = 'chat_llm_consents'
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    notice_text: Mapped[str] = mapped_column(String(300))
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+# ChatLlmUsage: 회원·한국 날짜별 LLM 질문 횟수. 서버가 세며 날짜가 바뀌면 새 행에서 다시 센다.
+class ChatLlmUsage(Base):
+    __tablename__ = 'chat_llm_usage'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    user_id: Mapped[int] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+    __table_args__ = (UniqueConstraint('user_id', 'day', name='uq_chat_llm_usage_day'),)

@@ -1,4 +1,5 @@
 /* 회원 홈: 리워드몰과 동일한 1440px 본문. 기존 캐릭터·공통 식단 카드를 재사용한다. */
+.home-dashboard .hd-date button:not(.hd-today){display:inline-flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0}
 .home-dashboard{width:100%;max-width:1440px;margin:0 auto;display:flex;flex-direction:column;gap:24px;color:#183746}
 .home-dashboard button{font-family:inherit}.home-dashboard button:focus-visible{outline:3px solid #70bca1;outline-offset:4px}
 .home-dashboard h1,.home-dashboard h2,.home-dashboard h3,.home-dashboard p{margin:0}

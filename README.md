@@ -113,6 +113,18 @@ docker compose exec backend python -m backend.scripts.seed_test_demo
 | `relation "reward_..." does not exist` | 1단계 `alembic upgrade head`를 실행하지 않았습니다 |
 | 성장 탭 그래프가 비어 있음 | 8502 그래프 서버(`http://localhost:8502/_stcore/health` → `ok`) 확인 |
 
+## 칼로티 코치 챗봇 (지방이 플로팅 버튼 · OpenAI 해석, 2026-10-31)
+
+[챗봇 업무지시서 v1.2](docs/rules/CaloDetect%20Calo-T%20Coach%20LLM%20챗봇%20업무지시서%20v1.2.md) 1·2단계입니다. 아래 채팅 기능(`CHAT_RECORD_ENABLED=true`)이 켜져 있으면 모든 화면 오른쪽 아래 지방이 버튼이 채팅 시트를 엽니다(예전 '채팅으로 식사기록' 페이지 대체). 문장을 OpenAI로 해석하려면 Backend `.env`에 아래를 추가하고 재시작합니다.
+
+```env
+CHAT_LLM_ENABLED=true
+OPENAI_API_KEY=<서버 전용 키, Git 금지>
+# 선택: OPENAI_MODEL=gpt-4o-mini, CHAT_DAILY_LIMIT=5, CHAT_RETENTION_DAYS=7
+```
+
+필요한 테이블은 migration `20261031_01`(`chat_llm_consents`·`chat_llm_usage`)입니다. 켜면 첫 대화 전 외부 AI 전송 고지 동의(1회)와 하루 질문 5회 제한(한국 시각 0시 초기화)이 적용되고, 답장 칩은 횟수에 들어가지 않습니다. `CHAT_LLM_ENABLED`가 없거나 키가 없으면 기존 규칙 해석기로 동작합니다. 실제 OpenAI 해석 점검: `.\.venv-backend\Scripts\python.exe -m backend.scripts.check_chat_llm`. 테스트(외부 호출 없음): `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_chat_llm.py backend/tests/test_chat_record.py -q`.
+
 ## 채팅으로 식사 기록하기 · 챗으로 섭취량 수정 (개인 테스트 브랜치, 기본 꺼짐)
 
 이미 설치한 팀원은 [챗봇 DB 업데이트 간편 가이드](docs/operations/CHAT_RECORD_MIGRATION.md)의 실행 블록을 사용하세요. 기존 환경으로 DB 백업 → migration → Backend 실행까지 진행하며 추가 패키지 설치는 필요하지 않습니다. 미확인 DB 이력 오류는 자동으로 우회하지 않습니다.
@@ -152,6 +164,8 @@ Git 업데이트 후 기존 로컬 DB 준비 절차를 완료한 상태에서 �
 생성 후 웹을 새로고침하면 조회됩니다. GitHub에는 생성 스크립트만 포함되며 각 PC의 DB 데이터는 자동으로 복사되지 않습니다. 웹 주소: http://localhost:5174
 
 ## React 내 Streamlit ECharts 그래프 실행
+
+Railway 별도 그래프 서비스: 같은 저장소에서 **Root Directory를 `/streamlit`**으로 지정하면 `streamlit/Dockerfile`로 그래프 서버만 빌드합니다. 서비스 시작 명령은 Dockerfile 기본값을 사용하고 Healthcheck Path는 `/_stcore/health`로 설정합니다. Public Domain을 생성한 후 Vercel의 `VITE_STREAMLIT_URL`에 해당 **HTTPS 주소**를 넣고 프론트엔드를 재배포합니다. API용 Railway 주소와 구분하며 DB·OAuth·SMTP 비밀값은 그래프 서비스에 필요하지 않습니다.
 
 홈의 칼로리 링, 일간·월별 분석 막대 및 탄단지 그래프는 별도 Streamlit 서버를 React iframe으로 표시합니다. 프론트엔드와 Backend 외에 아래 서버도 실행해야 합니다.
 

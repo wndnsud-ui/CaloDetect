@@ -34,9 +34,16 @@ const RECORD_PAGES = ['음식 추가', '채팅으로 식사기록'];
 // 로고는 데스크톱 사이드바와 같은 Brand를 쓰고, 누르면 소개(초기) 페이지로 이동한다.
 // 오른쪽: 비로그인은 로그인 버튼, 로그인 상태는 포인트 · 로그아웃 · 내 정보 아이콘.
 export function MobileTopBar({user, rewards, page, busy, onNavigate, onHomepage, onLogout}) {
-  const accountActive = ['마이페이지', '목표 설정'].includes(page);
   return <div className="m-topbar">
     <Brand onClick={onHomepage}/>
+    <AccountActions user={user} rewards={rewards} page={page} busy={busy} onNavigate={onNavigate} onLogout={onLogout}/>
+  </div>;
+}
+
+// PC와 모바일에서 같은 계정 버튼과 동작을 사용한다.
+export function AccountActions({user, rewards, page, busy, onNavigate, onLogout}) {
+  const accountActive = ['마이페이지', '목표 설정'].includes(page);
+  return (
     <div className="m-topbar-actions">
       {user ? <>
         {rewards && <button type="button" className="m-points" onClick={() => onNavigate('리워드')}
@@ -47,7 +54,7 @@ export function MobileTopBar({user, rewards, page, busy, onNavigate, onHomepage,
           onClick={() => onNavigate('마이페이지')}><Icon>{ICONS.user}</Icon></button>
       </> : <button type="button" className="m-auth is-login" onClick={() => onNavigate('로그인')}>로그인</button>}
     </div>
-  </div>;
+  );
 }
 
 export function MobileTabBar({page, onNavigate, onRecord}) {
@@ -90,7 +97,7 @@ export function RecordSheet({open, chatEnabled, onClose, onNavigate}) {
       </button>
       {chatEnabled && <button type="button" className="m-sheet-option" onClick={() => go('채팅으로 식사기록')}>
         <span className="m-sheet-icon is-chat"><Icon>{ICONS.chat}</Icon></span>
-        <span><strong>칼로T코치와 채팅으로</strong><small>먹은 음식을 말로 알려주면 정리해 줘요</small></span>
+        <span><strong>칼로티 코치와 채팅으로</strong><small>먹은 음식을 말로 알려주면 정리해 줘요</small></span>
       </button>}
       <button type="button" className="m-sheet-cancel" onClick={onClose}>닫기</button>
     </div>

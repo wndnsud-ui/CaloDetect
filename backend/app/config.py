@@ -77,6 +77,19 @@ class Settings(BaseSettings):
     oauth_state_secret: str | None = Field(default=None, min_length=32)
     # 채팅 식사기록·섭취량 수정 기능 플래그. false면 새 라우트·meal_json 추가 키·프론트 진입점이 없다.
     chat_record_enabled: bool = False
+    # ---- 칼로티 코치 LLM(챗봇 업무지시서 v1.2). 공급자: OpenAI(사용자 결정 2026-10-31) ----
+    # true면 채팅 문장을 LLM이 해석하고, 대화 전 개인정보 고지 동의와 하루 질문 횟수 제한을 적용한다.
+    # false면 기존 규칙 해석기만 쓴다(테스트 기본값). 키가 없으면 켜도 규칙 해석기로 동작한다.
+    chat_llm_enabled: bool = False
+    # 서버 전용 OpenAI 키. 응답·로그·프런트엔드에 노출하지 않는다.
+    openai_api_key: str | None = None
+    openai_model: str = 'gpt-4o-mini'
+    openai_base_url: str = 'https://api.openai.com/v1'
+    chat_llm_timeout_seconds: float = Field(default=20, gt=0, le=120)
+    # 1인 하루 질문 횟수(한국 시각 0시 초기화). 업무지시서 결정: 우선 5회.
+    chat_daily_limit: int = Field(default=5, ge=1, le=1000)
+    # 지난 대화 메시지 보관 일수. 식사 기록은 지우지 않는다.
+    chat_retention_days: int = Field(default=7, ge=1, le=365)
     # ---- CaloPoint·Growth·Reward(리워드 지시서 v3 §5-6). 모든 수치는 개발 기본값이며 운영값은 TBD ----
     reward_enabled: bool = True
     reward_point_valid_days: int = Field(default=365, ge=1)

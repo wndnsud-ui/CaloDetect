@@ -145,3 +145,27 @@
 .coach-chat-card>button,.coach-chat-card>a{min-height:36px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid #bfdcd1;border-radius:999px;background:#fff;color:#00735f;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer}
 .coach-chat-card>button:disabled{opacity:.5;cursor:default}
 .coach-chat-card>button:focus-visible,.coach-chat-card>a:focus-visible{outline:2px solid #00836d;outline-offset:2px}
+
+/* Let nested flex/grid content shrink to the sheet instead of clipping its right edge. */
+.coach-sheet,.coach-sheet *{box-sizing:border-box}
+.coach-sheet .coach-chat,.coach-sheet .coach-edit,.coach-sheet .chat-record,.coach-sheet .chat-main{min-width:0;width:100%;max-width:100%}
+.coach-sheet .chat-log{min-width:0;min-height:0;max-width:100%;overflow-x:hidden}
+.coach-sheet .chat-row{min-width:0;max-width:100%}
+.coach-sheet .chat-bubble{min-width:0;overflow-wrap:anywhere}
+.coach-sheet .coach-chat-cards,.coach-sheet .coach-chat-card{min-width:0;max-width:100%}
+.coach-sheet .chat-input{display:grid;grid-template-columns:44px minmax(0,1fr) 64px;flex-shrink:0;width:100%;min-width:0;max-width:100%}
+.coach-sheet .chat-input #chat-text{width:100%;min-width:0;max-width:100%;margin:0}
+.coach-sheet .chat-input .primary{width:100%;min-width:0;max-width:100%;margin:0}
+@media(max-width:760px){
+  .coach-sheet .coach-chat-card{grid-template-columns:32px minmax(0,1fr) auto;gap:7px;padding:9px}
+  .coach-sheet .coach-chat-card .food-thumb{width:32px;height:32px}
+  .coach-sheet .coach-chat-card-title{flex-wrap:wrap;gap:3px 6px}
+  .coach-sheet .coach-chat-card-title b{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;font-size:13px}
+  .coach-sheet .coach-chat-card>div>small{white-space:normal;overflow:visible;overflow-wrap:anywhere}
+  .coach-sheet .coach-chat-card>a,.coach-sheet .coach-chat-card>button{padding:0 8px;white-space:nowrap}
+  .coach-sheet .chat-input{grid-template-columns:40px minmax(0,1fr) 58px}
+  .coach-sheet .coach-photo-button{width:40px}
+  .coach-sheet .chat-input .primary{padding:0 7px}
+  .coach-sheet .coach-usage{white-space:normal;overflow-wrap:anywhere}
+  .coach-sheet .reply-chips button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+}

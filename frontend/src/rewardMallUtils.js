@@ -35,11 +35,11 @@ export const HD_PRODUCTS = new Set(['energy_bar', 'protein_bar', 'chicken_sandwi
 const FOOD_PHOTOS = new Set(['energy_bar', 'protein_bar', 'chicken_sandwich', 'energy_drink', 'greek_yogurt', 'pita_sandwich', 'salad_box']);
 
 // 작은 기존 썸네일 대신 실제 고해상도 사진만 갤러리에 노출한다.
-// 첫 장은 글씨가 들어간 시안 사진(식품은 동영상 버튼을 지운 본, 홍삼은 포장 글씨가 있는 원본)이고 다음 장이 글씨 없는 고해상도 사진이다.
+// Keep the original first photo; the second preserves that product and its printed packaging.
 export function productGallery(product) {
   if (!HD_PRODUCTS.has(product.id)) return [...new Set([product.hero, ...(product.content?.thumbs || [])].filter(Boolean))];
   const labeled = FOOD_PHOTOS.has(product.id) ? `products/${product.id}/hero-no-video.png` : `/rewards/products/${product.id}/hero.jpg`;
-  return [labeled, `products/${product.id}/hero-hd.png`];
+  return [labeled, `/rewards/products/${product.id}/gallery-product-v2.webp`];
 }
 
 // 이미지 키 → 공개 경로. ZIP 확대본 대신 재제작한 상품 사진을 공통 사용한다.

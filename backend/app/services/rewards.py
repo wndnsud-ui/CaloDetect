@@ -14,8 +14,9 @@ import time
 from collections import defaultdict, deque
 from datetime import date, datetime, time as dtime, timedelta, timezone
 from fastapi import HTTPException
-from sqlalchemy import select, func, delete
+from sqlalchemy import select, func, delete, event as sa_event, inspect as sa_inspect
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session as OrmSession
 from ..config import settings
 from ..models import Meal, Detection, Profile, User, PointTransaction
 from ..models_chat import ChatAttachment
@@ -103,9 +104,59 @@ def savepoint(db, work):
         return None
 
 
+# ---- 요청 안 읽기 캐시 ----
+# /rewards/me 한 번에 같은 조회(사용 가능 포인트·XP 합계·보유 아이템·기록한 날 등)가 여러 번 반복된다.
+# 같은 세션(요청) 안에서는 한 번 읽은 결과를 다시 쓰고, 쓰기가 flush·commit·rollback되면 비워 옛 값을 쓰지 않는다.
+# 잠금 조회(lock=True)는 캐시하지 않는다.
+def _net_changed(obj):
+    # 같은 값을 다시 넣은 속성(예: 아이템 동기화)은 실제 변경이 아니므로 캐시를 비우지 않는다.
+    for attr in sa_inspect(obj).attrs:
+        history = attr.history
+        if history.has_changes() and list(history.added) != list(history.deleted):
+            return True
+    return False
+
+
+def _has_net_changes(session):
+    return bool(session.new or session.deleted or any(_net_changed(obj) for obj in session.dirty))
+
+
+def _mark_flush(session, *args):
+    session.info['reward_flush_changes'] = _has_net_changes(session)
+
+
+def _clear_after_flush(session, *args):
+    if session.info.pop('reward_flush_changes', True):
+        session.info.pop('reward_read_cache', None)
+
+
+def _clear_read_cache(session, *args):
+    session.info.pop('reward_read_cache', None)
+
+
+sa_event.listen(OrmSession, 'before_flush', _mark_flush)
+sa_event.listen(OrmSession, 'after_flush', _clear_after_flush)
+for _name in ('after_commit', 'after_rollback'):
+    sa_event.listen(OrmSession, _name, _clear_read_cache)
+
+
+def request_cache(db, key, load):
+    # 아직 DB에 내보내지 않은 실제 변경이 있으면 먼저 flush해(캐시도 비워짐) 그 변경을 반영한 값을 읽는다.
+    if _has_net_changes(db):
+        db.flush()
+    cache = db.info.setdefault('reward_read_cache', {})
+    if key not in cache:
+        cache[key] = load()
+    value = cache[key]
+    return value.copy() if isinstance(value, (list, set, dict)) else value
+
+
 # ---- 계정·아이템 ----
 
 def ensure_items(db):
+    # 한 요청(세션)에서 account()가 여러 번 불려도 아이템 동기화는 한 번만 한다(DB 왕복 감소).
+    if db.info.get('reward_items_synced'):
+        return
     existing = set(db.scalars(select(Item.id)))
     missing = [row for row in ITEMS if row[0] not in existing]
     for order, row in enumerate(ITEMS):
@@ -114,23 +165,26 @@ def ensure_items(db):
             savepoint(db, lambda: (db.add(Item(id=item_id, name=name, kind=kind, slot=slot, price=price,
                 level_required=level, sellable=sellable, stage=stage, asset_key=item_id, active=active,
                 sort_order=order)), db.flush()))
+    # 아이템을 한 번에 읽어 둔다. 아래 동기화는 이 목록(세션 identity map)에서 찾으므로 아이템마다 조회하지 않는다.
+    items = {item.id: item for item in db.scalars(select(Item))}
     # 코스튬 판매 전환을 기존 DB에도 반영하되 기존 소유권·구매 원장은 유지한다.
     for item_id, name, price in [('outfit_lv3', '전용 의상', 15), ('costume_lv4', '전용 코스튬', 25)]:
-        item = db.get(Item, item_id)
+        item = items[item_id]
         item.name, item.price, item.level_required, item.sellable = name, price, None, True
     # 기존 DB에도 승인된 가격을 동기화하며 과거 구매 원장은 보존한다.
     for item_id, _, kind, _, price, _, sellable, _, _ in ITEMS:
         if sellable and kind in {'deco', 'protector'} and item_id not in DEFAULT_ITEMS:
-            db.get(Item, item_id).price = price
+            items[item_id].price = price
     # 기존 DB에도 기본 제공 정책을 적용하며 구매·포인트 원장은 보존한다.
     for item_id in DEFAULT_ITEMS:
-        item = db.get(Item, item_id)
+        item = items[item_id]
         item.price = None
         item.sellable = False
         if item_id == 'bg_lv1':
             item.name = '기본 배경 · 포근한 아침 방'
         elif item_id == 'starter_bg':
             item.name = '깔끔한 민트 방'
+    db.info['reward_items_synced'] = True
 
 
 def account(db, user_id, lock=False):
@@ -138,8 +192,10 @@ def account(db, user_id, lock=False):
     row = db.get(Account, user_id, with_for_update=lock or None)
     if row:
         ensure_items(db)
+        owned = request_cache(db, ('default_items', user_id), lambda: set(db.scalars(
+            select(UserItem.item_id).where(UserItem.user_id == user_id, UserItem.item_id.in_(DEFAULT_ITEMS)))))
         for item_id in DEFAULT_ITEMS:
-            if db.get(UserItem, (user_id, item_id)) is None:
+            if item_id not in owned:
                 give_item(db, user_id, item_id, 'default')
         return row
     ensure_items(db)
@@ -164,7 +220,9 @@ def give_item(db, user_id, item_id, via):
 def live_lots(db, user_id, lock=False):
     query = (select(Lot).where(Lot.user_id == user_id, Lot.remaining > 0, Lot.expires_at > now())
              .order_by(Lot.expires_at, Lot.earned_at, Lot.id))
-    return list(db.scalars(query.with_for_update() if lock else query))
+    if lock:
+        return list(db.scalars(query.with_for_update()))
+    return request_cache(db, ('live_lots', user_id), lambda: list(db.scalars(query)))
 
 
 def is_restricted(lot):
@@ -183,7 +241,8 @@ def balance_info(db, user_id):
 def refresh_cache(db, user_id):
     row = account(db, user_id)
     row.balance_cache = sum(l.remaining for l in live_lots(db, user_id))
-    row.xp_total_cache = db.scalar(select(func.coalesce(func.sum(Xp.amount), 0)).where(Xp.user_id == user_id))
+    row.xp_total_cache = request_cache(db, ('xp_total', user_id), lambda: db.scalar(
+        select(func.coalesce(func.sum(Xp.amount), 0)).where(Xp.user_id == user_id)))
     return row
 
 
@@ -387,18 +446,22 @@ def meal_idem(meal_type, day):
 def granted_meals(db, user_id, day):
     """그 날짜에 끼니 보상을 받은 식단 {idem: meal_id}. XP·포인트 어느 쪽이든 지급 기록이 있으면 인정."""
     keys = [meal_idem(t, day) for t in (*rules.MEAL_TYPES, 'snack')]
-    found = {}
-    for model in (Xp, Lot):
-        for idem, ref in db.execute(select(model.idem_key, model.ref_id).where(
-                model.user_id == user_id, model.idem_key.in_(keys))):
-            found.setdefault(idem, ref)
-    return found
+
+    def load():
+        found = {}
+        for model in (Xp, Lot):
+            for idem, ref in db.execute(select(model.idem_key, model.ref_id).where(
+                    model.user_id == user_id, model.idem_key.in_(keys))):
+                found.setdefault(idem, ref)
+        return found
+    return request_cache(db, ('granted_meals', user_id, day), load)
 
 
 def recorded_days(db, user_id, start, end):
     """'기록한 날': 보상 지급된 끼니 기록이 1개 이상인 KST 날짜."""
-    return set(db.scalars(select(Xp.event_date).where(Xp.user_id == user_id, Xp.source.in_(('meal', 'snack')),
-        Xp.amount > 0, Xp.event_date >= start, Xp.event_date <= end).distinct()))
+    return request_cache(db, ('recorded_days', user_id, start, end), lambda: set(db.scalars(
+        select(Xp.event_date).where(Xp.user_id == user_id, Xp.source.in_(('meal', 'snack')),
+                                    Xp.amount > 0, Xp.event_date >= start, Xp.event_date <= end).distinct())))
 
 
 def protected_days(db, user_id, start, end):
@@ -743,7 +806,8 @@ def eta_xp(db, user, remaining):
 
 
 def owned_items(db, user_id):
-    return {u.item_id: u for u in db.scalars(select(UserItem).where(UserItem.user_id == user_id)) if u.quantity > 0}
+    return request_cache(db, ('owned_items', user_id), lambda: {
+        u.item_id: u for u in db.scalars(select(UserItem).where(UserItem.user_id == user_id)) if u.quantity > 0})
 
 
 def goal_info(db, user, row, balance):

@@ -172,6 +172,8 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
       try {
         const d=await api('/users/me');if(!active)return;
         setUser(d.user);if(!resetToken)setPage(current=>current==='로그인'?'홈':current);
+        // 로그인 여부가 확인되면 바로 화면을 보여 주고, 식단·프로필·리워드는 이어서 채운다(첫 화면 대기 단축).
+        setAuthLoading(false);
         try {await loadAccount();} catch(e){if(active)setError(e.message);}
       } catch(e){if(active&&e.status!==401)setError(e.message);}
       finally {if(active)setAuthLoading(false);}

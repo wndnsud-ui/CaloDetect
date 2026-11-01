@@ -18,7 +18,7 @@ try{
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(`${base}/tests/meal-recorder.html`);
     assert.equal(await page.getByRole('button',{name:'사진 분석하기',exact:true}).isDisabled(),true);
-    assert.equal(await page.getByRole('button',{name:'직접 입력하기',exact:false}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'직접 입력하기',exact:false}).count(),1,'Manual entry is offered before any photo');
     assert.equal(await page.getByRole('button',{name:'AI로 영양 추정하기'}).count(),0);
     await analyze(page);
     await page.getByText('🌱 음식을 찾지 못했어요.',{exact:false}).waitFor();

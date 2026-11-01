@@ -416,3 +416,30 @@ def test_local_image_analysis_is_not_enabled_for_production_or_remote_clients(en
         monkeypatch.setattr(settings, 'app_env', 'production')
         assert local.post('/meals/detect', files={'file': ('test.png', png(), 'image/png')}).status_code == 503
         assert local.get(image_url).status_code == 503
+
+
+# 회귀 검사: 추천 카드 근처 맛집 찾기. 지역명 또는 좌표 중 하나가 필요하고 키가 없으면 503.
+def test_recommendation_places(env):
+    from backend.app.services import places
+    client, _, monkeypatch = env
+    assert client.post('/recommendations/places', json={'query': '수육', 'area': '강남역'}).status_code == 401
+    account(client)
+    seen = {}
+    def fake_search(query, area=None, lat=None, lng=None, size=5):
+        seen.update(query=query, area=area, lat=lat, lng=lng)
+        return [{'name': '수육집', 'category': '한식', 'address': '서울 강남구', 'distance': None, 'phone': '', 'url': 'https://place.map.kakao.com/1'}]
+    monkeypatch.setattr(places, 'search', fake_search)
+    monkeypatch.setattr(places, 'available', lambda: True)
+    response = client.post('/recommendations/places', json={'query': ' 수육 ', 'area': ' 강남역 '})
+    assert response.status_code == 200, response.text
+    assert response.json()['places'][0]['name'] == '수육집' and seen['query'] == '수육' and seen['area'] == '강남역'
+    here = client.post('/recommendations/places', json={'query': '수육', 'lat': 37.498, 'lng': 127.027})
+    assert here.status_code == 200 and seen['lat'] == 37.498 and seen['area'] is None
+    assert client.post('/recommendations/places', json={'query': '수육'}).status_code == 422
+    assert client.post('/recommendations/places', json={'query': '수육', 'lat': 37.5}).status_code == 422
+    def broken(*args, **kwargs):
+        raise places.PlacesUnavailable('HTTPError')
+    monkeypatch.setattr(places, 'search', broken)
+    assert client.post('/recommendations/places', json={'query': '수육', 'area': '강남역'}).status_code == 502
+    monkeypatch.setattr(places, 'available', lambda: False)
+    assert client.post('/recommendations/places', json={'query': '수육', 'area': '강남역'}).status_code == 503

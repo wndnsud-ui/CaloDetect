@@ -127,6 +127,8 @@ OPENAI_API_KEY=<서버 전용 키, Git 금지>
 
 필요한 테이블은 migration `20261031_01`(`chat_llm_consents`·`chat_llm_usage`)입니다. 켜면 첫 대화 전 외부 AI 전송 고지 동의(1회)와 하루 질문 5회 제한(한국 시각 0시 초기화)이 적용되고, 답장 칩은 횟수에 들어가지 않습니다. `CHAT_LLM_ENABLED`가 없거나 키가 없으면 기존 규칙 해석기로 동작합니다. 실제 OpenAI 해석 점검: `.\.venv-backend\Scripts\python.exe -m backend.scripts.check_chat_llm`. 테스트(외부 호출 없음): `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_chat_llm.py backend/tests/test_chat_record.py -q`.
 
+식사 추천 카드의 「근처 맛집 찾기」(`POST /recommendations/places`)도 같은 카카오 키를 씁니다. 챗봇 설정과 무관하게 동작하며, 키가 없으면 창에서 「음식점 검색이 설정되지 않았습니다」로 안내합니다. 「내 위치로 찾기」는 HTTPS 또는 localhost에서만 동작합니다.
+
 ## 채팅으로 식사 기록하기 · 챗으로 섭취량 수정 (개인 테스트 브랜치, 기본 꺼짐)
 
 이미 설치한 팀원은 [챗봇 DB 업데이트 간편 가이드](docs/operations/CHAT_RECORD_MIGRATION.md)의 실행 블록을 사용하세요. 기존 환경으로 DB 백업 → migration → Backend 실행까지 진행하며 추가 패키지 설치는 필요하지 않습니다. 미확인 DB 이력 오류는 자동으로 우회하지 않습니다.

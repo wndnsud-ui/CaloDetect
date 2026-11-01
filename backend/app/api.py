@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
 from .models import User, AuthSession, Profile, Food, Meal, MealItem, Detection, ImageUpload, RecommendationLog, utcnow
-from .schemas import SignupRequest, LoginRequest, CalorieRequest, MealRequest, CorrectionRequest, RecommendationRequest
+from .schemas import SignupRequest, LoginRequest, CalorieRequest, MealRequest, CorrectionRequest, RecommendationRequest, RecommendationPlacesRequest
 from .security import password_hash, password_matches, new_session, get_user, get_admin, hash_token
 from .services.profile import calculate_calorie_range
 from .services.nutrition import food_catalog, calculate_nutrition
@@ -22,6 +22,7 @@ from .services.analytics import get_today_status, get_month_status, meal_json
 from .services.timezone import korean_date
 from .services.correction import apply_correction
 from .services.recommendation import recommend_meals
+from .services import places
 from .services.vision import detect_image, mobile_request
 from .accounts import local_development_environment, local_test_request
 from .services import rewards
@@ -313,6 +314,18 @@ def recommendations(body: RecommendationRequest, user: CurrentUser, db: DB):
     except ValueError as error:
         raise HTTPException(422, str(error))
 
+
+
+# 추천 카드에서 고른 메뉴를 파는 음식점(카카오 로컬). 지역명 또는 좌표는 검색에만 쓰고 저장·로그하지 않는다.
+# HTTP POST /recommendations/places: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
+@router.post('/recommendations/places')
+def recommendation_places(body: RecommendationPlacesRequest, user: CurrentUser):
+    if not places.available():
+        raise HTTPException(503, '음식점 검색이 설정되지 않았습니다.')
+    try:
+        return {'places': places.search(body.query, area=body.area, lat=body.lat, lng=body.lng)}
+    except places.PlacesUnavailable:
+        raise HTTPException(502, '음식점 검색에 실패했습니다. 잠시 후 다시 시도해 주세요.')
 
 # 소유한 탐지의 음식명을 수정하고 연결된 식단이 있으면 기존 섭취량으로 영양값도 다시 계산한다.
 # HTTP POST /detections/{detection_id}/correction: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.

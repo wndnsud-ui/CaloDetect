@@ -39,3 +39,16 @@
 @media(max-width:760px){.meal-recorder .recorder-food-meta{grid-template-columns:1fr}.recorder-food-meta>label{grid-column:1/-1}}
 @media(max-width:760px){.recorder-nutrition-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.recorder-amount input{font-size:13px}.meal-recorder .recorder-amount button{min-width:26px;width:26px}}
 @media(max-width:760px){.recorder-heading h2{font-size:20px}.meal-recorder fieldset,.meal-recorder .recorder-item{padding:16px 13px}.meal-recorder .recorder-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.recorder-meta>label:last-child{grid-column:1/-1}.meal-recorder .recorder-food-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.recorder-food-meta>label:first-child{grid-column:1/-1}.recorder-food-meta>label:last-child{grid-column:auto}.recorder-manual-entry{align-items:flex-start;flex-direction:column;gap:12px;padding:14px}.recorder-item-heading{gap:4px}.recorder-item-heading>div{gap:6px}.recorder-item-heading strong{font-size:13px}.meal-recorder .primary{width:100%}}
+/* 빈 화면: 사진 없이 시작하기 + 사진 찍는 방법(식사 구분 칸 아래 빈 공간)·지방이(MealScanDesign 재사용) */
+.recorder-start-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.meal-recorder fieldset.recorder-has-guide{position:relative}
+.recorder-has-guide>.photo-input,.recorder-has-guide>.muted{max-width:calc(100% - 270px)}
+.recorder-has-guide .meal-scan-food{position:absolute;right:24px;bottom:34px;width:250px;height:160px;display:flex;align-items:center;justify-content:space-between;gap:4px}
+.recorder-has-guide .meal-scan-food p{flex-shrink:0;margin:0 0 0 6px;font-size:21px;line-height:1.25;transform:rotate(-10deg)}
+.recorder-has-guide .meal-scan-food img{width:auto;height:160px;max-width:128px;object-fit:contain}
+.recorder-has-guide .meal-scan-food-marks{top:46px;left:0;width:118px;height:67px}
+.recorder-has-guide:has(.camera-preview) .meal-scan-food{display:none}
+.recorder-visuals{display:flex;justify-content:flex-end;margin-top:8px}
+.recorder-visuals .meal-scan-jibang{position:relative;right:auto;bottom:auto}
+@media(max-width:1100px){.recorder-has-guide>.photo-input,.recorder-has-guide>.muted{max-width:none}.recorder-has-guide .meal-scan-food{position:relative;right:auto;bottom:auto;margin:14px 0 0 auto}}
+@media(max-width:760px){.recorder-start{flex-direction:column;align-items:stretch}.recorder-start-actions{justify-content:stretch}.recorder-start-actions button{flex:1}.recorder-has-guide .meal-scan-food{width:220px;height:130px}.recorder-has-guide .meal-scan-food img{height:130px;max-width:104px}.recorder-has-guide .meal-scan-food p{font-size:18px}.recorder-has-guide .meal-scan-food-marks{top:36px;width:100px;height:57px}.recorder-visuals{justify-content:center}}

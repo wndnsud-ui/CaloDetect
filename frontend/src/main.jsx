@@ -32,6 +32,7 @@ import LevelUpDialog from './LevelUpDialog';
 import NicknameStep from './NicknameStep';
 import NicknamePromptCard from './NicknamePromptCard';
 import DevDemo from './DevDemo';
+import RestaurantFinder from './RestaurantFinder';
 import AdminPage from './AdminPage';
 import { readApiResponse } from './apiResponse';
 import {AccountActions, MobileTopBar, MobileTabBar, RecordSheet} from './MobileShell';
@@ -97,7 +98,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   const [signup,setSignup] = useState(initialPage==='회원가입'), [file,setFile] = useState(null), [image,setImage] = useState(null);
   const [scanStatus,setScanStatus] = useState('idle'), [scanError,setScanError] = useState('');
   const [rows,setRows] = useState([]), [mealType,setMealType] = useState('breakfast');
-  const [goal,setGoal] = useState(null), [recommendationLoading,setRecommendationLoading] = useState(false);
+  const [goal,setGoal] = useState(null), [recommendationLoading,setRecommendationLoading] = useState(false), [finderFood,setFinderFood] = useState(null);
   const [totals,setTotals] = useState(null), [previewError,setPreviewError] = useState(''), [mealError,setMealError] = useState('');
   // 리워드(지시서 v3): /rewards/me 요약, 리워드 탭, 기록 직후 보상 패널, 첫날 꾸미기, 레벨업 창, 가입 마지막 단계 닉네임.
   const [rewards,setRewards] = useState(null), [accountTab,setAccountTab] = useState('profile'), [grantMeal,setGrantMeal] = useState(null);
@@ -262,7 +263,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
       homeCard={user&&rewards?.nickname_prompt==='card'&&<NicknamePromptCard api={api} nickname={rewards.nickname.nickname} onChoose={()=>{setNicknameEdit(true);navigate('마이페이지')}} onDismissed={loadRewards}/>}/>}
     {(page==='로그인'||(!user&&['커뮤니티','히스토리','식사 추천','식단 분석','마이페이지','채팅으로 식사기록','리워드'].includes(page)))&&<div className={signup ? 'auth-card auth-card-signup' : 'auth-card auth-card-login'}><div className="auth-visual"><Brand onClick={onHomepage}/><h1>오늘의 한 끼가<br/>내일의 나를 만듭니다.</h1><p>나를 위한 건강한 선택, 지금 시작하세요.</p><img className="auth-bowl" src="/images/cta-poke.webp.png" alt="신선한 채소와 토핑을 담은 포케 보울"/></div><div className="auth-form"><p className="eyebrow">WELCOME TO CALODETECT</p><h2>{signup?'회원가입':'로그인'}</h2><p className="muted">만 {policy?.age_min||18}세 이상부터 이용할 수 있습니다.</p><div className="segmented" role="group" aria-label="인증 방식"><button type="button" className={!signup?'selected':''} aria-pressed={!signup} disabled={busy} onClick={()=>{setSignup(false);setError('')}}>로그인</button><button type="button" className={signup?'selected':''} aria-pressed={signup} disabled={busy} onClick={()=>{setSignup(true);setError('')}}>회원가입</button></div><SocialLogin signup={signup} api={api} policy={policy} disabled={busy} onAuthenticated={async (result,registered)=>{signupFlow.current=true;setUser(result.user);setPage(file?'음식 추가':'홈');await run(async()=>{const account=await loadAccount();if(registered&&earnedSignupPoints(account))setFirstDecorate('signup')})}}/>{authForm}</div></div>}
     {page==='음식 추가'&&!user&&<><p className="notice">가입 전에는 음식 선택과 영양 계산을 사용할 수 있습니다. 사진 분석과 저장은 로그인이 필요합니다.</p><section className="panel"><h2>사진으로 식단 기록하기</h2><PhotoInput file={file} busy={busy} onChange={selectPhoto}/><p className="muted">선택한 사진은 로그인 후 분석할 수 있습니다. 사진을 선택하면 미리보기를 확인할 수 있습니다.</p><button className="primary" onClick={()=>{setSignup(false);navigate('로그인')}}>로그인하고 사진 분석하기</button></section><div className="calculator-content"><Calculators initialTab="음식 추가"/></div></>}
-    {page==='음식 추가'&&user&&<MealRecorder api={api} defaultType={mealType} onSaved={saved=>{setGrantMeal(saved.id);return showSavedMeal(saved,'식단을 저장했습니다.');}}/>}
+    {page==='음식 추가'&&user&&<MealRecorder api={api} defaultType={mealType} level={rewards?.level} equipment={rewards?.equipment} onSaved={saved=>{setGrantMeal(saved.id);return showSavedMeal(saved,'식단을 저장했습니다.');}}/>}
     {page==='목표 설정'&&<GoalSetup key={user?.id||'guest'} profile={profile} user={user} busy={busy} api={api} onSaved={async data=>{const firstGoal=!profile;await api('/users/me/profile',data,'PUT');try{const updated=await loadAccount();if(firstGoal&&updated?.today_items?.some(row=>row.key==='onboarding:goal'&&row.points>0))setFirstDecorate('goal');}catch{setError('Saved. Please reload account information.');}}}/>}
     {page==='식사 추천'&&user&&<><section className="panel">
       <fieldset className="meal-type-fieldset" disabled={busy}>
@@ -325,8 +326,9 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
           <small className="simulation-caption">현재 {eatenCalories.toLocaleString()} kcal + 이 메뉴 {menuCalories.toLocaleString()} kcal</small>
         </div>}
         <ul className="card-reasons">{item.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
+        <button type="button" className="outline finder-open" onClick={()=>setFinderFood(item.food_name)}>근처 맛집 찾기</button>
       </article>;
-    })}</div></>}</>}
+    })}</div>{finderFood&&<RestaurantFinder api={api} food={finderFood} onClose={()=>setFinderFood(null)}/>}</>}</>}
     {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}

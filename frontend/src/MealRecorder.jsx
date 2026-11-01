@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import PhotoInput from './PhotoInput';
+import {MealScanFood, MealScanJibang} from './MealScanDesign';
 import {toJpeg} from './imageUpload';
 import './meal-recorder.css';
 
@@ -23,7 +24,7 @@ function RecorderIcon({kind}) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{kind==='plus'?<path d="M12 5v14M5 12h14"/>:kind==='trash'?<><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></>:<><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4M18 4h4"/></>}</svg>;
 }
 
-export default function MealRecorder({api, meal=null, onSaved, onClose, defaultType='lunch'}) {
+export default function MealRecorder({api, meal=null, onSaved, onClose, defaultType='lunch', level, equipment}) {
   const [rows,setRows] = useState(()=>meal?.items.map(existingRow)||[]);
   const [file,setFile] = useState(null), [image,setImage] = useState(meal?.image_upload_id||meal?.image_urls?.[0]?.split('/').pop()||null);
   const [date,setDate] = useState(meal?.meal_date||today), [time,setTime] = useState(meal?.meal_time||'');
@@ -97,17 +98,20 @@ export default function MealRecorder({api, meal=null, onSaved, onClose, defaultT
   }
   return <section className="meal-recorder" aria-label={meal?'식단 전체 수정':'식단 기록'}>
     <div className="recorder-heading"><div><h2>{meal?'식단 전체 수정':'사진으로 식단 기록'}</h2>{!meal&&<p>사진을 선택한 뒤 사진 분석하기를 눌러 주세요.</p>}</div>{onClose&&<button type="button" onClick={onClose} disabled={busy}>닫기</button>}</div>
-    <fieldset disabled={busy}><legend>식사 정보</legend><div className="recorder-meta">
+    <fieldset disabled={busy} className={!meal&&!file&&!image?'recorder-has-guide':undefined}><legend>식사 정보</legend><div className="recorder-meta">
       <label>날짜<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label>
       <label>식사 시간<input type="time" value={time} onChange={e=>setTime(e.target.value)}/></label>
       <label>식사 구분<select value={type} onChange={e=>setType(e.target.value)}>{Object.entries(types).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
     </div><PhotoInput file={file} busy={busy} onChange={choosePhoto}/>
       {image&&!file&&<><img className="recorder-photo" src={`/api/meals/images/${image}`} alt="식단 사진"/><button type="button" onClick={()=>setImage(null)}>사진 제거</button></>}
       {!meal&&<button type="button" className="primary recorder-scan" disabled={busy||!file} onClick={()=>scan()}>{analyzing?'사진 분석 중…':image?'다시 사진 분석하기':'사진 분석하기'}</button>}
+      {!meal&&!file&&!image&&<MealScanFood/>}
       {file&&!analyzing&&<details className="recorder-options"><summary>사진 기록 옵션</summary><div><button type="button" onClick={()=>save(true)}>사진만 저장</button></div></details>}
     </fieldset>
     {analyzing&&<p className="notice recorder-analyzing" role="status">사진 속 음식을 분석하고 있어요. 잠시만 기다려 주세요.</p>}
     {notice&&<p className="notice" role="status">{notice}</p>}
+    {!meal&&!fallbackOpen&&!analyzing&&!rows.length&&!image&&<div className="recorder-manual-entry recorder-start"><div><strong>사진이 없나요?</strong><p>음식을 검색하거나 음식명과 양을 직접 입력해 기록할 수 있어요.</p></div><div className="recorder-start-actions"><button type="button" className="recorder-add" disabled={busy} onClick={()=>openSearch()}>음식 검색</button><button type="button" className="recorder-add" disabled={busy} onClick={()=>{setFallbackOpen(true);addManual();}}><RecorderIcon kind="plus"/>직접 입력하기</button></div></div>}
+    {!meal&&!analyzing&&!rows.length&&<div className="recorder-visuals"><MealScanJibang level={level} equipment={equipment}/></div>}
     {!fallbackOpen&&!analyzing&&(rows.length>0||meal||image)&&<button type="button" className="recorder-add" disabled={busy} onClick={()=>openSearch()}><RecorderIcon kind="plus"/>음식 추가</button>}
     {fallbackOpen&&!analyzing&&<div className="recorder-fallback">
     <form onSubmit={search} className="recorder-search"><label>음식 검색<input ref={searchInput} type="search" maxLength={120} placeholder="예: 순대국" value={query} onChange={e=>{setQuery(e.target.value);++searchSequence.current;setSearchBusy(false);setResults(null);setSelectedFood(null);}}/></label><button disabled={busy||searchBusy||!query.trim()}>{searchBusy?'검색 중…':'검색'}</button></form>

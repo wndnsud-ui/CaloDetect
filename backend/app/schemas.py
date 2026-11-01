@@ -132,3 +132,23 @@ class RecommendationRequest(RequestModel):
     exclude_foods: list[int] = Field(default_factory=list, max_length=150)
     # 이전 API 요청과의 호환을 위해 유지하며 현재 UI/점수에서는 사용하지 않는다.
     preferred_categories: list[str] = Field(default_factory=list, max_length=30)
+
+
+# 추천 카드의 [근처 맛집 찾기]: 메뉴명과 지역명 또는 브라우저 좌표 중 하나가 필요하다. 위치는 저장하지 않는다.
+class RecommendationPlacesRequest(RequestModel):
+    query: str = Field(min_length=1, max_length=30)
+    area: str | None = Field(default=None, max_length=30)
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
+
+    @model_validator(mode='after')
+    def area_or_location(self):
+        self.query = self.query.strip()
+        self.area = (self.area or '').strip() or None
+        if not self.query:
+            raise ValueError('메뉴 이름이 필요합니다.')
+        if (self.lat is None) != (self.lng is None):
+            raise ValueError('위도와 경도를 함께 보내 주세요.')
+        if not self.area and self.lat is None:
+            raise ValueError('지역 이름 또는 현재 위치가 필요합니다.')
+        return self

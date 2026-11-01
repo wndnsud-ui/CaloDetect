@@ -128,6 +128,7 @@ OPENAI_API_KEY=<서버 전용 키, Git 금지>
 필요한 테이블은 migration `20261031_01`(`chat_llm_consents`·`chat_llm_usage`)입니다. 켜면 첫 대화 전 외부 AI 전송 고지 동의(1회)와 하루 질문 5회 제한(한국 시각 0시 초기화)이 적용되고, 답장 칩은 횟수에 들어가지 않습니다. `CHAT_LLM_ENABLED`가 없거나 키가 없으면 기존 규칙 해석기로 동작합니다. 실제 OpenAI 해석 점검: `.\.venv-backend\Scripts\python.exe -m backend.scripts.check_chat_llm`. 테스트(외부 호출 없음): `.\.venv-backend\Scripts\python.exe -m pytest backend/tests/test_chat_llm.py backend/tests/test_chat_record.py -q`.
 
 식사 추천 카드의 「근처 맛집 찾기」(`POST /recommendations/places`)도 같은 카카오 키를 씁니다. 챗봇 설정과 무관하게 동작하며, 키가 없으면 창에서 「음식점 검색이 설정되지 않았습니다」로 안내합니다. 「내 위치로 찾기」는 HTTPS 또는 localhost에서만 동작합니다.
+창 안의 지도는 카카오맵 JavaScript 키 `VITE_KAKAO_JS_KEY`(루트 `.env`, Vite `envDir: '..'`)를 씁니다. 카카오 개발자 콘솔의 Web 플랫폼에 `http://localhost:5174`와 운영 주소를 등록해야 하며, Vercel 배포에는 같은 이름의 환경변수가 필요합니다. 키가 없으면 지도 없이 목록만 표시합니다.
 
 ## 채팅으로 식사 기록하기 · 챗으로 섭취량 수정 (개인 테스트 브랜치, 기본 꺼짐)
 

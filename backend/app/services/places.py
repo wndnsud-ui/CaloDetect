@@ -38,4 +38,13 @@ def search(query, area=None, lat=None, lng=None, size=5):
     return [{'name': d.get('place_name', ''), 'category': (d.get('category_name') or '').split(' > ')[-1],
              'address': d.get('road_address_name') or d.get('address_name') or '',
              'distance': int(d['distance']) if str(d.get('distance') or '').isdigit() else None,
-             'phone': d.get('phone') or '', 'url': d.get('place_url') or ''} for d in documents]
+             'phone': d.get('phone') or '', 'url': d.get('place_url') or '',
+             'lat': coordinate(d.get('y')), 'lng': coordinate(d.get('x'))} for d in documents]
+
+
+# 카카오는 좌표를 문자열로 준다. 페이지 안 지도 표시용이며 값이 없거나 이상하면 None.
+def coordinate(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

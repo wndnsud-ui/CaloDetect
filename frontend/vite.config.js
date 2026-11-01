@@ -3,7 +3,8 @@ import { defineConfig } from 'vite';
 
 // 환경변수로 Backend 주소를 바꿀 수 있으며 기본값은 로컬 IPv6 loopback이다.
 const target = process.env.CALODETECT_API_TARGET || 'http://[::1]:8000';
-export default defineConfig({server: {port: 5174, strictPort: true, proxy: {'/api': {
+// 지도 JavaScript 키(VITE_KAKAO_JS_KEY)는 루트 .env에서 읽는다. VITE_ 접두사 값만 브라우저에 노출된다.
+export default defineConfig({envDir: '..', server: {port: 5174, strictPort: true, proxy: {'/api': {
   target,
   changeOrigin: true,
   // 브라우저 /api 접두사를 제거해 Backend의 실제 라우트와 연결한다.

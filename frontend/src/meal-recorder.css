@@ -1,4 +1,4 @@
-.meal-recorder{padding:24px;background:#fff;border:1px solid #dce8df;border-radius:20px;width:100%;max-width:1080px;margin-inline:auto;color:#254b3a}
+.meal-recorder{padding:24px;background:#fff;border:1px solid #dce8df;border-radius:20px;width:100%;max-width:none;margin-inline:0;color:#254b3a}
 .meal-recorder,.meal-recorder *{box-sizing:border-box}
 .meal-recorder .photo-input img,.meal-recorder .photo-input video{max-width:100%;max-height:300px;object-fit:contain}
 .recorder-heading,.recorder-search,.recorder-meta{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.recorder-heading{justify-content:space-between;align-items:center}
@@ -39,16 +39,26 @@
 @media(max-width:760px){.meal-recorder .recorder-food-meta{grid-template-columns:1fr}.recorder-food-meta>label{grid-column:1/-1}}
 @media(max-width:760px){.recorder-nutrition-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.recorder-amount input{font-size:13px}.meal-recorder .recorder-amount button{min-width:26px;width:26px}}
 @media(max-width:760px){.recorder-heading h2{font-size:20px}.meal-recorder fieldset,.meal-recorder .recorder-item{padding:16px 13px}.meal-recorder .recorder-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.recorder-meta>label:last-child{grid-column:1/-1}.meal-recorder .recorder-food-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.recorder-food-meta>label:first-child{grid-column:1/-1}.recorder-food-meta>label:last-child{grid-column:auto}.recorder-manual-entry{align-items:flex-start;flex-direction:column;gap:12px;padding:14px}.recorder-item-heading{gap:4px}.recorder-item-heading>div{gap:6px}.recorder-item-heading strong{font-size:13px}.meal-recorder .primary{width:100%}}
-/* 빈 화면: 사진 없이 시작하기 + 사진 찍는 방법(식사 구분 칸 아래 빈 공간)·지방이(MealScanDesign 재사용) */
-.recorder-start-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+/* 빈 화면: 왼쪽 사진 기록(이렇게 찍어보세요) · 오른쪽 사진이 없나요(지방이). MealScanDesign 재사용 */
+.recorder-split{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:20px;align-items:stretch;margin:18px 0}
+.recorder-split>fieldset{margin:0}
+.recorder-start{display:flex;flex-direction:column;gap:14px;padding:22px 20px 16px;background:#f5f8f4;border:1px dashed #d3e1d5;border-radius:16px;min-width:0}
+.recorder-start strong{font-size:16px;color:#1d3a31}.recorder-start p{margin:6px 0 0;font-size:13px;line-height:1.6;color:#6f8276}
+.recorder-start-actions{display:flex;gap:8px;flex-wrap:wrap}
+.recorder-start-actions button{flex:1;justify-content:center}
+.recorder-start .meal-scan-jibang{position:relative;right:auto;bottom:auto;margin-top:auto;flex-direction:column;align-items:center;gap:8px}
+.recorder-start .meal-scan-jibang>p{align-self:center;text-align:center;margin:0;font-size:19px;transform:rotate(-5deg)}
 .meal-recorder fieldset.recorder-has-guide{position:relative}
-.recorder-has-guide>.photo-input,.recorder-has-guide>.muted{max-width:calc(100% - 270px)}
+.recorder-has-guide .photo-input .muted{max-width:calc(100% - 270px)}
 .recorder-has-guide .meal-scan-food{position:absolute;right:24px;bottom:34px;width:250px;height:160px;display:flex;align-items:center;justify-content:space-between;gap:4px}
 .recorder-has-guide .meal-scan-food p{flex-shrink:0;margin:0 0 0 6px;font-size:21px;line-height:1.25;transform:rotate(-10deg)}
 .recorder-has-guide .meal-scan-food img{width:auto;height:160px;max-width:128px;object-fit:contain}
 .recorder-has-guide .meal-scan-food-marks{top:46px;left:0;width:118px;height:67px}
 .recorder-has-guide:has(.camera-preview) .meal-scan-food{display:none}
-.recorder-visuals{display:flex;justify-content:flex-end;margin-top:8px}
-.recorder-visuals .meal-scan-jibang{position:relative;right:auto;bottom:auto}
-@media(max-width:1100px){.recorder-has-guide>.photo-input,.recorder-has-guide>.muted{max-width:none}.recorder-has-guide .meal-scan-food{position:relative;right:auto;bottom:auto;margin:14px 0 0 auto}}
-@media(max-width:760px){.recorder-start{flex-direction:column;align-items:stretch}.recorder-start-actions{justify-content:stretch}.recorder-start-actions button{flex:1}.recorder-has-guide .meal-scan-food{width:220px;height:130px}.recorder-has-guide .meal-scan-food img{height:130px;max-width:104px}.recorder-has-guide .meal-scan-food p{font-size:18px}.recorder-has-guide .meal-scan-food-marks{top:36px;width:100px;height:57px}.recorder-visuals{justify-content:center}}
+@media(max-width:1300px){.recorder-split{grid-template-columns:1fr}.recorder-start .meal-scan-jibang{flex-direction:row;align-self:flex-end;align-items:flex-end}}
+@media(max-width:1100px){.recorder-has-guide .photo-input .muted{max-width:none}.recorder-has-guide .meal-scan-food{position:relative;right:auto;bottom:auto;margin:14px 0 0 auto}}
+@media(max-width:760px){.recorder-has-guide .meal-scan-food{width:220px;height:130px}.recorder-has-guide .meal-scan-food img{height:130px;max-width:104px}.recorder-has-guide .meal-scan-food p{font-size:18px}.recorder-has-guide .meal-scan-food-marks{top:36px;width:100px;height:57px}}
+@media(max-width:760px){.recorder-start .meal-scan-jibang{flex-direction:column;align-self:center;align-items:center}}
+/* 식단 기록 페이지: 카드 좌우를 위쪽 히어로(탭 버튼) 안쪽 라인에 맞춘다(menu-page-hero padding 46px/22px). */
+.member-page-content>.meal-recorder{width:auto;margin-inline:46px}
+@media(max-width:760px){.member-page-content>.meal-recorder{margin-inline:16px}}

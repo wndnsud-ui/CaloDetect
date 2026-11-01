@@ -124,6 +124,30 @@ def test_meal_patch_cors_preflight_allowed(env):
     assert 'PATCH' in response.headers['access-control-allow-methods']
 
 
+@pytest.mark.parametrize('ratio',[0,0.5,1])
+def test_history_lunch_to_dinner_only_changes_meal_metadata(env,ratio):
+    from backend.app.models import Meal
+    client,engine,_=env
+    account(client)
+    response=client.post('/meals',json={'meal_type':'lunch','items':[
+        {'class_id':0,'serving_multiplier':1},{'food_name':'직접 입력 음식','nutrition':{'cal':100}}]})
+    assert response.status_code==201,response.text
+    saved=response.json()
+    with Session(engine) as db:
+        meal=db.get(Meal,saved['id'])
+        for item in meal.items:
+            item.consumption_ratio=ratio
+        db.commit()
+    before=next(m for m in client.get('/meals/history').json()['items'] if m['id']==saved['id'])
+    changed=client.patch(f"/meals/{saved['id']}",json={'meal_type':'dinner','expected_version':before['version']})
+    assert changed.status_code==200,changed.text
+    after=changed.json()
+    assert after['meal_type']=='dinner' and after['version']==before['version']+1
+    assert after['items']==before['items']
+    assert after['meal_date']==before['meal_date'] and after['image_urls']==before['image_urls']
+    assert next(m for m in client.get('/meals/history').json()['items'] if m['id']==saved['id'])['meal_type']=='dinner'
+
+
 def test_photo_replacement_and_removal(env):
     client, _, _ = env
     account(client)

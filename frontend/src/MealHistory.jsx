@@ -17,13 +17,18 @@ export default function MealHistory({history, api, onChanged, headerTabs, onChat
   // 챗으로 수정 대상 {meal, item}. 서버가 CHAT_RECORD_ENABLED일 때만 항목에 version 키가 있어 진입 버튼이 보인다.
   const [editing, setEditing] = useState(null);
   const [mealEditing, setMealEditing] = useState(null);
+  const [changedMeals,setChangedMeals] = useState({});
+  const [changingTypes,setChangingTypes] = useState(new Set());
+  const typeLocks = useRef(new Set());
+  const [typeFeedback,setTypeFeedback] = useState('');
+  const [typeError,setTypeError] = useState('');
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [order, setOrder] = useState('desc');
   const [page, setPage] = useState(1);
   const tableScroll = useRef(null);
   // 식단별 중첩 항목을 평탄화한 뒤 음식명/식사 조건을 적용한다. 원본 history 배열은 바꾸지 않는다.
-  const rows = history.flatMap(meal => (meal.items.length?meal.items:[{id:'photo',food_name:'사진 기록',nutrition:{}}]).map(item => ({meal, item})))
+  const rows = history.map(meal=>changedMeals[meal.id]||meal).flatMap(meal => (meal.items.length?meal.items:[{id:'photo',food_name:'사진 기록',nutrition:{}}]).map(item => ({meal, item})))
     .filter(({meal, item}) => (type === 'all' || meal.meal_type === type) && item.food_name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     .sort((a, b) => order === 'desc' ? b.meal.meal_date.localeCompare(a.meal.meal_date) : a.meal.meal_date.localeCompare(b.meal.meal_date));
   const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -34,6 +39,24 @@ export default function MealHistory({history, api, onChanged, headerTabs, onChat
     .filter(number => number >= 1 && number <= pageCount).sort((a, b) => a - b);
   useEffect(() => { setPage(previous => Math.min(previous, pageCount)); }, [pageCount]);
   useEffect(() => { if (tableScroll.current) tableScroll.current.scrollTop = 0; }, [currentPage, query, type, order]);
+  useEffect(()=>{setChangedMeals(current=>Object.fromEntries(Object.entries(current).filter(([id,saved])=>{
+    const fresh=history.find(meal=>meal.id===id);return fresh&&fresh.version<saved.version;
+  })));},[history]);
+  async function changeMealType(meal,nextType){
+    if(nextType===meal.meal_type||typeLocks.current.has(meal.id))return;
+    typeLocks.current.add(meal.id);setChangingTypes(new Set(typeLocks.current));
+    setTypeError('');setTypeFeedback('식사 구분을 변경하고 있어요.');
+    try{
+      const saved=await api(`/meals/${meal.id}`,{meal_type:nextType,expected_version:meal.version},'PATCH');
+      setChangedMeals(current=>({...current,[meal.id]:saved}));
+      if(type!=='all'&&type!==nextType)setType('all');
+      setTypeFeedback(`${meals[meal.meal_type]}에서 ${meals[nextType]}으로 변경했어요.`);
+      try{await onChanged?.();}catch{setTypeFeedback('식사 구분은 저장됐어요. 최신 목록은 새로고침해서 확인해 주세요.');}
+    }catch(error){
+      setTypeFeedback('');setTypeError(error.message);
+      if(error.status===409)try{await onChanged?.();}catch{}
+    }finally{typeLocks.current.delete(meal.id);setChangingTypes(new Set(typeLocks.current));}
+  }
 
   return <div className="meal-history">
     {headerTabs}
@@ -44,9 +67,11 @@ export default function MealHistory({history, api, onChanged, headerTabs, onChat
         <label>날짜 정렬<select value={order} onChange={e => {setOrder(e.target.value); setPage(1);}}><option value="desc">최신순</option><option value="asc">오래된순</option></select></label>
         <span className="history-count" role="status">음식 <strong>{rows.length.toLocaleString('ko-KR')}</strong>개<small>페이지당 {PAGE_SIZE}개</small></span>
       </div>
+      {typeFeedback&&<p className="history-type-feedback" role="status">{typeFeedback}</p>}
+      {typeError&&<p className="history-type-feedback is-error" role="alert">식사 구분을 바꾸지 못했어요. {typeError}</p>}
       <div ref={tableScroll} id="meal-history-table" className="history-table-scroll" tabIndex={0} role="region" aria-label="식단 기록 표 · 가로 스크롤 가능">
         <table><caption>조회된 식단 기록 · 음식별 섭취량과 영양 정보</caption><thead><tr><th scope="col" aria-sort={order === 'desc' ? 'descending' : 'ascending'}>날짜 {order === 'desc' ? '↓' : '↑'}</th><th scope="col">식사</th><th scope="col">음식</th><th scope="col"><span className="history-date-full">섭취량</span><span className="history-date-short">수정</span></th>{columns.map(([key, label, unit]) => <th scope="col" className="history-number" key={key}>{label}<small>{unit}</small></th>)}</tr></thead>
-          <tbody>{visibleRows.map(({meal, item}) => <tr key={`${meal.id}-${item.id}`}><td className="history-date"><span className="history-date-full">{meal.meal_date}</span><span className="history-date-short">{shortDate(meal.meal_date)}</span></td><td><span className={`history-meal-tag history-meal-${meal.meal_type}`}>{meals[meal.meal_type] || meal.meal_type}</span></td><th scope="row">{item.food_name}{meal.nutrition_pending&&<small> 영양 정보 입력 필요</small>}{item.is_llm_estimated&&<small> AI 추정값</small>}{api&&<button type="button" className="history-chat-edit" onClick={()=>setMealEditing(meal)}>전체 수정</button>}</th><td className="history-serving"><span className="history-serving-text">기준량 × {item.amount_unit==='g'?`${format(item.amount)} g`:format(item.effective_multiplier ?? item.serving_multiplier)}</span>{item.consumption_ratio != null && item.consumption_ratio !== 1 && <span className="history-ratio" title={`기록 기준량 × ${format(item.serving_multiplier)} 중 섭취 비율`}>섭취 {Math.round(item.consumption_ratio * 100)}%</span>}{api && item.chat_editable === true && <button type="button" className="history-chat-edit" onClick={() => onChatEdit ? onChatEdit({meal, item}) : setEditing({meal, item})}>챗으로 수정</button>}</td>{columns.map(([key]) => <td key={key} className={`history-number ${key === 'cal' ? 'history-calories' : ''}`}>{format(item.nutrition?.[key])}</td>)}</tr>)}</tbody>
+          <tbody>{visibleRows.map(({meal, item}) => <tr key={`${meal.id}-${item.id}`}><td className="history-date"><span className="history-date-full">{meal.meal_date}</span><span className="history-date-short">{shortDate(meal.meal_date)}</span></td><td>{api?<select className={`history-meal-select history-meal-${meal.meal_type}`} aria-label={`${item.food_name} 식사 구분 변경`} title="같은 식사에 포함된 음식의 식사 구분이 함께 바뀌어요." value={meal.meal_type} disabled={changingTypes.has(meal.id)} aria-busy={changingTypes.has(meal.id)} onChange={event=>changeMealType(meal,event.target.value)}>{Object.entries(meals).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select>:<span className={`history-meal-tag history-meal-${meal.meal_type}`}>{meals[meal.meal_type] || meal.meal_type}</span>}</td><th scope="row">{item.food_name}{meal.nutrition_pending&&<small> 영양 정보 입력 필요</small>}{item.is_llm_estimated&&<small> AI 추정값</small>}{api&&<button type="button" className="history-chat-edit" onClick={()=>setMealEditing(meal)}>전체 수정</button>}</th><td className="history-serving"><span className="history-serving-text">기준량 × {item.amount_unit==='g'?`${format(item.amount)} g`:format(item.effective_multiplier ?? item.serving_multiplier)}</span>{item.consumption_ratio != null && item.consumption_ratio !== 1 && <span className="history-ratio" title={`기록 기준량 × ${format(item.serving_multiplier)} 중 섭취 비율`}>섭취 {Math.round(item.consumption_ratio * 100)}%</span>}{api && item.chat_editable === true && <button type="button" className="history-chat-edit" onClick={() => onChatEdit ? onChatEdit({meal, item}) : setEditing({meal, item})}>챗으로 수정</button>}</td>{columns.map(([key]) => <td key={key} className={`history-number ${key === 'cal' ? 'history-calories' : ''}`}>{format(item.nutrition?.[key])}</td>)}</tr>)}</tbody>
         </table>
         {!rows.length && <p className="history-empty">{history.length ? '검색 조건에 맞는 기록이 없습니다.' : '아직 기록된 식단이 없습니다. 첫 식단을 추가해 보세요.'}</p>}
       </div>

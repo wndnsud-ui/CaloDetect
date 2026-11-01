@@ -231,7 +231,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 신체 정보 숫자를 변환해 서버 미리보기 후 로그인 회원의 프로필을 저장한다.
   async function saveProfile(e){e.preventDefault();const data=Object.fromEntries(new FormData(e.currentTarget));['age','height','weight','target_calories'].forEach(k=>data[k]=Number(data[k]));await run(async()=>{const preview=await api('/profiles/calorie-preview',data);setGoal(preview);if(user){await api('/users/me/profile',data,'PUT');await loadAccount();setMessage('목표가 저장되었습니다.')}})}
   // 선택한 테마·끼니와 직전 결과를 제외해 새 메뉴를 요청한다. 처리 중에는 조건 UI도 비활성화된다.
-  async function generate(theme){if(busy)return;const exclude_foods=recommendation?.items.map(item=>item.class_id)||[];setRecommendation(null);setRecommendationLoading(true);try{await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,theme,exclude_foods})))}finally{setRecommendationLoading(false)}}
+  async function generate(theme){if(busy)return;const items=recommendation?.items||[];const exclude_foods=items.filter(item=>item.class_id!=null).map(item=>item.class_id);const exclude_refs=items.filter(item=>item.food_ref).map(item=>item.food_ref);setRecommendation(null);setRecommendationLoading(true);try{await run(async()=>setRecommendation(await api('/recommendations/meals',{meal_type:mealType,theme,exclude_foods,exclude_refs})))}finally{setRecommendationLoading(false)}}
   // 선택한 테마를 다시 눌러도 새 추천을 요청하고 진행 중에는 늦은 응답 경합을 방지한다.
   async function changeRecommendTheme(theme){if(busy)return;setRecommendTheme(theme);setRecommendation(null);await generate(theme);}
   // 서버 세션을 종료하고 회원·사진·식단·추천 상태와 CSRF를 비운 뒤 로그인 화면으로 이동한다(홈은 로그인 후 화면).
@@ -296,7 +296,7 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
       const currentWidth=canSimulate?Math.min(100,Math.max(0,eatenCalories/targetCalories*100)):0;
       const expectedWidth=canSimulate?Math.min(Math.max(0,menuCalories/targetCalories*100),100-currentWidth):0;
       const exceedsTarget=canSimulate&&eatenCalories+menuCalories>targetCalories;
-      return <article key={item.class_id} className="recommend-card">
+      return <article key={item.food_ref||item.class_id} className="recommend-card">
         {item.warning&&<span className="recommendation-warning" role="status">주의 · {item.warning}</span>}
         <div className="card-badge-row">
           <span className={`tag-badge ${item.calorie_band==='light'?'badge-green':item.calorie_band==='high'?'badge-orange':'badge-gray'}`}>{calorieBandNames[item.calorie_band]}</span>
@@ -326,9 +326,9 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
           <small className="simulation-caption">현재 {eatenCalories.toLocaleString()} kcal + 이 메뉴 {menuCalories.toLocaleString()} kcal</small>
         </div>}
         <ul className="card-reasons">{item.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
-        <button type="button" className="outline finder-open" onClick={()=>setFinderFood(item.food_name)}>근처 맛집 찾기</button>
+        <button type="button" className="outline finder-open" onClick={()=>setFinderFood({name:item.food_name,query:item.place_query||item.food_name})}>근처 맛집 찾기</button>
       </article>;
-    })}</div>{finderFood&&<RestaurantFinder api={api} food={finderFood} onClose={()=>setFinderFood(null)}/>}</>}</>}
+    })}</div>{finderFood&&<RestaurantFinder api={api} food={finderFood.name} query={finderFood.query} onClose={()=>setFinderFood(null)}/>}</>}</>}
     {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}

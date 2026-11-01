@@ -8,6 +8,7 @@ from sqlalchemy import select
 from ..models import Meal, RecommendationLog
 from .analytics import get_today_status
 from .nutrition import food_catalog
+from .diet_foods import diet_candidates
 from .timezone import korean_date
 
 
@@ -17,6 +18,11 @@ logger = logging.getLogger('calodetect')
 HIGH_PROTEIN_G = 20.0
 LIGHT_MEAL_KCAL = 350.0
 HEAVY_MEAL_KCAL = 700.0
+# '가벼운 식단' 테마: 끼니 비교 목표를 이 값 이하로 낮추고, 결과는 상한 이하 메뉴로만 고른다(열량 구간 1개씩 규칙 미적용).
+LIGHT_THEME_TARGET_KCAL = 400.0
+LIGHT_THEME_MAX_KCAL = 450.0
+# 다이어트형 DB 후보(샐러드 등)가 같은 점수대의 반찬류보다 먼저 보이도록 주는 가점.
+DIET_FOOD_BONUS = 0.3
 # 나트륨 개발 기준은 WHO 2,000mg/day, 당류는 KDRI 2025 총 에너지의 20% 기준을 사용한다.
 SODIUM_DAILY_LIMIT_MG = 2000.0
 SUGAR_ENERGY_RATIO = 0.20
@@ -83,8 +89,8 @@ def calculate_meal_fit(meal_type: str, food_calories: float) -> float:
     )
 
 
-def recently_consumed_food_ids(db, user_id: int, today=None) -> set[int]:
-    """오늘을 포함한 최근 7일의 식단 기록에서 음식 class_id를 모은다."""
+def recently_consumed_food_ids(db, user_id: int, today=None, refs=False) -> set:
+    """오늘을 포함한 최근 7일의 식단 기록에서 음식 class_id(refs=True면 식약처 DB 식품코드)를 모은다."""
     today = today or korean_date(datetime.now(timezone.utc))
     start_date = today - timedelta(days=6)
     meals = db.scalars(
@@ -95,11 +101,11 @@ def recently_consumed_food_ids(db, user_id: int, today=None) -> set[int]:
         )
     ).all()
     return {
-        item.food_id
+        item.reference_food_id if refs else item.food_id
         for meal in meals
         for item in meal.items
         # 섭취 비율 0(안 먹음)으로 기록한 음식은 먹은 음식으로 보지 않는다. 기존 행은 비율 1.0이라 결과 동일.
-        if item.consumption_ratio > 0
+        if item.consumption_ratio > 0 and (item.reference_food_id if refs else item.food_id) is not None
     }
 
 
@@ -111,9 +117,17 @@ def calorie_band(calories: float) -> str:
     return 'high'
 
 
+# 응답 항목의 식별자: 기존 카탈로그는 class_id, 다이어트형 DB 후보는 food_ref(식품코드)와 맛집 검색어를 함께 준다.
+def food_identity(food: dict) -> dict:
+    identity = {'class_id': food['class_id']}
+    if food.get('food_ref'):
+        identity.update(food_ref=food['food_ref'], place_query=food.get('place_query') or food['food_name'])
+    return identity
+
+
 def fallback_item(food: dict, band: str) -> dict:
     return {
-        'class_id': food['class_id'],
+        **food_identity(food),
         'calorie_band': band,
         'food_name': food['food_name'],
         'category': food['category'],
@@ -133,7 +147,7 @@ def fallback_item(food: dict, band: str) -> dict:
 
 # 오늘 상태와 메뉴 조건으로 전체 후보를 점수순으로 만든다. 칼로티 코치 채팅 추천도 이 후보 목록을 쓴다.
 # 반환: (오늘 snapshot, 점수순 후보, 한도 초과로 뺀 음식)
-def rank_candidates(db, user, filters, window, theme='balance'):
+def rank_candidates(db, user, filters, window, theme='balance', extra_foods=()):
     snapshot = get_today_status(db, user.id)
     target_calories = snapshot.get('target_calories')
     # None과 0 이하 목표를 모두 막아 당류 기준 계산과 추천 점수의 잘못된 분모를 방지한다.
@@ -152,6 +166,12 @@ def rank_candidates(db, user, filters, window, theme='balance'):
         for item in meal.items
         if item.consumption_ratio > 0
     }
+    recent_food_refs = {
+        item.reference_food_id
+        for meal in recent_meals
+        for item in meal.items
+        if item.consumption_ratio > 0 and item.reference_food_id
+    }
     week_food_ids = recently_consumed_food_ids(db, user.id)
 
     totals = snapshot.get('totals') or {}
@@ -161,18 +181,25 @@ def rank_candidates(db, user, filters, window, theme='balance'):
     daily_sugar_limit = max(target_calories * SUGAR_ENERGY_RATIO / 4.0, 1.0)
     meal_type = getattr(filters, 'meal_type', 'lunch') or 'lunch'
     exclude_foods = set(getattr(filters, 'exclude_foods', [])) | week_food_ids
+    exclude_refs = set(getattr(filters, 'exclude_refs', []) or [])
+    if extra_foods:
+        exclude_refs |= recently_consumed_food_ids(db, user.id, refs=True)
     meal_target = calculate_meal_target(
         target_calories,
         remaining_calories,
         meal_type,
     )
+    if theme == 'light':
+        meal_target = min(meal_target, LIGHT_THEME_TARGET_KCAL)
 
     ranked = []
     excluded_by_limits = []
 
     # 기존 CSV 외의 임의 음식이나 수치를 만들지 않고 각 후보의 현재 데이터만 평가한다.
-    for food in food_catalog():
-        if food['class_id'] in exclude_foods:
+    for food in [*food_catalog(), *extra_foods]:
+        if food.get('food_ref') and food['food_ref'] in exclude_refs:
+            continue
+        if not food.get('food_ref') and food['class_id'] in exclude_foods:
             continue
 
         # 결측 당류·나트륨은 0으로 간주하지 않는다. 안전한 메뉴로 오인하지 않도록 건너뛴다.
@@ -211,7 +238,8 @@ def rank_candidates(db, user, filters, window, theme='balance'):
                 / max(meal_target, food['cal'], 1.0)
             )
 
-        repeat_penalty = 1.0 if food['class_id'] in recent_food_ids else 0.0
+        repeat_penalty = 1.0 if (food['food_ref'] in recent_food_refs if food.get('food_ref')
+                                 else food['class_id'] in recent_food_ids) else 0.0
         meal_fit = calculate_meal_fit(meal_type, food['cal']) * MEAL_FIT_WEIGHT
         theme_bonus = 0.0
         if theme == 'protein':
@@ -222,6 +250,8 @@ def rank_candidates(db, user, filters, window, theme='balance'):
                 if food['cal'] <= LIGHT_MEAL_KCAL
                 else max(0.0, 1.0 - (food['cal'] - LIGHT_MEAL_KCAL) / LIGHT_MEAL_KCAL)
             )
+            if food.get('food_ref'):
+                theme_bonus += DIET_FOOD_BONUS
 
         # 건강 한도 위험은 선호도나 테마 보너스로 쉽게 상쇄되지 않도록 점수에서 직접 차감한다.
         nutrition_risk_penalty = (1.0 - sodium_fit) + (1.0 - sugar_fit)
@@ -255,9 +285,11 @@ def rank_candidates(db, user, filters, window, theme='balance'):
             reasons.append('단백질 섭취를 보완하는 기준으로 선택했습니다.')
         elif theme == 'light':
             reasons.append('상대적으로 가벼운 열량의 메뉴를 우선했습니다.')
+        if food.get('food_ref'):
+            reasons.append('식약처 음식 DB의 1인분 기준 영양값입니다.')
 
         ranked.append({
-            'class_id': food['class_id'],
+            **food_identity(food),
             'calorie_band': calorie_band(food['cal']),
             'food_name': food['food_name'],
             'category': food['category'],
@@ -272,17 +304,58 @@ def rank_candidates(db, user, filters, window, theme='balance'):
         })
 
     # 점수 동점은 class_id 오름차순으로 정렬해 동일한 입력에 재현 가능한 결과를 만든다.
-    ranked.sort(key=lambda item: (-item['score'], item['class_id']))
+    ranked.sort(key=lambda item: (-item['score'], item.get('food_ref') or '', item['class_id'] or 0))
     return snapshot, ranked, excluded_by_limits
 
 
 # 오늘 상태와 메뉴 조건을 평가해 3개 후보를 만들고 추천 snapshot/log를 생성한다.
-def recommend_meals(db, user, filters, window, theme='balance'):
-    snapshot, ranked, excluded_by_limits = rank_candidates(db, user, filters, window, theme)
+# '가벼운 식단': 한 끼가 되는 메뉴(LIGHT_THEME_MIN_KCAL 이상, 반찬·김치·음료류 제외) 중 상한 이하에서 분류가 겹치지 않게
+# 3개를 고른다. 일반 후보가 부족하면 나트륨·당류 초과가 적은 순으로 경고 fallback을 쓴다(열량 구간 1개씩 규칙 미적용).
+LIGHT_THEME_MIN_KCAL = 100.0
+SIDE_DISH_CATEGORIES = {'반찬류', '김치류', '안주/반찬', '음료 및 차류', '기타', '생채·무침류', '채소/나물'}
+# 간식 끼니가 아니면 간식·과자류도 한 끼 후보에서 뺀다.
+SNACK_CATEGORIES = {'분식/간식', '빵 및 과자류'}
 
-    # 추천마다 저·중·고 열량 구간을 하나씩 반환하며, 구간 후보가 없을 때만 같은 구간 fallback을 쓴다.
+
+def pick_light(ranked, excluded_by_limits, snapshot, meal_type):
+    meal_target = min(calculate_meal_target(snapshot['target_calories'], float(snapshot.get('remaining_calories') or 0),
+                                            meal_type), LIGHT_THEME_TARGET_KCAL)
+    cap = min(LIGHT_THEME_MAX_KCAL, max(LIGHT_MEAL_KCAL, meal_target))
+
+    skipped = SIDE_DISH_CATEGORIES if meal_type == 'snack' else SIDE_DISH_CATEGORIES | SNACK_CATEGORIES
+
+    def meal_like(calories, category):
+        return LIGHT_THEME_MIN_KCAL <= calories <= cap and category not in skipped
+
+    candidates = [item for item in ranked if meal_like(item['nutrition']['cal'], item['category'])]
+    candidates += [fallback_item(entry['food'], calorie_band(entry['food']['cal']))
+                   for entry in sorted(excluded_by_limits, key=lambda value: (value['excess_ratio'], value['food']['cal']))
+                   if meal_like(entry['food']['cal'], entry['food']['category'])]
+    selected, categories = [], set()
+    for item in candidates:
+        if len(selected) < 3 and item['category'] not in categories:
+            selected.append(item)
+            categories.add(item['category'])
+    # 그래도 모자라면 상한을 넘더라도 열량이 낮은 한 끼 메뉴부터 채운다.
+    heavier = sorted((item for item in ranked if item['nutrition']['cal'] >= LIGHT_THEME_MIN_KCAL
+                      and item['category'] not in skipped), key=lambda item: item['nutrition']['cal'])
+    for item in [*candidates, *heavier]:
+        if len(selected) < 3 and item not in selected:
+            selected.append(item)
+    if len(selected) < 3:
+        raise ValueError('현재 제외 조건을 적용한 가벼운 추천 메뉴가 부족합니다.')
+    return selected
+
+
+def recommend_meals(db, user, filters, window, theme='balance'):
+    extra_foods = diet_candidates(db) if theme == 'light' else ()
+    snapshot, ranked, excluded_by_limits = rank_candidates(db, user, filters, window, theme, extra_foods)
+
+    # 기본·단백질 테마는 저·중·고 열량 구간을 하나씩 반환하며, 구간 후보가 없을 때만 같은 구간 fallback을 쓴다.
     selected = []
-    for band, label in CALORIE_BANDS:
+    if theme == 'light':
+        selected = pick_light(ranked, excluded_by_limits, snapshot, getattr(filters, 'meal_type', 'lunch') or 'lunch')
+    for band, label in (() if theme == 'light' else CALORIE_BANDS):
         candidate = next(
             (item for item in ranked if item['calorie_band'] == band),
             None,
@@ -314,6 +387,8 @@ def recommend_meals(db, user, filters, window, theme='balance'):
         '오늘 나트륨 또는 당류 섭취량이 높아 경고형 대체 메뉴가 포함되었습니다. '
         '가능하면 양념과 국물 섭취량을 줄여 주세요.'
         if used_fallback
+        else '가벼운 식단: 끼니 목표보다 가벼운 메뉴로만 골랐어요. 샐러드 등은 식약처 음식 DB 1인분 기준입니다.'
+        if theme == 'light'
         else '최근 7일간 기록한 음식은 제외하고 현재 섭취 기록을 반영해 추천했습니다.'
     )
 

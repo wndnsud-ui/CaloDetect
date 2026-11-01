@@ -234,7 +234,7 @@ def save_meal(body: MealRequest, user: CurrentUser, db: DB):
             raise HTTPException(404, '추천 기록을 찾을 수 없습니다.')
         if recommendation.acted:
             raise HTTPException(409, '이미 기록한 추천입니다.')
-        recommended_ids = {item['class_id'] for item in recommendation.recommendation_json}
+        recommended_ids = {item['class_id'] for item in recommendation.recommendation_json if item.get('class_id') is not None}
         if not any(i.class_id in recommended_ids for i in body.items):
             raise HTTPException(422, '추천 메뉴가 식단에 포함되어야 합니다.')
     # 클라이언트 영양 수치는 신뢰하지 않고 기존 Food와 서버 영양 계산으로 항목별 저장 스냅샷을 만든다.

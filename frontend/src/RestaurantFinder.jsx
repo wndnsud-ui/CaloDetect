@@ -65,8 +65,8 @@ function PlaceMap({places, active, onSelect}) {
 }
 
 // 추천 카드의 [근처 맛집 찾기]. 지역명 또는 현재 위치로 그 메뉴를 파는 음식점을 카카오맵 결과로 보여 준다.
-// 지역·좌표는 이번 검색 요청에만 쓰고 저장하지 않는다.
-export default function RestaurantFinder({api, food, onClose}) {
+// food: 화면 표시 메뉴 이름, query: 맛집 검색어(예: 시저치킨 샐러드 → 샐러드). 지역·좌표는 저장하지 않는다.
+export default function RestaurantFinder({api, food, query = food, onClose}) {
   const [area, setArea] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -82,7 +82,7 @@ export default function RestaurantFinder({api, food, onClose}) {
 
   async function search(body, label) {
     setBusy(label); setError('');
-    try { setResult({...(await api('/recommendations/places', {query: food, ...body})), label: body.area ? `${body.area} 근처` : '내 위치 근처'}); setActive(null); }
+    try { setResult({...(await api('/recommendations/places', {query, ...body})), label: body.area ? `${body.area} 근처` : '내 위치 근처'}); setActive(null); }
     catch (e) { setError(e.message); }
     finally { setBusy(''); }
   }
@@ -120,12 +120,14 @@ export default function RestaurantFinder({api, food, onClose}) {
         <button type="button" className="outline finder-here" onClick={searchHere} disabled={!!busy}>{busy === 'locate' ? '위치 확인 중…' : '📍 내 위치로 찾기'}</button>
         {error && <p className="error" role="alert">{error}</p>}
         {result && <div className="finder-results" role="status">
-          <p className="finder-caption">{result.label} · {food}</p>
+          <p className="finder-caption">{result.label} · {query}</p>
+          {result.places.length > 0 && !result.places.some(place => place.menu_match) && <p className="finder-hint">가게 이름·업종으로 {query} 메뉴가 확인되는 곳이 없어요. 카카오맵에서 메뉴를 확인해 주세요.</p>}
           {result.places.length > 0 && <PlaceMap places={result.places} active={active} onSelect={selectFromMap}/>}
           {result.places.length ? <ol>{result.places.map((place, index) => <li key={`${place.url}-${index}`} ref={node => { items.current[index] = node; }} className={index === active ? 'is-active' : undefined}>
             <span className="finder-rank" aria-hidden="true">{index + 1}</span>
             <button type="button" className="finder-place" onClick={() => setActive(index)} aria-pressed={index === active}>
               <p><b>{place.name}</b>{place.distance != null && <span>{distanceText(place.distance)}</span>}</p>
+              <em className={place.menu_match ? 'finder-match' : 'finder-unsure'}>{place.menu_match ? `${query} 메뉴` : '메뉴 확인 필요'}</em>
               <small>{[place.category, place.address].filter(Boolean).join(' · ')}</small>
             </button>
             {place.url && <a href={place.url} target="_blank" rel="noreferrer" aria-label={`${place.name} 카카오맵에서 보기`}>카카오맵</a>}

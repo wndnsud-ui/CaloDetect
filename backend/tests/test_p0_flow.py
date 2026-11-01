@@ -261,6 +261,10 @@ def test_recommendation_theme_is_applied(env):
         response=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':theme})
         assert response.status_code==200,response.text
         items=response.json()['items']
+        if theme=='light':
+            # 가벼운 식단은 열량 구간 1개씩 규칙을 쓰지 않는다. 가벼운 메뉴가 먼저, 고열량 메뉴는 넣지 않는다.
+            assert items[0]['class_id']==0 and 'high' not in [item['calorie_band'] for item in items]
+            continue
         assert [item['calorie_band'] for item in items]==['light','medium','high']
         if theme=='protein':
             assert items[1]['class_id']==2
@@ -443,3 +447,55 @@ def test_recommendation_places(env):
     assert client.post('/recommendations/places', json={'query': '수육', 'area': '강남역'}).status_code == 502
     monkeypatch.setattr(places, 'available', lambda: False)
     assert client.post('/recommendations/places', json={'query': '수육', 'area': '강남역'}).status_code == 503
+
+
+# 회귀 검사: 가벼운 식단은 식약처 DB 다이어트 후보(샐러드 등)를 포함하고 분류가 겹치지 않게 상한 이하로만 고른다.
+def test_light_theme_uses_diet_foods(env):
+    from backend.app.models import NutritionFood
+    from backend.app.services import recommendation as recommendation_service
+    client,engine,monkeypatch=env
+    account(client);profile(client)
+    foods=[
+        {'class_id':0,'food_name':'계란찜','category':'찜','unit':'1회','cal':160,'carbs':5,'protein':12,'fat':9,'sugar':1,'sodium':300},
+        {'class_id':1,'food_name':'국밥','category':'국','unit':'1회','cal':650,'carbs':60,'protein':25,'fat':20,'sugar':3,'sodium':900},
+        {'class_id':2,'food_name':'삼계탕','category':'탕','unit':'1회','cal':900,'carbs':30,'protein':90,'fat':40,'sugar':4,'sodium':700},
+    ]
+    monkeypatch.setattr(recommendation_service,'food_catalog',lambda:foods)
+    with Session(engine) as db:
+        for code,cal in (('mfds:D214-640000000-0004',124),('mfds:D106-287150000-0001',105),('mfds:D103-167000000-0001',295)):
+            db.add(NutritionFood(id=code,name=code,serving_amount=200,serving_unit='g',source='test',
+                                 nutrition={'cal':cal,'carbs':10,'protein':15,'fat':5,'sugar':3,'sodium':300}))
+        db.commit()
+    response=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':'light'})
+    assert response.status_code==200,response.text
+    items=response.json()['items']
+    assert len(items)==3 and all(item['nutrition']['cal']<=450 for item in items)
+    assert len({item['category'] for item in items})==3
+    salad=next(item for item in items if item.get('food_ref')=='mfds:D214-640000000-0004')
+    assert salad['food_name']=='그릴드치킨 샐러드' and salad['place_query']=='샐러드' and salad['class_id'] is None
+    again=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':'light',
+        'exclude_refs':[item['food_ref'] for item in items if item.get('food_ref')]})
+    assert again.status_code==200,again.text
+    assert 'mfds:D214-640000000-0004' not in [item.get('food_ref') for item in again.json()['items']]
+    balance=client.post('/recommendations/meals',json={'meal_type':'lunch','theme':'balance'}).json()['items']
+    assert all('food_ref' not in item for item in balance)
+
+
+# 회귀 검사: 맛집 검색은 가게 이름·업종이 메뉴와 맞는 곳을 먼저 보여 주고 menu_match로 표시한다.
+def test_place_menu_match_ranks_first(monkeypatch):
+    from backend.app.services import places
+    documents=[
+        {'place_name':'전주현대옥','category_name':'음식점 > 한식 > 해장국','x':'127.0','y':'37.5'},
+        {'place_name':'오샐러드','category_name':'음식점 > 샐러드','x':'127.0','y':'37.5'},
+        {'place_name':'교촌치킨','category_name':'음식점 > 치킨 > 교촌치킨','x':'127.0','y':'37.5'},
+    ]
+    class Response:
+        def raise_for_status(self): pass
+        def json(self): return {'documents':documents}
+    monkeypatch.setattr(places,'api_key',lambda:'test')
+    monkeypatch.setattr(places.httpx,'get',lambda *args,**kwargs:Response())
+    salad=places.search('샐러드',area='강남역')
+    assert salad[0]['name']=='오샐러드' and salad[0]['menu_match'] and not salad[1]['menu_match']
+    chicken=places.search('후라이드치킨',area='월계역')
+    assert chicken[0]['name']=='교촌치킨' and chicken[0]['menu_match']
+    assert not any(place['menu_match'] for place in places.search('식혜',area='월계역'))

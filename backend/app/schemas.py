@@ -1,6 +1,6 @@
 # API 요청의 타입·허용 범위·필수 필드를 검증하는 Pydantic 모델.
 # 입력 형식 검증과 별도로 서비스 함수가 소유권·현재 정책·계산 결과의 유효성을 확인한다.
-from typing import Literal
+from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic import EmailStr
 from datetime import date
@@ -130,6 +130,8 @@ class RecommendationRequest(RequestModel):
     theme: Literal['balance', 'protein', 'light'] = 'balance'
     # 추천에서 제외할 기존 음식 class_id 목록.
     exclude_foods: list[int] = Field(default_factory=list, max_length=150)
+    # '가벼운 식단'의 식약처 DB 후보(food_ref)를 다시 추천하지 않도록 제외할 식품코드 목록.
+    exclude_refs: list[Annotated[str, Field(max_length=80)]] = Field(default_factory=list, max_length=150)
     # 이전 API 요청과의 호환을 위해 유지하며 현재 UI/점수에서는 사용하지 않는다.
     preferred_categories: list[str] = Field(default_factory=list, max_length=30)
 

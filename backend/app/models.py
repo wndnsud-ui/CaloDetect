@@ -217,6 +217,11 @@ class Meal(Base):
     meal_date: Mapped[datetime] = mapped_column(Date, index=True)
     # 아침·점심·저녁·간식 구분을 위한 API enum.
     meal_type: Mapped[str] = mapped_column(String(16))
+    analysis_status: Mapped[str] = mapped_column(String(16), default='analyzed', server_default='analyzed')
+    image_upload_id: Mapped[str | None] = mapped_column(ForeignKey('image_uploads.id'))
+    photo_override: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
+    meal_time: Mapped[str | None] = mapped_column(String(5))
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default='1')
     # 생성 시각. 기본값 함수는 새 레코드를 만들 때 호출된다.
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # 채팅으로 기록한 식사의 사진 첨부. 기존 기록과 직접 기록은 null이다.
@@ -232,7 +237,14 @@ class MealItem(Base):
     # 음식 항목이 속한 식단의 참조 키.
     meal_id: Mapped[str] = mapped_column(ForeignKey('meals.id'), index=True)
     # 음식 카탈로그의 기존 class_id와 연결되는 참조 키.
-    food_id: Mapped[int] = mapped_column(ForeignKey('foods.id'))
+    food_id: Mapped[int | None] = mapped_column(ForeignKey('foods.id'), nullable=True)
+    reference_food_id: Mapped[str | None] = mapped_column(ForeignKey('nutrition_foods.id'))
+    source: Mapped[str] = mapped_column(String(16), default='ai', server_default='ai')
+    ai_confidence: Mapped[float | None] = mapped_column(Float)
+    is_edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
+    is_llm_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
+    amount: Mapped[float] = mapped_column(Float, default=1, server_default='1')
+    amount_unit: Mapped[str] = mapped_column(String(16), default='serving', server_default='serving')
     # 연결된 탐지 기록. 직접 선택한 음식은 없을 수 있으며 식단 항목의 unique 제약으로 중복 연결을 막는다.
     detection_log_id: Mapped[str | None] = mapped_column(ForeignKey('detection_logs.id'), unique=True)
     # 모델의 원래 탐지 음식명. 사용자 수정 후에도 비교용으로 보존한다.
@@ -258,6 +270,17 @@ class MealItem(Base):
 
 
 # RecommendationLog: recommendation_logs 테이블의 ORM 모델. 아래 필드와 제약은 저장 형식과 참조 관계를 정의한다.
+class NutritionFood(Base):
+    """External food catalog, deliberately separate from the 150 model class IDs."""
+    __tablename__ = 'nutrition_foods'
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    serving_amount: Mapped[float] = mapped_column(Float)
+    serving_unit: Mapped[str] = mapped_column(String(8), default='g', server_default='g')
+    nutrition: Mapped[dict] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(255))
+
+
 class RecommendationLog(Base):
     __tablename__ = 'recommendation_logs'
     # 레코드 기본 식별자. 테이블에 따라 정수 또는 UUID를 사용한다.

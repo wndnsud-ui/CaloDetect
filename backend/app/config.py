@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # Settings: 환경변수/.env 설정 모델. 타입·허용값을 검증하며 settings 인스턴스를 모듈에서 공유한다.
 class Settings(BaseSettings):
+    meal_low_confidence_threshold: float = Field(default=0.5, ge=0, le=1)
     community_like_received_points: int = Field(default=1, ge=0, le=100)
     community_recommend_received_points: int = Field(default=3, ge=0, le=100)
     community_reaction_given_points: int = Field(default=1, ge=0, le=100)

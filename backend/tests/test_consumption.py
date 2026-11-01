@@ -24,8 +24,10 @@ from backend.app.schemas_chat import ConsumptionUpdateRequest
 from backend.scripts.seed_foods import seed
 
 GALBI = 2  # CSV class_id 2 갈비구이, 인분 (약 200g), cal 723.0 / sodium 1206.0
-LEGACY_ITEM_KEYS = {'id', 'class_id', 'food_name', 'detection_id', 'serving_multiplier', 'nutrition'}
-NEW_ITEM_KEYS = {'consumption_ratio', 'version', 'effective_multiplier'}
+LEGACY_ITEM_KEYS = {'id', 'class_id', 'food_name', 'detection_id', 'serving_multiplier', 'nutrition',
+                    'version', 'source', 'ai_confidence', 'is_edited', 'is_llm_estimated',
+                    'reference_food_id', 'reference_unit', 'reference_serving_amount', 'amount', 'amount_unit'}
+NEW_ITEM_KEYS = {'consumption_ratio', 'effective_multiplier', 'consumption_editable', 'chat_editable'}
 
 
 def build_env(monkeypatch, tmp_path, enabled):

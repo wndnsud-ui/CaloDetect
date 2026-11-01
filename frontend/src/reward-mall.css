@@ -540,3 +540,15 @@ img.coach-avatar.photo{object-fit:cover;object-position:50% 25%}
   .coach-intro-copy{padding-right:8px}
   .coach-side-photo img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;object-position:center;border-radius:18px}
 }
+
+
+/* Transparent carousel controls anchored to the lower right on desktop. */
+.mall-slider-controls,.landing-promos .mall-slider-controls{background:transparent;border:0;box-shadow:none}
+@media(min-width:761px){
+ .mall-slider-controls,.landing-promos .mall-slider-controls{position:absolute;left:auto;right:18px;top:auto;bottom:14px;margin:0;padding:0;z-index:2}
+}
+@media(max-width:760px){
+ .mall-slider-controls,.landing-promos .mall-slider-controls{margin-left:auto;margin-right:16px;align-self:flex-end}
+}
+.mall-slider-controls button:hover{background:#ffffff55}
+.mall-slider-controls button:focus-visible{outline:2px solid #176e55;outline-offset:1px}

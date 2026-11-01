@@ -231,7 +231,7 @@ def test_recommendation_requires_positive_target(env,target_calories):
     })
     response=client.post('/recommendations/meals',json={})
     assert response.status_code==422
-    assert response.json()['detail']=='먼저 유효한 목표 칼로리를 저장해 주세요.'
+    assert response.json()['error']=={'code':'422','message':'먼저 유효한 목표 칼로리를 저장해 주세요.'}
 
 
 # 회귀 검사: 80%/100%/120% 경계와 끼니별 목표 열량 계산식을 검증한다.

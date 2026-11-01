@@ -413,7 +413,9 @@ def meal_hook(db, user, meal):
 
 
 def is_photo_meal(meal):
-    return bool(meal.chat_attachment_id) or any(item.detection_log_id for item in meal.items)
+    if meal.photo_override:
+        return bool(meal.image_upload_id)
+    return bool(meal.chat_attachment_id or meal.image_upload_id) or any(item.detection_log_id for item in meal.items)
 
 
 
@@ -429,6 +431,11 @@ def photo_hashes(db, meal):
         attachment = db.get(ChatAttachment, meal.chat_attachment_id)
         if attachment:
             names.add(attachment.storage_key)
+    if meal.image_upload_id:
+        from ..models import ImageUpload
+        photo = db.get(ImageUpload, meal.image_upload_id)
+        if photo and photo.user_id == meal.user_id:
+            names.add(photo.image_path)
     digests = []
     for name in sorted(names):
         data = storage.get(name)

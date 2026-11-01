@@ -25,12 +25,26 @@ def not_found():
     return ChatRecordError(404, '404', '기록을 찾을 수 없습니다.')
 
 
+def supports_consumption_edit(item):
+    if item.food_id is None:
+        return False
+    if not item.is_edited:
+        return True
+    _, calculated = consumption_nutrition(item.food_id, item.serving_multiplier, item.consumption_ratio)
+    try:
+        return matches_calculation(item.nutrition, calculated)
+    except (TypeError, ValueError):
+        return False
+
+
 # 소유한 식사 항목과 식사를 반환한다. 미존재·타 사용자는 모두 404.
 def owned_item(db, user, item_id, lock=False):
     item = db.get(MealItem, item_id, with_for_update=lock) if item_id else None
     meal = db.get(Meal, item.meal_id) if item else None
     if not item or not meal or meal.user_id != user.id:
         raise not_found()
+    if not supports_consumption_edit(item):
+        raise ChatRecordError(422, 'manual_nutrition', '이 항목은 히스토리의 전체 수정에서 양과 영양값을 수정해 주세요.')
     return item, meal
 
 
@@ -117,6 +131,7 @@ def update_item_consumption(db, user, item_id, body):
     ratio = float(body.consumption_ratio)
     _, nutrition = consumption_nutrition(item.food_id, item.serving_multiplier, ratio)
     item.consumption_ratio = ratio
+    item.is_edited = True
     # JSON 컬럼은 제자리 수정하지 않고 새 dict를 대입한다.
     item.nutrition = dict(nutrition)
     item.version = item.version + 1

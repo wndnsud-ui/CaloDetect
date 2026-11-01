@@ -75,3 +75,30 @@
 .hd-overview-summary .hd-date,.hd-overview-summary .hd-stats,.hd-overview-summary .hd-record{grid-column:1;min-width:0}
 .hd-overview-summary .hd-stats{margin-top:0}
 @media(max-width:1000px){.hd-overview-summary .hd-hero-content{grid-template-columns:1fr}.hd-overview-summary .hd-hero-content>.hd-room{grid-column:1;grid-row:2;width:min(260px,100%);height:320px;margin:4px 0 20px}.hd-overview-summary .hd-stats{grid-row:3;margin-top:0}.hd-overview-summary .hd-record{grid-row:4}}
+
+
+/* Compact, data-backed nutrition overview beside the mascot. */
+.hd-overview-summary .hd-overview-nutrition{grid-column:1;min-width:0;margin-top:4px}
+.hd-overview-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.hd-overview-heading h2{font-size:15px;color:#244e40}
+.hd-overview-heading>span{font-size:10px;color:#83958a}
+.hd-overview-macros{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.hd-overview-macro>span{font-size:11px;color:#698073}
+.hd-overview-macro>strong{display:block;margin-top:6px;font-size:18px;color:#244e40;overflow-wrap:anywhere}
+.hd-overview-macro small{font-size:10px;font-weight:400;color:#819388}
+.hd-overview-track{height:6px;margin-top:10px;border-radius:8px;background:#edf2ec;overflow:hidden}
+.hd-overview-track>i{display:block;height:100%;border-radius:inherit;background:#5eaa86}
+.hd-overview-protein .hd-overview-track>i{background:#d4ad6d}
+.hd-overview-fat .hd-overview-track>i{background:#91acbf}
+.hd-overview-note{display:flex;align-items:flex-start;gap:10px;margin-top:20px;padding:12px 14px;border-radius:13px;background:#f3f7ef}
+.hd-overview-note>span{font-size:20px}
+.hd-overview-note p{font-size:12px;line-height:1.7;color:#617968;overflow-wrap:anywhere}
+.hd-overview-note strong{display:block;font-size:11px;color:#3b6750;margin-bottom:2px}
+.hd-overview-recent{display:flex;align-items:baseline;gap:12px;margin-top:12px;min-width:0;font-size:11px;color:#829085}
+.hd-overview-recent strong{flex:1;min-width:0;font-weight:500;color:#476654;overflow-wrap:anywhere}
+.hd-overview-recent>span,.hd-overview-recent>small{flex-shrink:0}
+.home-dashboard .hd-overview-summary{min-height:0}
+.hd-overview-summary .hd-hero-content{row-gap:16px}
+.hd-overview-summary .hd-date{margin-bottom:0}
+.hd-overview-summary .hd-stats{margin-bottom:0}
+@media(max-width:1000px){.hd-overview-summary .hd-overview-nutrition{grid-row:4}.hd-overview-macros{gap:12px}}

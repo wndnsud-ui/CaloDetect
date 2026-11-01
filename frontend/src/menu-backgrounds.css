@@ -78,3 +78,8 @@
 
 /* Bring account subtabs closer to their parent navigation. */
 @media(min-width:761px){.member-page-content.menu-ambient-account>.sub-tabs{margin-top:-48px}}
+
+
+/* Shared compact account caption across desktop member pages. */
+.shell.integrated-app>main>header>span,
+.shell.integrated-app>main>header>span.account-page-title{font-size:18px;font-weight:600;line-height:1.5;letter-spacing:-.4px;color:#31594b;min-width:0;overflow-wrap:anywhere}

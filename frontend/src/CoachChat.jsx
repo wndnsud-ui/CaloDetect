@@ -52,7 +52,7 @@ export function CoachSheet({open, user, api, editTarget, onClose, onLogin, onSav
   const up = () => { if (start.current == null) return; start.current = null; if (drag > 110) onClose(); setDrag(0); };
 
   const status = !user ? '로그인하면 함께 식사를 고민할 수 있어요.'
-    : editTarget ? `${editTarget.meal.meal_date} ${mealNames[editTarget.meal.meal_type] || editTarget.meal.meal_type} · ${editTarget.item.food_name} 섭취량 수정`
+    : editTarget ? `${editTarget.meal.meal_date} ${mealNames[editTarget.meal.meal_type] || editTarget.meal.meal_type} · ${editTarget.item.food_name} 기록 수정`
     : '오늘 식사도 같이 고민해볼까요?';
 
   return <div className="coach-sheet-layer" hidden={!open}>

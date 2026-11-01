@@ -35,6 +35,87 @@ Admin = Annotated[User, Depends(get_admin)]
 logger = logging.getLogger('calodetect')
 
 
+@router.get('/foods/search')
+def search_foods(user: CurrentUser, db: DB, q: str = Query(min_length=1, max_length=120)):
+    from .models import NutritionFood
+    needle = q.strip()
+    if not needle:
+        return {'items': []}
+    legacy = db.scalars(select(Food).where(Food.active.is_(True),
+        Food.display_name.contains(needle, autoescape=True)).order_by(Food.display_name).limit(30)).all()
+    external = db.scalars(select(NutritionFood).where(NutritionFood.name.contains(needle, autoescape=True))
+        .order_by(NutritionFood.name, NutritionFood.id).limit(30)).all()
+    return {'items': [dict(class_id=f.id, food_name=f.display_name, unit=f.serving_unit,
+        nutrition=f.nutrition, nutrition_source=f.nutrition_source, serving_grams=None) for f in legacy] +
+        [dict(reference_food_id=f.id, food_name=f.name, unit='기준 제공량',
+        nutrition=f.nutrition, nutrition_source=f.source, serving_amount=f.serving_amount,
+        serving_unit=f.serving_unit, serving_grams=f.serving_amount if f.serving_unit == 'g' else None) for f in external]}
+
+
+@router.post('/foods/portion')
+def preview_food_portion(body: dict, user: CurrentUser, db: DB):
+    from .schemas import MealItemRequest
+    from .services.meal_fallback import fill_item
+    from pydantic import ValidationError
+    try:
+        item = MealItemRequest.model_validate(body)
+    except ValidationError:
+        raise HTTPException(422, '음식과 양을 확인해 주세요.')
+    if (item.class_id is None and not item.reference_food_id) or item.detection_id or item.nutrition is not None:
+        raise HTTPException(422, '검색에서 선택한 음식과 양만 보내 주세요.')
+    record = fill_item(db, user, item)
+    return {'nutrition': record.nutrition}
+
+
+@router.patch('/meals/{meal_id}')
+def edit_meal(meal_id: str, body: dict, user: CurrentUser, db: DB):
+    from .services.meal_fallback import owned_photo, fill_item
+    from .schemas import MealItemRequest
+    from pydantic import ValidationError
+    meal = db.get(Meal, meal_id, with_for_update=True)
+    if not meal or meal.user_id != user.id:
+        raise HTTPException(404, '식단을 찾을 수 없습니다.')
+    if body.get('expected_version') != meal.version:
+        raise HTTPException(409, '다른 곳에서 수정한 기록입니다. 다시 열어 주세요.')
+    if 'meal_date' in body and body['meal_date'] is None:
+        raise HTTPException(422, '식사 날짜를 입력해 주세요.')
+    # Validate the complete merged record so PATCH omissions retain previous values.
+    merged = {key: getattr(meal, key) for key in
+              ('meal_type', 'meal_date', 'meal_time', 'analysis_status', 'image_upload_id')}
+    merged['items'] = [dict(id=i.id, class_id=i.food_id, reference_food_id=i.reference_food_id,
+        food_name=i.corrected_label, serving_multiplier=i.serving_multiplier, amount=i.amount,
+        amount_unit=i.amount_unit, nutrition=i.nutrition, detection_id=i.detection_log_id,
+        is_llm_estimated=i.is_llm_estimated) for i in meal.items]
+    merged.update(body)
+    try:
+        validated = MealRequest.model_validate(merged)
+    except ValidationError:
+        raise HTTPException(422, '식단 입력값을 확인해 주세요.')
+    if validated.recommendation_id is not None:
+        raise HTTPException(422, '수정 중 추천을 다시 채택할 수 없습니다.')
+    owned_photo(db, user, validated.image_upload_id)
+    if 'items' in body:
+        existing = {i.id: i for i in meal.items}
+        ids = [i.id for i in validated.items if i.id]
+        detections = [i.detection_id for i in validated.items if i.detection_id]
+        if len(ids) != len(set(ids)) or any(i not in existing for i in ids) or len(detections) != len(set(detections)):
+            raise HTTPException(422, '중복되거나 다른 식단의 항목입니다.')
+        for entry in validated.items:
+            if entry.id:
+                current = db.get(MealItem, entry.id, with_for_update=True, populate_existing=True)
+                if entry.version != current.version:
+                    raise HTTPException(409, '음식 항목이 변경되었습니다. 다시 열어 주세요.')
+        meal.items = [fill_item(db, user, entry, existing.get(entry.id)) for entry in validated.items]
+    for key in ('meal_type', 'meal_date', 'meal_time', 'analysis_status', 'image_upload_id'):
+        if key in body:
+            setattr(meal, key, getattr(validated, key))
+    if 'image_upload_id' in body:
+        meal.photo_override = True
+    meal.version += 1
+    db.commit()
+    return meal_json(meal)
+
+
 # 로컬 사진 분석 테스트가 활성화된 경우 개발 환경/loopback 접속인지 검사한다.
 def require_image_environment(request):
     if settings.local_test_image_analysis and (not local_development_environment() or not local_test_request(request)):
@@ -45,7 +126,7 @@ def require_image_environment(request):
 # 탐지 기록과 업로드 정보를 함께 확정하고 DB/추론 실패 시 rollback과 저장 파일 정리를 수행한다.
 # HTTP POST /meals/detect: 의존성/요청 모델 검사 후 아래 핸들러가 실행된다.
 @router.post('/meals/detect')
-def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
+def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB, analyze: bool = True):
     require_image_environment(request)
     if not storage.configured():
         raise HTTPException(503, '업로드 이미지 저장 정책을 설정해 주세요.')
@@ -74,8 +155,16 @@ def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
         logger.warning('meal photo storage failed')
         raise HTTPException(503, '사진을 저장하지 못했습니다. 다시 시도해 주세요.')
     try:
-        with storage.local_file(filename, data) as path:
-            result = detect_image(path, mobile=True) if mobile_request(request) else detect_image(path)
+        result = {'detections': [], 'model_version': 'skipped'}
+        analysis_status = 'skipped'
+        if analyze:
+            try:
+                with storage.local_file(filename, data) as path:
+                    result = detect_image(path, mobile=True) if mobile_request(request) else detect_image(path)
+                analysis_status = 'analyzed' if result['detections'] else 'failed'
+            except Exception:
+                logger.warning('Inference unavailable; photo retained for manual record')
+                analysis_status = 'failed'
         db.add(ImageUpload(id=group_id, user_id=user.id, image_path=filename))
         detections = []
         # 모델이 반환한 각 음식 박스를 별도 탐지 행으로 저장해 나중에 개별 음식 수정/식단 연결이 가능하게 한다.
@@ -93,7 +182,7 @@ def detect(file: UploadFile, request: Request, user: CurrentUser, db: DB):
         logger.exception('Meal photo inference or detection persistence failed')
         db.rollback(); storage.delete(filename)
         raise HTTPException(503, '사진 분석에 실패했습니다. 직접 음식을 선택하거나 다시 시도해 주세요.')
-    return {'image_group_id': group_id, 'image_url': f'/api/meals/images/{group_id}',
+    return {'analysis_status': analysis_status, 'low_confidence_threshold': settings.meal_low_confidence_threshold, 'image_group_id': group_id, 'image_url': f'/api/meals/images/{group_id}',
             'detections': detections, 'detection_ids': [d['id'] for d in detections],
             'manual_selection_available': True}
 
@@ -119,7 +208,10 @@ def meal_image(image_id: str, request: Request, user: CurrentUser, db: DB):
 @router.post('/meals', status_code=201)
 def save_meal(body: MealRequest, user: CurrentUser, db: DB):
     meal = Meal(user_id=user.id, meal_date=body.meal_date or korean_date(datetime.now(timezone.utc)),
-                meal_type=body.meal_type)
+                meal_type=body.meal_type, image_upload_id=body.image_upload_id, photo_override=bool(body.image_upload_id),
+                analysis_status=body.analysis_status, meal_time=body.meal_time)
+    from .services.meal_fallback import owned_photo, fill_item
+    owned_photo(db, user, body.image_upload_id)
                   # commit 전 SQL을 반영해 생성 ID·제약 오류를 확인한다. 아직 변경을 최종 확정한 것은 아니다.
     db.add(meal); db.flush()
     # 한 요청 안에서 같은 탐지를 반복 사용한 경우 DB 작업을 확정하기 전에 거부한다.
@@ -145,27 +237,10 @@ def save_meal(body: MealRequest, user: CurrentUser, db: DB):
         if not any(i.class_id in recommended_ids for i in body.items):
             raise HTTPException(422, '추천 메뉴가 식단에 포함되어야 합니다.')
     # 클라이언트 영양 수치는 신뢰하지 않고 기존 Food와 서버 영양 계산으로 항목별 저장 스냅샷을 만든다.
-    for item in body.items:
-        food = db.get(Food, item.class_id)
-        if not food or not food.active:
-            raise HTTPException(422, '음식 데이터를 확인해 주세요.')
-        detection = None
-        if item.detection_id:
-            # 탐지 행을 잠가 두 요청이 동시에 같은 탐지로 식단을 저장하는 경쟁을 줄인다.
-            detection = db.get(Detection, item.detection_id, with_for_update=True)
-            # 인증된 회원과 리소스 소유자를 대조해 다른 회원의 기록 접근을 차단한다.
-            if not detection or detection.user_id != user.id:
-                raise HTTPException(404, '탐지 결과를 찾을 수 없습니다.')
-            if db.scalar(select(MealItem).where(MealItem.detection_log_id == detection.id)):
-                raise HTTPException(409, '이미 저장한 탐지 결과입니다.')
-            if food.canonical_name != detection.predicted_label:
-                apply_correction(db, detection, food.canonical_name, user)
-        # CSV 기준량에 요청 배율을 적용한 서버 결과를 저장해 이후 집계에서 같은 수치를 사용한다.
-        nutrition = calculate_nutrition(item.class_id, item.serving_multiplier)['nutrition']
-        meal.items.append(MealItem(food_id=item.class_id, detection_log_id=detection.id if detection else None,
-            predicted_label=detection.predicted_label if detection else None,
-            corrected_label=food.canonical_name, confidence=detection.confidence if detection else None,
-            serving_multiplier=item.serving_multiplier, nutrition=nutrition))
+    for entry in body.items:
+        if entry.id:
+            raise HTTPException(422, 'Existing item ID is not allowed for a new meal.')
+        meal.items.append(fill_item(db, user, entry))
     if recommendation:
         # 10월 15일 박근수 수정: 저장한 추천 음식의 실제 class_id를 선택 로그에 남긴다.
         recommendation.acted = True
@@ -255,6 +330,7 @@ def correction(detection_id: str, body: CorrectionRequest, user: CurrentUser, db
         linked = db.scalar(select(MealItem).where(MealItem.detection_log_id == detection.id))
         if linked:
             linked.food_id = food.id; linked.corrected_label = food.canonical_name
+            linked.is_edited = True
             # 보정된 음식으로 이미 저장한 식단 항목의 영양값도 재계산하되 기존 섭취량 배율은 유지한다.
             # 2026-10-15 사용자 승인(챗봇 지시서 R3): 섭취 비율까지 반영한 유효 배율로 계산하고 version을 올린다.
             # 비율 1.0인 기존 행은 이전과 같은 값이다.

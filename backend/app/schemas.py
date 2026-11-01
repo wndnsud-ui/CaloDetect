@@ -1,7 +1,7 @@
 # API 요청의 타입·허용 범위·필수 필드를 검증하는 Pydantic 모델.
 # 입력 형식 검증과 별도로 서비스 함수가 소유권·현재 정책·계산 결과의 유효성을 확인한다.
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic import EmailStr
 from datetime import date
 
@@ -65,9 +65,34 @@ class SignupRequest(LoginRequest):
 
 
 # MealItemRequest: NutritionRequest를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
-class MealItemRequest(NutritionRequest):
+class MealNutrition(RequestModel):
+    cal: float | None = Field(default=None, ge=0, le=100000)
+    carbs: float | None = Field(default=None, ge=0, le=100000)
+    protein: float | None = Field(default=None, ge=0, le=100000)
+    fat: float | None = Field(default=None, ge=0, le=100000)
+    sugar: float | None = Field(default=None, ge=0, le=100000)
+    sodium: float | None = Field(default=None, ge=0, le=1000000)
+
+
+class MealItemRequest(RequestModel):
+    id: str | None = Field(default=None, max_length=36)
+    version: int | None = Field(default=None, ge=1)
+    class_id: int | None = Field(default=None, ge=0, le=149)
+    reference_food_id: str | None = Field(default=None, max_length=80)
+    food_name: str | None = Field(default=None, min_length=1, max_length=120)
+    serving_multiplier: float = Field(default=1, gt=0, le=100)
+    amount: float = Field(default=1, gt=0, le=100000)
+    amount_unit: Literal['g', 'ml', 'serving'] = 'serving'
+    nutrition: MealNutrition | None = None
+    is_llm_estimated: bool = False
     # 연결할 탐지 ID. null이면 음식 직접 선택이며 서버에서 소유권/재사용을 확인한다.
     detection_id: str | None = None
+
+    @model_validator(mode='after')
+    def legacy_amount(self):
+        if 'amount' not in self.model_fields_set:
+            self.amount = self.serving_multiplier
+        return self
 
 
 # MealRequest: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.
@@ -76,9 +101,19 @@ class MealRequest(RequestModel):
     meal_type: Literal['breakfast', 'lunch', 'dinner', 'snack']
     # 식단을 기록한 날짜. 기본 날짜는 한국 시간 기준이며 생성 UTC 시각과 구분한다.
     meal_date: date | None = None
-    items: list[MealItemRequest] = Field(min_length=1, max_length=100)
+    items: list[MealItemRequest] = Field(default_factory=list, max_length=100)
+    image_upload_id: str | None = Field(default=None, max_length=36)
+    meal_time: str | None = Field(default=None, pattern=r'^([01]\d|2[0-3]):[0-5]\d$')
+    analysis_status: Literal['pending', 'analyzed', 'skipped', 'failed'] = 'analyzed'
+    expected_version: int | None = Field(default=None, ge=1)
     # 10월 15일 박근수 수정: 추천 선택 기록은 식단 저장과 같은 DB transaction에서 소유권을 검사한다.
     recommendation_id: str | None = None
+
+    @model_validator(mode='after')
+    def record_required(self):
+        if not self.items and not self.image_upload_id:
+            raise ValueError('사진 또는 음식을 추가해 주세요.')
+        return self
 
 
 # CorrectionRequest: RequestModel를 확장한 입력 모델. Field의 길이·수치 범위와 validator가 API 진입 전에 적용된다.

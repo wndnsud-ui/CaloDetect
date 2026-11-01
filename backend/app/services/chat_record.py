@@ -23,6 +23,7 @@ from .nutrition import calculate_nutrition
 from .timezone import KST, korean_date
 from .vision import detect_image
 from . import rewards
+from .chat_saved_edit import owned_saved_item, preview_edit, apply_edit
 from .. import storage
 
 logger = logging.getLogger('calodetect')
@@ -92,6 +93,8 @@ def amount_word(ratio):
 
 
 def fmt(value):
+    if value is None:
+        return '미입력'
     return f'{value:,.2f}'.rstrip('0').rstrip('.')
 
 
@@ -469,6 +472,9 @@ def confirm_draft(db, user, conversation, draft, request_id, reply_to):
                 apply_correction(db, detection, food.canonical_name, user)
         nutrition = calculate_nutrition(food.id, 1.0 * item.consumption_ratio)['nutrition']
         meal.items.append(MealItem(food_id=food.id, detection_log_id=detection.id if detection else None,
+                                   source='ai' if detection else 'search',
+                                   ai_confidence=detection.confidence if detection else None,
+                                   is_edited=bool(detection and food.canonical_name != detection.predicted_label),
                                    predicted_label=detection.predicted_label if detection else None,
                                    corrected_label=food.canonical_name, confidence=detection.confidence if detection else None,
                                    serving_multiplier=1.0, consumption_ratio=item.consumption_ratio, nutrition=nutrition))
@@ -601,8 +607,26 @@ def handle_saved(db, user, conversation, message, result, has_targets):
     # "점심에 밥 반만 먹었어"처럼 저장된 식사를 가리키는 날짜·식사 종류는 변경 요청이 아니라 대상을 고르는 말이다.
     if intent == 'update_consumption':
         result['meal_info'] = None
-    if intent in ('set_meal_info', 'change_food', 'add_food') or (intent == 'update_consumption' and result['meal_info']):
-        return bot(db, conversation, '저장된 식사의 날짜·식사 종류·음식은 아직 여기서 바꿀 수 없어요. 드신 양만 바꿀 수 있어요.', reply_to)
+    if intent in ('confirm_save', 'affirm') and (conversation.pending_payload or {}).get('saved_edit'):
+        return apply_saved_edit(db, user, conversation, message, conversation.pending_payload['saved_edit'])
+    if intent in ('set_meal_info', 'change_food'):
+        targets = saved_targets(db, user, conversation)
+        target_id = result.get('target_id') or (conversation.pending_payload or {}).get('focus_item_id')
+        if not target_id and intent == 'set_meal_info':
+            meal_ids = {db.get(MealItem, t['id']).meal_id for t in targets}
+            if len(meal_ids) == 1:
+                target_id = targets[0]['id']
+        if target_id not in {t['id'] for t in targets}:
+            return ask_which_meal(db, conversation, {'candidates': targets}, targets, message.text, reply_to)
+        payload = preview_edit(db, user, target_id, result, message.text, now_kst().date())
+        if result.get('save'):
+            return apply_saved_edit(db, user, conversation, message, payload)
+        conversation.pending_question = 'save_confirm'
+        conversation.pending_payload = {'saved_edit': payload, 'focus_item_id': target_id}
+        label = f'{payload["meal_date"]} {MEAL_LABELS[payload["meal_type"]]}' if intent == 'set_meal_info' else payload['food_name']
+        return bot(db, conversation, f'저장된 기록을 {to_(label)} 바꿀까요? 확인하시면 저장할게요.', reply_to, chips=YES_NO)
+    if intent == 'add_food':
+        return bot(db, conversation, '음식 추가는 식단 관리의 전체 수정에서 할 수 있어요. 기존 음식과 식사 종류는 여기서 바꿀 수 있어요.', reply_to)
     if intent == 'cancel':
         conversation.pending_question = 'none'; conversation.pending_payload = None
         return bot(db, conversation, '수정을 멈췄어요. 기록은 그대로예요.', reply_to)
@@ -642,6 +666,14 @@ def apply_saved_updates(db, user, conversation, updates, message):
     return bot(db, conversation, '저장된 기록을 바꿨어요.', message.id, kind='corrected', cards=cards, chips=NAV_CHIPS)
 
 
+def apply_saved_edit(db, user, conversation, message, payload):
+    meal, item = apply_edit(db, user, payload, message.client_message_id)
+    conversation.pending_question = 'none'
+    conversation.pending_payload = {'focus_item_id': item.id}
+    return bot(db, conversation, f'{MEAL_LABELS[meal.meal_type]} · {item.corrected_label} 기록으로 바꿨어요.',
+               message.id, kind='corrected', chips=NAV_CHIPS)
+
+
 # 사진 기록 중이면 그 초안 음식, 아니면 이 대화에서 마지막으로 저장한 식사 음식을 대상으로 한 번만 해석하고 나눠 보낸다.
 # 질문 횟수는 LLM이 해석했고, 안내만 한 답(free)이 아닐 때만 센다.
 def handle_message(db, user, conversation, draft, message, request_id, use_llm):
@@ -666,6 +698,8 @@ def handle_message(db, user, conversation, draft, message, request_id, use_llm):
             selected = payload['focus_item_id']
         result = chat_llm.interpret(text, conversation.pending_question, targets, selected, catalog,
                                     use_llm=use_llm, context=context)
+        if result['intent'] == 'set_meal_info' and selected:
+            result['target_id'] = selected
     result['free'] = result.get('free') or free
     intent = result['intent']
     if intent == 'general_chat':
@@ -693,7 +727,7 @@ def saved_targets(db, user, conversation):
     focus = (conversation.pending_payload or {}).get('focus_item_id')
     if focus:
         try:
-            item, meal = owned_item(db, user, focus)
+            item, meal = owned_saved_item(db, user, focus)
             return [{'id': item.id, 'food_name': item.corrected_label, 'label': f'{date_label(meal.meal_date)} {MEAL_LABELS.get(meal.meal_type, "")}'}]
         except ChatRecordError:
             conversation.pending_payload = None
@@ -720,14 +754,14 @@ def ask_which_meal(db, conversation, result, targets, text, reply_to):
 def focus_item(db, user, conversation_id, item_id):
     require_consent(db, user)
     conversation = get_conversation(db, user, conversation_id, lock=True)
-    item, meal = owned_item(db, user, item_id)
+    item, meal = owned_saved_item(db, user, item_id)
     conversation.pending_question = 'amount'
     conversation.pending_payload = {'focus_item_id': item.id}
     label = f'{date_label(meal.meal_date)} {MEAL_LABELS.get(meal.meal_type, meal.meal_type)}'
     chips = [{'label': '다 먹었어', 'text': '다 먹었어'}, {'label': '절반', 'text': '절반만 먹었어'},
              {'label': '4분의 1', 'text': '4분의 1 먹었어'}, {'label': '안 먹었어', 'text': '안 먹었어'}]
     reply = bot(db, conversation, f'{label} · {item.corrected_label} 기록이에요(지금 섭취 {percent(item.consumption_ratio)}). '
-                                  '얼마나 드셨는지 편하게 말씀해 주세요.', None, chips=chips)
+                                  '드신 양이나 음식, 식사 종류를 바꿔 달라고 말씀해 주세요.', None, chips=chips)
     db.commit()
     return {'messages': [message_json(reply)], 'draft': draft_json(db, active_draft(db, conversation)), **llm_state(db, user)}
 
@@ -865,7 +899,7 @@ def user_context(db, user):
                                          Meal.meal_date <= today)).all()
     days = {}
     for meal in rows:
-        days.setdefault(meal.meal_date, []).append(sum(i.nutrition['cal'] for i in meal.items))
+        days.setdefault(meal.meal_date, []).append(sum((i.nutrition.get('cal') or 0) for i in meal.items))
     week = [f'{d.month}/{d.day} {fmt(sum(days[d]))}kcal({len(days[d])}끼)' for d in sorted(days)]
     return today_context(db, user) + '\n최근 7일 하루 섭취: ' + (', '.join(week) if week else '기록 없음')
 

@@ -36,13 +36,13 @@ def source_images(db, meals):
         ChatAttachment.id.in_([m.chat_attachment_id for m in meals if m.chat_attachment_id])))}
     ids_by_meal = {}
     for meal in meals:
-        ids = []
+        ids = [meal.image_upload_id] if meal.image_upload_id else []
         for item in meal.items:
             det = detections.get(item.detection_log_id)
-            if det and det.user_id == meal.user_id and det.image_group_id not in ids:
+            if not meal.photo_override and det and det.user_id == meal.user_id and det.image_group_id not in ids:
                 ids.append(det.image_group_id)
         attachment = attachments.get(meal.chat_attachment_id)
-        if attachment and attachment.user_id == meal.user_id and attachment.image_upload_id not in ids:
+        if not meal.photo_override and attachment and attachment.user_id == meal.user_id and attachment.image_upload_id not in ids:
             ids.append(attachment.image_upload_id)
         ids_by_meal[meal.id] = ids
     images = {x.id: x for x in db.scalars(select(ImageUpload).where(
@@ -52,12 +52,12 @@ def source_images(db, meals):
 
 
 def meal_data(meal, foods):
-    items = [{'class_id': i.food_id, 'food_name': foods[i.food_id].canonical_name,
-              'category': foods[i.food_id].category, 'unit': foods[i.food_id].serving_unit,
+    items = [{'class_id': i.food_id, 'food_name': i.corrected_label if i.is_edited or i.food_id not in foods else foods[i.food_id].canonical_name,
+              'category': foods[i.food_id].category if i.food_id in foods else 'manual', 'unit': foods[i.food_id].serving_unit if i.food_id in foods else i.amount_unit,
               'serving_multiplier': i.serving_multiplier * i.consumption_ratio,
               'nutrition': i.nutrition} for i in sorted(meal.items, key=lambda i: (i.created_at, i.id))]
     return {'meal_date': str(meal.meal_date), 'meal_type': meal.meal_type, 'items': items,
-            'totals': {k: round(sum(i['nutrition'].get(k, 0) for i in items), 2) for k in NUTRIENTS}}
+            'totals': {k: round(sum((i['nutrition'].get(k) or 0) for i in items), 2) for k in NUTRIENTS}}
 
 
 def serialize(db, posts, user):

@@ -88,3 +88,5 @@ button.community-card-media{display:block;width:100%;border:0;padding:0;margin:0
 .is-timeline .community-mobile-chips button,.is-timeline .community-mobile-chips button+button{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:56px;padding:9px 30px 9px 14px;border:1px solid var(--m-line,#e3e9e1);border-radius:16px;background:#fff;color:var(--m-green,#194d3e);font-size:15px;font-weight:800;text-align:left}
 .is-timeline .community-mobile-chips button::after{content:'›';position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:20px;font-weight:400;color:#9aaba1}
 .is-timeline .community-chip-label{display:block;font-size:11px;font-weight:600;color:var(--m-sub,#5f7268)}
+/* 본인 글의 좋아요·추천: 누르면 안내만 뜨므로 흐리게 보여 준다 */
+.community-reaction.is-own{opacity:.55;cursor:default}

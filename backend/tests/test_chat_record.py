@@ -212,7 +212,10 @@ def test_t63_food_change(env):
     assert '목록에 없어요' in last_bot(say(client, conversation, f'{target}가 아니라 없는음식야'))['text']
     say(client, conversation, '다 먹었어 올려줘')
     after = say(client, conversation, f'{target}가 아니라 {NAMES[GALBI]}야')
-    assert '바꿀 수 없어요' in last_bot(after)['text']
+    assert '바꿀까요' in last_bot(after)['text']
+    assert meals(engine)[0].items[0].food_id == 0
+    say(client, conversation, '응')
+    assert meals(engine)[0].items[0].food_id == GALBI
 
 
 def test_t63_underscore_name_matches():

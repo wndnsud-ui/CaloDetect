@@ -86,7 +86,7 @@ function Points({data}) {
 
 // 좋아요·추천·댓글·삭제 버튼 줄. 카드와 상세 창이 같이 쓴다.
 function Reactions({post,busy,onReact,onDelete,onComments}) {
-  return <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy||post.is_mine} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}<button type="button" className="community-reaction comment" aria-label={`댓글 ${post.comment_count||0}개`} onClick={onComments}><span aria-hidden="true">💬</span>{post.comment_count||0}</button>{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>;
+  return <div className="community-reactions">{['like','recommend'].map(kind=><button key={kind} disabled={busy} aria-disabled={post.is_mine||undefined} aria-busy={busy} aria-pressed={post.my_reactions.includes(kind)} aria-label={`${kind==='like'?'좋아요':'추천'} ${post.counts[kind]}개`} className={`community-reaction ${kind} ${post.my_reactions.includes(kind)?'is-active':''}${post.is_mine?' is-own':''}`} onClick={()=>onReact(post,kind)}><span aria-hidden="true">{kind==='like'?(post.my_reactions.includes(kind)?'♥':'♡'):(post.my_reactions.includes(kind)?'★':'☆')}</span>{post.counts[kind]}</button>)}<button type="button" className="community-reaction comment" aria-label={`댓글 ${post.comment_count||0}개`} onClick={onComments}><span aria-hidden="true">💬</span>{post.comment_count||0}</button>{post.is_mine&&<button className="community-delete" disabled={busy} aria-busy={busy} onClick={()=>onDelete(post)}>삭제</button>}</div>;
 }
 
 // 카드를 누르면(안쪽 버튼 제외) 상세 창이 열린다. 키보드는 사진 영역 버튼으로 연다.
@@ -189,12 +189,14 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
   useEffect(()=>{setError('');setItems([]);setCursor(null);loadFeed();},[mine]);
   useEffect(()=>{refreshStats().catch(e=>setError(e.message));},[]);
   useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),5000);return()=>clearTimeout(timer);},[toast]);
-  async function action(work){if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await work();}catch(e){setError(e.message);}finally{await onRewardsChanged?.();lock.current=false;setBusy(false);setPending(null);}}
+  // 리워드 요약 다시 불러오기는 기다리지 않는다(느린 응답 동안 좋아요 버튼이 잠겨 눌리지 않는 것처럼 보이던 문제).
+  async function action(work){if(lock.current)return;lock.current=true;setBusy(true);setError('');try{await work();}catch(e){setError(e.message);}finally{lock.current=false;setBusy(false);setPending(null);onRewardsChanged?.();}}
   async function preview(post,kind){await action(async()=>{setPending(post.id);try{
     const path=`/community/posts/${post.id}${kind?`/reactions/${kind}/revoke-preview`:'/delete-preview'}`;
     const data=await api(path);setConfirm({post,kind,...data});
   }catch(e){if(e.status===404)await loadFeed();else throw e;}});}
-  async function react(post,kind){if(post.my_reactions.includes(kind)){await preview(post,kind);return;}
+  // 본인 글은 서버도 반응을 막는다. 버튼을 말없이 비활성화하는 대신 이유를 알려 준다.
+  async function react(post,kind){if(post.is_mine){setToast('내 글에는 좋아요·추천을 누를 수 없어요.');return;}if(post.my_reactions.includes(kind)){await preview(post,kind);return;}
     await action(async()=>{setPending(post.id);const updated=await api(`/community/posts/${post.id}/reactions/${kind}`,{});setItems(old=>old.map(p=>p.id===post.id?updated:p));await refreshStats();});}
   async function remove(){if(!confirm)return;await action(async()=>{const {post,kind}=confirm;setPending(post.id);
     const result=await api(`/community/posts/${post.id}${kind?`/reactions/${kind}`:''}`,{},'DELETE');

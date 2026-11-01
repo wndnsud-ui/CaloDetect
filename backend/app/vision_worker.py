@@ -22,6 +22,20 @@ def main():
         from PIL import Image
         from ultralytics import YOLO
         model = YOLO(str(model_path))
+        captured = {}
+        # Read actual per-class scores before NMS; never invent alternative foods.
+        def capture_scores(head, inputs, output):
+            if not isinstance(output, tuple) or not isinstance(output[1], dict):
+                return
+            raw = output[1]
+            raw = raw.get('one2one' if head.end2end else 'one2many', raw)
+            if 'scores' not in raw or 'feats' not in raw:
+                return
+            decoded = head._inference(raw).detach()
+            captured['predictions'] = decoded[0].cpu()
+            captured['shape'] = tuple(int(n * head.stride[0]) for n in raw['feats'][0].shape[-2:])
+            captured['xyxy'] = bool(head.end2end or getattr(head, 'xyxy', False))
+        handle = model.model.model[-1].register_forward_hook(capture_scores)
         import yaml
         names = yaml.safe_load((ROOT / 'data.yaml').read_text(encoding='utf-8-sig'))['names']
         # 로드한 모델 클래스와 기존 YAML 이름/순서가 일치하지 않으면 잘못된 영양 연결을 막기 위해 추론을 중단한다.
@@ -29,10 +43,34 @@ def main():
             raise ValueError('Model class mismatch')
         with Image.open(sys.argv[1]) as source:
             # 기존 conf=0.11, iou=0.45, 입력 960, CPU 설정으로 추론한다. 주석 작업으로 모델 설정을 바꾸지 않는다.
-            result = model.predict(source.convert('RGB'), conf=0.11, iou=0.45,
-                                   imgsz=960, device='cpu', verbose=False)[0]
+            try:
+                result = model.predict(source.convert('RGB'), conf=0.11, iou=0.45,
+                                       imgsz=960, device='cpu', verbose=False)[0]
+            finally:
+                handle.remove()
     detections = [{'class_id': int(box.cls[0]), 'predicted_label': model.names[int(box.cls[0])],
                    'confidence': float(box.conf[0]), 'bbox': box.xyxy[0].tolist()} for box in result.boxes]
+    if captured:
+        import torch
+        from ultralytics.utils import ops
+        from ultralytics.utils.metrics import box_iou
+        pred = captured['predictions']
+        boxes = pred[:4].T.clone()
+        if not captured['xyxy']:
+            boxes = ops.xywh2xyxy(boxes)
+        boxes = ops.scale_boxes(captured['shape'], boxes, result.orig_shape)
+        for item in detections:
+            overlap = box_iou(torch.tensor([item['bbox']]), boxes)[0]
+            anchor = int(overlap.argmax())
+            if float(overlap[anchor]) < 0.5:
+                item['candidates'] = []
+                continue
+            scores, classes = pred[4:4 + len(model.names), anchor].topk(min(3, len(model.names)))
+            item['candidates'] = [{'class_id': int(c), 'predicted_label': model.names[int(c)],
+                                   'confidence': float(score)} for score, c in zip(scores, classes)]
+    else:
+        for item in detections:
+            item['candidates'] = []
     # 모델 파일 해시 앞 16자리를 기록해 같은 파일명의 다른 모델 결과를 구분한다.
     digest = hashlib.sha256(model_path.read_bytes()).hexdigest()[:16]
     print(json.dumps({'detections': detections, 'model_version': f'{version}-{digest}'}, ensure_ascii=True))

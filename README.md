@@ -643,6 +643,8 @@ git push
 
 ## 로컬 실행
 
+인식 실패 대체 기록(2026-11-01)은 `20261101_01` migration과 식약처 음식 DB 적재 후 사용할 수 있습니다. 공유 Supabase는 자동 migration을 켜거나 로컬 DB 준비 스크립트를 실행하지 않습니다. 담당자 적용 순서·검증·미적용 범위는 [직접 등록 개선 적용 안내](docs/planning/MEAL_FALLBACK_IMPLEMENTATION.md)를 참고하세요. XLSX 적재 도구는 개발 의존성 `openpyxl`을 사용합니다(`backend/requirements-dev.txt`).
+
 최초 설치는 위 새 웹 환경 실행 절차를 따르세요. 설치 후 재실행은 [로컬 실행 가이드](CaloDetect_로컬_실행가이드.md)를 사용합니다. 사용자 웹은 React/FastAPI로 실행하며 Streamlit은 그래프 서버에 사용합니다.
 
 ## 모델 및 데이터

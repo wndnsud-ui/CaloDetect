@@ -320,7 +320,7 @@ def test_focus_item_from_history(llm):
     meal = client.post('/meals', json={'meal_type': 'dinner', 'items': [{'class_id': GALBI, 'serving_multiplier': 1}]}).json()
     conversation = start(client)
     focused = client.post('/chat/focus', json={'conversation_id': conversation, 'item_id': meal['items'][0]['id']})
-    assert focused.status_code == 200 and '얼마나 드셨는지' in last_bot(focused.json())['text']
+    assert focused.status_code == 200 and '음식, 식사 종류' in last_bot(focused.json())['text']
     calls['reply'] = lambda messages: raw(intent='update_consumption', save=True, updates=[
         {'target_id': meal['items'][0]['id'], 'consumption_ratio': 0.25}])
     body = send(client, conversation, '사분의 일 정도만 먹었어').json()

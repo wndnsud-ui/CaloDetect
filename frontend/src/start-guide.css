@@ -1,0 +1,30 @@
+/* 홈 시작 가이드(가입 → 닉네임 → 목표 칼로리 → 첫 식단) */
+.start-guide{position:relative;margin:0 0 20px;padding:20px 22px;background:linear-gradient(135deg,#f3faf6,#ffffff);border:1px solid #cfe6d9;border-radius:18px;box-shadow:0 6px 18px rgba(20,70,50,.06);color:#1d3a31}
+.start-guide header{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.start-guide header>div{flex:1;min-width:0}
+.start-guide header .eyebrow{margin:0}
+.start-guide h2{margin:2px 0 0;font-size:19px;color:#1d3a31}
+.start-guide-count{font-size:13px;font-weight:700;color:#0f7a63;background:#e3f4ec;border-radius:999px;padding:4px 10px}
+.start-guide-later{border:0;background:none;color:#6f8276;font-size:12px;text-decoration:underline;cursor:pointer;padding:4px}
+.start-guide-bar{height:6px;margin:12px 0 14px;border-radius:999px;background:#e3ece7;overflow:hidden}
+.start-guide-bar span{display:block;height:100%;background:#0f7a63;border-radius:inherit;transition:width .3s}
+.start-guide ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.start-guide li{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:12px 14px;border:1px solid #e1ebe6;border-radius:14px;background:#fff;min-width:0}
+.start-guide li b{font-size:14px}
+.start-guide li em{font-style:normal;font-size:12px;font-weight:700;color:#b7791f}
+.start-guide li button{margin:auto 0 0;min-height:36px;padding:0 14px;font-size:13px;border-radius:999px}
+.start-guide li.is-done{background:#f6faf8;color:#6f8276}
+.start-guide li.is-done em{color:#6f8276}
+.start-guide li.is-current{border-color:#0f7a63;box-shadow:0 0 0 1px #0f7a63 inset}
+.start-guide-check{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#e3ece7;color:#40564d;font-size:13px;font-weight:700}
+.start-guide li.is-done .start-guide-check{background:#0f7a63;color:#fff}
+.start-guide li.is-current .start-guide-check{background:#f08a24;color:#fff}
+.start-guide-tip{display:flex;align-items:center;gap:10px;margin-top:12px}
+.start-guide-tip p{margin:0;padding:10px 14px;background:#fff;border:1px solid #e1ebe6;border-radius:14px 14px 14px 4px;font-family:'Gaegu',cursive;font-size:17px;color:#117b60}
+.start-guide-jibang{flex-shrink:0;display:flex;align-items:flex-end}
+.start-guide-done{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.start-guide-done>div:nth-child(2){flex:1;min-width:160px}.start-guide-done strong{font-size:17px}.start-guide-done p{margin:4px 0 0;font-size:13px;color:#5f7468}
+.start-guide-done .primary{margin:0}
+.start-guide-close{position:absolute;top:8px;right:10px;border:0;background:none;font-size:20px;color:#6f8276;cursor:pointer}
+@media(max-width:900px){.start-guide ol{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.start-guide{margin:0 0 14px;padding:16px}.start-guide h2{font-size:17px}.start-guide ol{grid-template-columns:1fr}.start-guide li{flex-direction:row;align-items:center;flex-wrap:wrap}.start-guide li b{flex:1}.start-guide li button{margin:0}.start-guide-tip p{font-size:15px}}

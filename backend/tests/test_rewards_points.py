@@ -92,6 +92,17 @@ def test_signup_and_goal_onboarding(env, monkeypatch):
         assert other.put('/users/me/profile', json={**profile, 'target_calories': 1850}).status_code == 200
         assert lots(engine, new['id'])['onboarding:goal'][1] == 10
         assert other.get('/rewards/me').json()['deco_only'] == 20
+        # 시작 가이드: 가입·목표 완료, 닉네임·첫 식단은 남음. 포인트는 받은 금액 또는 받을 금액(닉네임은 0).
+        steps = {step['key']: step for step in other.get('/rewards/me').json()['onboarding']['steps']}
+        assert [key for key in steps] == ['signup', 'nickname', 'goal', 'first_meal']
+        assert steps['signup'] == {'key': 'signup', 'done': True, 'points': 10}
+        assert steps['goal']['done'] and steps['goal']['points'] == 10
+        assert not steps['first_meal']['done'] and steps['first_meal']['points'] == 10
+        assert steps['nickname']['points'] == 0
+    # 출시 이전 회원은 받을 포인트가 없으므로 0으로 보인다.
+    monkeypatch.setattr(settings, 'reward_onboarding_start_at', None)
+    old_steps = {step['key']: step for step in client.get('/rewards/me').json()['onboarding']['steps']}
+    assert old_steps['signup']['points'] == 0 and old_steps['first_meal']['points'] == 0
 
 
 # 6. 3끼 완료: 간격 충족 시 +3, 120분 미만이면 미지급.

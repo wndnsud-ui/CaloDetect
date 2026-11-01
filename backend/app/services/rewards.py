@@ -950,6 +950,7 @@ def me(db, user):
               'actions': available_actions(db, user, status, day), 'goal': goal_info(db, user, row, balance),
               'equipment': equipment_of(db, user.id), 'nickname': nickname_json(db, user, nickname),
               'nickname_prompt': nickname_prompt(user, nickname),
+              'onboarding': onboarding_guide(db, user, nickname),
               # Stage B
               **level_info(db, user.id, row), 'streak': streak_info(db, user),
               'pending_levelup': pending_levelup(db, user.id)}
@@ -1385,6 +1386,30 @@ def ensure_member_nickname(db, user):
     if row is None and not is_new_member(user):
         row = create_generated(db, user)
     return row
+
+
+ONBOARDING_KEYS = ('onboarding:signup', 'onboarding:goal', 'onboarding:first_meal')
+
+
+# 홈 '시작 가이드' 4단계(가입 → 닉네임 → 목표 칼로리 → 첫 식단). 완료 여부는 기존 기록으로만 판단한다(새 저장 없음).
+# 닉네임: 직접 정했거나 안내 카드를 닫았으면 완료. 포인트: 받은 지급액, 아직이면 받을 수 있는 금액(신규 회원만), 닉네임은 0.
+def onboarding_guide(db, user, nickname):
+    granted = dict(db.execute(select(Lot.idem_key, Lot.amount).where(
+        Lot.user_id == user.id, Lot.idem_key.in_(ONBOARDING_KEYS))).all())
+    has_goal = db.get(Profile, user.id) is not None
+    has_meal = db.scalar(select(Meal.id).where(Meal.user_id == user.id).limit(1)) is not None
+    eligible = is_new_member(user)
+
+    def points(key, amount):
+        return granted.get(key) or (amount if eligible else 0)
+    return {'steps': [
+        {'key': 'signup', 'done': True, 'points': granted.get('onboarding:signup', 0)},
+        {'key': 'nickname', 'done': nickname is not None and (not nickname.generated or nickname.prompt_dismissed_at is not None),
+         'points': 0},
+        {'key': 'goal', 'done': has_goal, 'points': points('onboarding:goal', settings.reward_onboarding_goal)},
+        {'key': 'first_meal', 'done': has_meal,
+         'points': points('onboarding:first_meal', settings.reward_onboarding_first_meal)},
+    ]}
 
 
 def nickname_prompt(user, row):

@@ -58,13 +58,15 @@ def ensure_products(db):
     """없으면 추가, 있으면 이름·하위분류·옵션·max_qty·listed·collab_brand·content만 갱신한다(§5-3).
     기존 행의 price·available·active는 덮어쓰지 않는다(운영자 변경 보호). 비활성 전환은 migration 20261022_01이 1회 처리한다."""
     # 코칭·리워드몰 요청마다 불리므로 한 요청(세션)에서는 한 번만 한다.
-    if db.info.get('reward_products_synced'):
+    if rewards.already_synced(db, 'reward_products_synced'):
         return
     rows = {p.id: p for p in db.scalars(select(Product))}
+    changed = False
     for order, (product_id, name, category, price, available, description, sub, won, options, max_qty, listed, brand,
                 content) in enumerate(catalog.PRODUCTS):
         row = rows.get(product_id)
         if row is None:
+            changed = True
             rewards.savepoint(db, lambda: (db.add(Product(
                 id=product_id, name=name, category=category, price=price, available=available, partner_label='[제휴사명]',
                 description=description, image_key=None, active=product_id not in catalog.RETIRED, sort_order=order,
@@ -72,6 +74,7 @@ def ensure_products(db):
                 collab_brand=brand, content=dict(content), is_mock=True)), db.flush()))
         elif (row.name, row.subcategory, row.options, row.max_qty, row.listed, row.collab_brand, row.content,
               row.list_price_won) != (name, sub, list(options), max_qty, listed, brand, dict(content), won):
+            changed = True
             row.name, row.subcategory, row.options, row.max_qty = name, sub, list(options), max_qty
             row.listed, row.collab_brand, row.content, row.list_price_won = listed, brand, dict(content), won
     from .reward_coaching import ensure_coaches
@@ -79,12 +82,13 @@ def ensure_products(db):
     base = len(catalog.PRODUCTS)
     for offset, (product_id, coach_id, name, sessions, price) in enumerate(catalog.COACH_PRODUCTS):
         if product_id not in rows:
+            changed = True
             rewards.savepoint(db, lambda: (db.add(Product(
                 id=product_id, name=name, category='pro', price=price, available=True,
                 partner_label='[코치 채널]', description=f'{sessions}회 코칭 이용권', image_key=None, active=True,
                 sort_order=base + offset, listed=True, coach_id=coach_id, options=[], max_qty=1, content={},
                 is_mock=True)), db.flush()))
-    db.info['reward_products_synced'] = True
+    rewards.done_syncing(db, 'reward_products_synced', changed)
 
 
 def visible(product):

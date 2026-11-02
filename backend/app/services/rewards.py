@@ -8,6 +8,7 @@
 - 로그에는 금액·출처만 남긴다. 회원·식단 ID, 이름·이메일·닉네임·사진 경로는 남기지 않는다.
 """
 import hashlib
+import weakref
 import logging
 import threading
 import time
@@ -153,9 +154,25 @@ def request_cache(db, key, load):
 
 # ---- 계정·아이템 ----
 
+_SYNCED = weakref.WeakKeyDictionary()   # DB 엔진 → 이 서버 프로세스에서 바꿀 것 없이 끝난 시드 동기화 키
+
+
+def already_synced(db, key):
+    """시드 동기화를 이 요청에서 이미 했거나, 이 프로세스가 같은 DB에서 바꿀 것 없이 끝낸 적이 있으면 True.
+    운영 서버와 DB가 멀어 요청마다 하던 동기화 조회(아이템·상품·코치)가 응답 시간을 늘렸기 때문이다."""
+    return bool(db.info.get(key)) or key in _SYNCED.get(db.get_bind(), ())
+
+
+def done_syncing(db, key, changed):
+    # 이번에 추가·수정한 것이 있으면 커밋 여부를 모르므로 다음 요청에서 다시 확인한다.
+    db.info[key] = True
+    if not changed:
+        _SYNCED.setdefault(db.get_bind(), set()).add(key)
+
+
 def ensure_items(db):
     # 한 요청(세션)에서 account()가 여러 번 불려도 아이템 동기화는 한 번만 한다(DB 왕복 감소).
-    if db.info.get('reward_items_synced'):
+    if already_synced(db, 'reward_items_synced'):
         return
     existing = set(db.scalars(select(Item.id)))
     missing = [row for row in ITEMS if row[0] not in existing]
@@ -184,7 +201,7 @@ def ensure_items(db):
             item.name = '기본 배경 · 포근한 아침 방'
         elif item_id == 'starter_bg':
             item.name = '깔끔한 민트 방'
-    db.info['reward_items_synced'] = True
+    done_syncing(db, 'reward_items_synced', bool(missing) or any(db.is_modified(i) for i in items.values()))
 
 
 def account(db, user_id, lock=False):

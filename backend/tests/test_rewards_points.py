@@ -206,6 +206,7 @@ def test_purchase_rules(member):
             lot = service.grant_points(db, user['id'], source, amount, idem)
             lot.expires_at = NOON + timedelta(days=days)
         db.commit()
+    service._SYNCED.clear()  # 기존 DB 값은 서버가 새로 뜬 뒤 첫 동기화에서 맞춘다(재시작 흉내).
     bought = client.post('/rewards/items/prop_water/purchase')
     assert bought.status_code == 200, bought.text
     assert bought.json()['restricted_used'] == 4 and bought.json()['balance'] == 2
@@ -435,6 +436,7 @@ def test_default_items_no_points_and_existing_account(member):
         db.get(RewardItem, 'starter_hat').price = 20
         db.get(RewardItem, 'starter_hat').sellable = True
         db.commit()
+    service._SYNCED.clear()  # 재시작 흉내: 다음 요청에서 기존 DB 값을 다시 동기화한다.
     items = {item['id']: item for item in client.get('/rewards/items').json()['items']}
     for item_id in service.DEFAULT_ITEMS:
         assert items[item_id]['owned'] and items[item_id]['default_provided']

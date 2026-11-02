@@ -18,7 +18,7 @@ from .schemas import SignupRequest, LoginRequest, CalorieRequest, MealRequest, C
 from .security import password_hash, password_matches, new_session, get_user, get_admin, hash_token
 from .services.profile import calculate_calorie_range
 from .services.nutrition import food_catalog, calculate_nutrition
-from .services.analytics import get_today_status, get_month_status, meal_json
+from .services.analytics import get_today_status, get_month_status, meal_json, meals_json
 from .services.timezone import korean_date
 from .services.correction import apply_correction
 from .services.recommendation import recommend_meals
@@ -313,7 +313,7 @@ def history(user: CurrentUser, db: DB, start: date | None = None, end: date | No
     if end:
         query = query.where(Meal.meal_date <= end)
     meals = db.scalars(query.order_by(Meal.meal_date.desc(), Meal.created_at.desc()).limit(limit)).all()
-    return {'items': [meal_json(m) for m in meals]}
+    return {'items': meals_json(db, meals)}
 
 
 # 현재 회원의 오늘 영양 합계·목표·남은 칼로리·식단을 반환한다.

@@ -5,6 +5,7 @@ import hmac
 import secrets
 from datetime import datetime, timezone, timedelta
 from fastapi import Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from .config import settings
 from .db import get_db
@@ -55,16 +56,18 @@ def get_user(request: Request, db: Session = Depends(get_db)):
     token = bearer[7:] if bearer.startswith('Bearer ') else request.cookies.get('calodetect_session')
     if not token:
         raise HTTPException(401, '로그인이 필요합니다.')
-    auth_session = db.get(AuthSession, hash_token(token))
-    if not auth_session:
+    # 세션과 회원을 한 번에 읽는다(요청마다 붙는 DB 왕복을 2→1로 줄임).
+    found = db.execute(select(AuthSession, User).outerjoin(User, User.id == AuthSession.user_id)
+                       .where(AuthSession.token_hash == hash_token(token))).first()
+    if not found:
         raise HTTPException(401, '로그인이 만료되었습니다.')
+    auth_session, user = found
     expiry = auth_session.expires_at
     # DB 드라이버가 timezone 없는 datetime을 반환하면 저장 기준인 UTC로 명시한다.
     if expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)
     if expiry <= datetime.now(timezone.utc):
         raise HTTPException(401, '로그인이 만료되었습니다.')
-    user = db.get(User, auth_session.user_id)
     if not user:
         raise HTTPException(401, '로그인이 필요합니다.')
     require_service_age(user)

@@ -20,6 +20,7 @@ def get_month_status(db, user_id, year, month):
     # 히스토리 API의 조회 개수 제한 없이 월 범위 전체를 조회해 집계 누락을 방지한다.
     meals = db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.deleted_at.is_(None),
         Meal.meal_date >= date(year, month, 1), Meal.meal_date <= date(year, month, days))).all()
+    keep = prefetch(db, meals)  # noqa: F841 (identity map 유지용)
     records = []
     for day in range(1, days + 1):
         current = date(year, month, day)
@@ -35,6 +36,21 @@ def get_month_status(db, user_id, year, month):
                 for key in NUTRIENTS} if recorded else None
     return {'timezone': 'Asia/Seoul', 'days': records, 'recorded_days': len(recorded),
             'averages': averages}
+
+
+def prefetch(db, meals):
+    """meal_json이 식단·항목마다 하던 단건 조회(음식 DB·탐지·사진)를 종류별 1번으로 묶어 미리 읽는다.
+    운영 서버와 DB가 멀어 왕복 수가 곧 응답 시간이라서다. 세션 identity map은 약참조라 반환값을 쥐고 있어야 한다."""
+    items = [i for m in meals for i in m.items]
+    wanted = ((NutritionFood, {i.reference_food_id for i in items if i.reference_food_id}),
+              (Detection, {i.detection_log_id for i in items if i.detection_log_id}),
+              (ImageUpload, {m.image_upload_id for m in meals if m.image_upload_id}))
+    return [db.scalars(select(model).where(model.id.in_(ids))).all() for model, ids in wanted if ids]
+
+
+def meals_json(db, meals):
+    keep = prefetch(db, meals)  # noqa: F841 (identity map 유지용)
+    return [meal_json(m) for m in meals]
 
 
 # 식단 항목과 같은 소유자의 탐지 이미지를 응답으로 직렬화하며 동일 이미지 그룹은 한 번만 포함한다.
@@ -98,6 +114,6 @@ def get_today_status(db, user_id, instant=None):
             'remaining_calories': max(0, round(target - totals['cal'], 2)) if target else None,
             # 탄단지는 승인된 비율, 당류·나트륨은 추천 엔진과 같은 개발 상한 기준.
             'macro_targets': calculate_macro_targets(target), 'sugar_sodium_limits': daily_limits(target),
-            'meals': [meal_json(m) for m in meals],
+            'meals': meals_json(db, meals),
             'message': '목표를 설정해 주세요.' if not target else
                 ('오늘 섭취량이 목표를 초과했습니다.' if totals['cal'] > target else '기록한 식단을 바탕으로 다음 식사를 선택해 보세요.')}

@@ -86,8 +86,9 @@ def require_enabled():
 def ensure_coaches(db):
     """시연용 코치·콘텐츠 시드. 없으면 추가, 있으면 화면 데이터만 갱신(연락처는 자리표시 값으로 둔다)."""
     # 요청마다 불리므로 한 요청(세션)에서는 한 번만 하고, 코치·콘텐츠는 한 번에 읽어 항목마다 조회하지 않는다.
-    if db.info.get('reward_coaches_synced'):
+    if rewards.already_synced(db, 'reward_coaches_synced'):
         return
+    changed = False
     coaches = {c.id: c for c in db.scalars(select(Coach))}
     contents = {c.id: c for c in db.scalars(select(Content))}
     for order, data in enumerate(COACHES):
@@ -96,6 +97,7 @@ def ensure_coaches(db):
                  'side_note': data.get('side_note')}
         row = coaches.get(data['id'])
         if row is None:
+            changed = True
             rewards.savepoint(db, lambda: (db.add(Coach(
                 id=data['id'], name=data['name'], headline=data['headline'], specialties=list(data['specialties']),
                 quote=data['quote'], philosophy=data['philosophy'], career=list(data['career']),
@@ -113,11 +115,13 @@ def ensure_coaches(db):
             picture = pictures[index] if index < len(pictures) else None
             item = contents.get(content_id)
             if item is None:
+                changed = True
                 rewards.savepoint(db, lambda: (db.add(Content(id=content_id, coach_id=data['id'], kind=kind, label=label,
                                                               title=title, body=body, image_key=picture, sort_order=index)), db.flush()))
             else:
                 item.kind, item.label, item.title, item.body, item.image_key = kind, label, title, body, picture
-    db.info['reward_coaches_synced'] = True
+    changed = changed or any(db.is_modified(o) for o in (*coaches.values(), *contents.values()))
+    rewards.done_syncing(db, 'reward_coaches_synced', changed)
 
 
 def seeded(db):

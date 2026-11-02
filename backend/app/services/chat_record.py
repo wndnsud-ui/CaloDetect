@@ -592,7 +592,8 @@ def handle_draft(db, user, conversation, draft, message, request_id, result):
 def last_saved_meal(db, conversation):
     draft = db.scalar(select(MealDraft).where(MealDraft.conversation_id == conversation.id, MealDraft.status == 'confirmed')
                       .order_by(MealDraft.updated_at.desc()))
-    return db.get(Meal, draft.confirmed_meal_id) if draft and draft.confirmed_meal_id else None
+    meal = db.get(Meal, draft.confirmed_meal_id) if draft and draft.confirmed_meal_id else None
+    return meal if meal and meal.deleted_at is None else None
 
 
 # 저장된 식사의 섭취량 정정(5.1과 같은 방식). A0 미리보기·수정 서비스를 재사용한다.
@@ -731,7 +732,7 @@ def saved_targets(db, user, conversation):
             return [{'id': item.id, 'food_name': item.corrected_label, 'label': f'{date_label(meal.meal_date)} {MEAL_LABELS.get(meal.meal_type, "")}'}]
         except ChatRecordError:
             conversation.pending_payload = None
-    meals = list(db.scalars(select(Meal).where(Meal.user_id == user.id, Meal.meal_date == now_kst().date())
+    meals = list(db.scalars(select(Meal).where(Meal.user_id == user.id, Meal.deleted_at.is_(None), Meal.meal_date == now_kst().date())
                             .order_by(Meal.created_at)).all())
     last = last_saved_meal(db, conversation)
     if last and last.id not in {m.id for m in meals}:
@@ -895,7 +896,7 @@ def search_places_here(db, user, conversation_id, query, lat, lng):
 # 자유 대화용 기록 요약(서버 계산 값): 오늘 끼니별 음식 + 최근 7일 하루 섭취량. 개인 신상은 넣지 않는다.
 def user_context(db, user):
     today = now_kst().date()
-    rows = db.scalars(select(Meal).where(Meal.user_id == user.id, Meal.meal_date >= today - timedelta(days=6),
+    rows = db.scalars(select(Meal).where(Meal.user_id == user.id, Meal.deleted_at.is_(None), Meal.meal_date >= today - timedelta(days=6),
                                          Meal.meal_date <= today)).all()
     days = {}
     for meal in rows:

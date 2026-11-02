@@ -81,3 +81,32 @@ def fill_item(db, user, body, existing=None):
     else:
         item.version += 1
     return item
+
+
+def photo_ids(meal_data):
+    """meal_json 응답에서 화면에 보이는 사진 업로드 ID."""
+    return {url.rsplit('/', 1)[-1] for url in meal_data['image_urls']}
+
+
+def unused_photos(db, user_id, ids):
+    """식단에서 빠진 사진 중 다른 식단·챗 첨부가 쓰지 않는 업로드 행을 지우고, 커밋 뒤 지울 저장소 키를 돌려준다."""
+    from ..models import Meal
+    from ..models_chat import ChatAttachment
+    keys = []
+    for image_id in ids:
+        photo = db.get(ImageUpload, image_id)
+        if not photo or photo.user_id != user_id:
+            continue
+        if db.scalar(select(Meal.id).where(Meal.image_upload_id == image_id, Meal.deleted_at.is_(None)).limit(1)):
+            continue
+        if db.scalar(select(ChatAttachment.id).where(ChatAttachment.image_upload_id == image_id).limit(1)):
+            continue
+        # 사진을 따로 지정하지 않은 식단은 탐지 사진을 보여 주므로, 그런 식단이 남아 있으면 지우지 않는다.
+        if db.scalar(select(Meal.id).join(MealItem, MealItem.meal_id == Meal.id)
+                     .join(Detection, Detection.id == MealItem.detection_log_id)
+                     .where(Detection.image_group_id == image_id, Meal.photo_override.is_(False),
+                            Meal.deleted_at.is_(None)).limit(1)):
+            continue
+        keys.append(photo.image_path)
+        db.delete(photo)
+    return keys

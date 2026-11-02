@@ -121,7 +121,7 @@ function CoachPasses({api}) {
     {error && <p className="error" role="alert">{error}</p>}
     {!rows ? <p className="muted" role="status">불러오는 중…</p> : !rows.length ? <section className="panel admin-empty"><p className="muted">구매된 이용권이 없어요.</p></section> :
       <div className="admin-list">{rows.map(row => <article key={row.id} className="panel admin-row">
-        <div className="admin-row-main"><p className="admin-row-title"><b>{row.coach_id} 코치 · 7회</b><span>{row.points.toLocaleString()}P</span><em className="admin-badge">{{in_use: '사용 중', refunded: '환불됨', completed: '종료'}[row.status]}</em></p>
+        <div className="admin-row-main"><p className="admin-row-title"><b>{row.coach_id} 코치 · {row.sessions || 7}회</b><span>{row.points.toLocaleString()}P</span><em className="admin-badge">{{in_use: '사용 중', refunded: '환불됨', completed: '종료'}[row.status]}</em></p>
           <p className="muted">{row.nickname || '닉네임 없음'} · 회원 {row.user_id} · 구매 {when(row.purchased_at)}{row.closed_at ? ` · 종료 ${when(row.closed_at)}` : ''}</p></div>
         {row.status === 'in_use' && <div className="admin-row-actions"><button type="button" className="outline" onClick={() => setTarget(row)}>수동 환불</button></div>}
       </article>)}</div>}

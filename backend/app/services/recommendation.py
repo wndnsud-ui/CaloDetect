@@ -10,6 +10,7 @@ from .analytics import get_today_status
 from .nutrition import food_catalog
 from .diet_foods import diet_candidates
 from .timezone import korean_date
+from .nutrition_limits import SODIUM_DAILY_LIMIT_MG, SUGAR_ENERGY_RATIO, daily_limits
 
 
 logger = logging.getLogger('calodetect')
@@ -24,8 +25,6 @@ LIGHT_THEME_MAX_KCAL = 450.0
 # 다이어트형 DB 후보(샐러드 등)가 같은 점수대의 반찬류보다 먼저 보이도록 주는 가점.
 DIET_FOOD_BONUS = 0.3
 # 나트륨 개발 기준은 WHO 2,000mg/day, 당류는 KDRI 2025 총 에너지의 20% 기준을 사용한다.
-SODIUM_DAILY_LIMIT_MG = 2000.0
-SUGAR_ENERGY_RATIO = 0.20
 SOFT_THRESHOLD = 0.80
 HARD_THRESHOLD = 1.20
 MEAL_FIT_WEIGHT = 1.0
@@ -96,6 +95,7 @@ def recently_consumed_food_ids(db, user_id: int, today=None, refs=False) -> set:
     meals = db.scalars(
         select(Meal).where(
             Meal.user_id == user_id,
+            Meal.deleted_at.is_(None),
             Meal.meal_date >= start_date,
             Meal.meal_date <= today,
         )
@@ -156,7 +156,7 @@ def rank_candidates(db, user, filters, window, theme='balance', extra_foods=()):
 
     recent_meals = db.scalars(
         select(Meal)
-        .where(Meal.user_id == user.id)
+        .where(Meal.user_id == user.id, Meal.deleted_at.is_(None))
         .order_by(Meal.meal_date.desc(), Meal.created_at.desc())
         .limit(window)
     ).all()
@@ -178,7 +178,7 @@ def rank_candidates(db, user, filters, window, theme='balance', extra_foods=()):
     current_eaten_sodium = float(totals.get('sodium') or 0)
     current_eaten_sugar = float(totals.get('sugar') or 0)
     remaining_calories = float(snapshot.get('remaining_calories') or 0)
-    daily_sugar_limit = max(target_calories * SUGAR_ENERGY_RATIO / 4.0, 1.0)
+    daily_sugar_limit = daily_limits(target_calories)['sugar']
     meal_type = getattr(filters, 'meal_type', 'lunch') or 'lunch'
     exclude_foods = set(getattr(filters, 'exclude_foods', [])) | week_food_ids
     exclude_refs = set(getattr(filters, 'exclude_refs', []) or [])

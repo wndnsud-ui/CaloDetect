@@ -3,6 +3,7 @@ import PhotoInput from './PhotoInput';
 import {MealScanFood, MealScanJibang} from './MealScanDesign';
 import {toJpeg} from './imageUpload';
 import './meal-recorder.css';
+import {PHOTO_DELETE_CONFIRM, MEAL_DELETE_CONFIRM, deleteMeal} from './SavedMeals';
 
 const nutrients = [['cal','칼로리','kcal'],['carbs','탄수화물','g'],['protein','단백질','g'],['fat','지방','g'],['sugar','당류','g'],['sodium','나트륨','mg']];
 const types = {breakfast:'아침',lunch:'점심',dinner:'저녁',snack:'간식'};
@@ -98,18 +99,18 @@ export default function MealRecorder({api, meal=null, onSaved, onClose, defaultT
   }
   const start=!meal&&!fallbackOpen&&!analyzing&&!rows.length&&!image;
   return <section className="meal-recorder" aria-label={meal?'식단 전체 수정':'식단 기록'}>
-    <div className="recorder-heading"><div><h2>{meal?'식단 전체 수정':'사진으로 식단 기록'}</h2>{!meal&&<p>사진을 선택한 뒤 사진 분석하기를 눌러 주세요.</p>}</div>{onClose&&<button type="button" onClick={onClose} disabled={busy}>닫기</button>}</div>
+    <div className="recorder-heading"><div><h2>{meal?'식단 전체 수정':'사진으로 기록하고 +2P'}</h2>{!meal&&<p>올리면 바로 계산해요. 저장 전에 고칠 수 있어요.</p>}</div><div className="recorder-heading-actions">{meal&&<button type="button" className="recorder-delete" disabled={busy} onClick={()=>{if(window.confirm(MEAL_DELETE_CONFIRM))task(async()=>{await deleteMeal(api,meal);await onSaved(null);});}}>식단 삭제</button>}{onClose&&<button type="button" onClick={onClose} disabled={busy}>닫기</button>}</div></div>
     <div className={start?'recorder-split':undefined}>
     <fieldset disabled={busy} className={!meal&&!file&&!image?'recorder-has-guide':undefined}><legend>식사 정보</legend><div className="recorder-meta">
       <label>날짜<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label>
       <label>식사 구분<select value={type} onChange={e=>setType(e.target.value)}>{Object.entries(types).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
     </div><PhotoInput file={file} busy={busy} onChange={choosePhoto}/>
-      {image&&!file&&<><img className="recorder-photo" src={`/api/meals/images/${image}`} alt="식단 사진"/><button type="button" onClick={()=>setImage(null)}>사진 제거</button></>}
+      {image&&!file&&<><img className="recorder-photo" src={`/api/meals/images/${image}`} alt="식단 사진"/><button type="button" onClick={()=>{if(!meal||window.confirm(PHOTO_DELETE_CONFIRM))setImage(null);}}>사진 제거</button></>}
       {!meal&&<button type="button" className="primary recorder-scan" disabled={busy||!file} onClick={()=>scan()}>{analyzing?'사진 분석 중…':image?'다시 사진 분석하기':'사진 분석하기'}</button>}
       {!meal&&!file&&!image&&<MealScanFood/>}
       {file&&!analyzing&&<details className="recorder-options"><summary>사진 기록 옵션</summary><div><button type="button" onClick={()=>save(true)}>사진만 저장</button></div></details>}
     </fieldset>
-    {start&&<div className="recorder-start"><div><strong>사진이 없나요?</strong><p>음식을 검색하거나 음식명과 양을 직접 입력해 기록할 수 있어요.</p></div><div className="recorder-start-actions"><button type="button" className="recorder-add" disabled={busy} onClick={()=>openSearch()}>음식 검색</button><button type="button" className="recorder-add" disabled={busy} onClick={()=>{setFallbackOpen(true);addManual();}}><RecorderIcon kind="plus"/>직접 입력하기</button></div><MealScanJibang level={level} equipment={equipment}/></div>}
+    {start&&<div className="recorder-start"><div><strong>사진이 없나요?</strong><p>이름과 양만 적으면 칼로리는 지방이가 계산해요.</p></div><div className="recorder-start-actions"><button type="button" className="recorder-add" disabled={busy} onClick={()=>openSearch()}>음식 검색</button><button type="button" className="recorder-add" disabled={busy} onClick={()=>{setFallbackOpen(true);addManual();}}><RecorderIcon kind="plus"/>직접 입력하기</button></div><MealScanJibang level={level} equipment={equipment}/></div>}
     </div>
     {analyzing&&<p className="notice recorder-analyzing" role="status">사진 속 음식을 분석하고 있어요. 잠시만 기다려 주세요.</p>}
     {notice&&<p className="notice" role="status">{notice}</p>}

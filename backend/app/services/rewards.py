@@ -565,7 +565,7 @@ def check_streak(db, user_id, end, batch=None):
 
 def photo_meal_count(db, user_id, day):
     refs = [r for r in granted_meals(db, user_id, day).values() if r]
-    return sum(1 for m in db.scalars(select(Meal).where(Meal.id.in_(refs))) if is_photo_meal(m))
+    return sum(1 for m in db.scalars(select(Meal).where(Meal.id.in_(refs), Meal.deleted_at.is_(None))) if is_photo_meal(m))
 
 
 def check_missions(db, user, day, batch):
@@ -633,6 +633,22 @@ def isolated(work, *args, conflict=None):
         log.warning('reward grant failed')
 
 
+def strict(work, *args, conflict=None):
+    """삭제에 따른 회수 경로(2026-11-02 사용자 결정 「삭제되면 무조건 포인트 회수」).
+    isolated와 달리 회수가 실패하면 예외를 그대로 올려 삭제도 함께 되돌린다(회수 없는 삭제를 남기지 않는다)."""
+    if not settings.reward_enabled:
+        return
+    db = args[0]
+    try:
+        db.flush()
+    except IntegrityError:
+        if conflict:
+            db.rollback()
+            raise HTTPException(*conflict) from None
+        raise
+    work(*args)
+
+
 def _signup(db, user):
     account(db, user.id)
     if is_new_member(user):
@@ -688,6 +704,46 @@ def community_reaction_revoked(db, reaction_id):
     isolated(_reaction_revoked, db, reaction_id, conflict=(404, '이미 처리된 요청입니다.'))
 
 
+def _revoke_xp(db, user_id, event, ref_type, ref_id):
+    grant_xp(db, user_id, 'revoke', -event.amount, f'revoke:{event.idem_key}', today(), ref_type, ref_id, ranking=False)
+
+
+def _meal_photo_removed(db, user_id, meal, deleted=False):
+    meal_id = meal.id
+    account(db, user_id, lock=True)
+    for lot in list(db.scalars(select(Lot).where(Lot.user_id == user_id, Lot.source == 'meal',
+                                                 Lot.ref_type == 'meal', Lot.ref_id == meal_id))):
+        revoke_lot(db, user_id, lot.idem_key)
+    for event in list(db.scalars(select(Xp).where(Xp.user_id == user_id, Xp.source.in_(('meal', 'snack')),
+                                                  Xp.ref_type == 'meal', Xp.ref_id == meal_id, Xp.amount > 0))):
+        _revoke_xp(db, user_id, event, 'meal', meal_id)
+    # 사진 삭제로 그날 '사진 2끼' 미션 조건이 깨지면 미션 보상도 회수한다. 3끼 기록은 식단이 남아 있어 유지한다.
+    day = meal.meal_date
+    if photo_meal_count(db, user_id, day) < 2:
+        idem = f'mission:{day.isoformat()}'
+        revoke_lot(db, user_id, idem)
+        for event in list(db.scalars(select(Xp).where(Xp.user_id == user_id, Xp.idem_key == idem, Xp.amount > 0))):
+            _revoke_xp(db, user_id, event, 'day', day.isoformat())
+    # 식단 삭제는 그 식단이 채운 '하루 3끼' 보너스도 회수한다(사진 삭제는 기록이 남아 유지).
+    if deleted and meal_id in granted_meals(db, user_id, day).values():
+        idem = f'three:{day.isoformat()}'
+        revoke_lot(db, user_id, idem)
+        for event in list(db.scalars(select(Xp).where(Xp.user_id == user_id, Xp.idem_key == idem, Xp.amount > 0))):
+            _revoke_xp(db, user_id, event, 'day', day.isoformat())
+
+
+def meal_deleted(db, user_id, meal):
+    """식단 삭제(2026-11-02 사용자 결정 「삭제되면 무조건 포인트 회수」): 기록 포인트·XP, 조건이 깨진 사진 2끼 미션,
+    그 식단이 채운 하루 3끼 보너스를 회수한다. 연속 기록·주간·월간 보상은 회수하지 않는다. 회수 실패 시 삭제도 되돌린다."""
+    strict(_meal_photo_removed, db, user_id, meal, True)
+
+
+def meal_photo_removed(db, user_id, meal):
+    """식단 사진 삭제(2026-11-02 사용자 결정): 그 식단으로 받은 기록 포인트·XP를 각각 한 번만 전부 회수하고,
+    조건이 깨진 사진 2끼 미션 보상도 회수한다. 같은 끼니는 다시 기록해도 재지급하지 않는다. 회수 실패 시 삭제도 되돌린다."""
+    strict(_meal_photo_removed, db, user_id, meal)
+
+
 def post_share_lots(db, user_id, post_id):
     return list(db.scalars(select(Lot).where(
         Lot.user_id == user_id, Lot.ref_type == 'post', Lot.ref_id == post_id,
@@ -707,8 +763,8 @@ def _post_deleted(db, user_id, post_id, amount):
 
 
 def community_post_deleted(db, user_id, post_id, amount):
-    """해당 게시물 공유 lot과 기존 반응 포인트를 각각 한 번만 회수한다."""
-    isolated(_post_deleted, db, user_id, post_id, amount, conflict=(404, '이미 처리된 요청입니다.'))
+    """해당 게시물 공유 lot과 기존 반응 포인트를 각각 한 번만 회수한다. 회수 실패 시 삭제도 되돌린다."""
+    strict(_post_deleted, db, user_id, post_id, amount, conflict=(404, '이미 처리된 요청입니다.'))
 
 
 def _share(db, user_id, post_id):
@@ -772,7 +828,7 @@ def public_rows(rows):
 
 def meal_status(db, user_id, day):
     granted = granted_meals(db, user_id, day)
-    meals = list(db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.meal_date == day)))
+    meals = list(db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.deleted_at.is_(None), Meal.meal_date == day)))
     result = {}
     for meal_type in (*rules.MEAL_TYPES, 'snack'):
         ref = granted.get(meal_idem(meal_type, day))

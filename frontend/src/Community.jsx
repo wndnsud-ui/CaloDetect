@@ -42,7 +42,7 @@ function RankingList({data}) {
   return <><p className="community-eyebrow">이번 주</p><ol className="community-rank-list">{data.items.map((item,index)=><li className={item.is_me?'is-me':''} key={`${item.rank}-${index}`}><span>{item.rank<=3?['🥇','🥈','🥉'][item.rank-1]:item.rank}</span><strong>{item.nickname}{item.is_me?' · 나':''}</strong><span>{number(item.points)} P</span></li>)}</ol>
     {!data.items.length&&<p className="community-muted">이번 주 첫 기록으로 랭킹을 시작해 보세요.</p>}
     {!data.items.some(i=>i.is_me)&&<p className="community-my-rank">내 순위 {data.me.rank?`${data.me.rank}위`:'집계 전'} · {data.me.nickname} · {number(data.me.points)} P</p>}
-    <small className="community-muted">{new Date(data.week_start).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'short'})}부터 집계 · {data.notice}</small></>;
+    <small className="community-muted">이번 주 모은 포인트 순위예요 · 매주 월요일 초기화</small></>;
 }
 
 function Ranking({data,onRefresh}) {
@@ -68,8 +68,8 @@ function Points({data}) {
     const reward=data.reward_view;
     return <section className="community-points"><p className="community-eyebrow">MY CALO POINT</p><h2>내 포인트</h2>
       <p className="community-balance">{number(reward.balance)} <span>P</span></p>
-      <p className="community-week">리워드 몰과 같은 전체 보유 포인트예요.</p>
-      <details><summary>커뮤니티 지급 기준</summary><div className="community-point-rules">
+      <p className="community-week">리워드몰에서 바로 쓸 수 있어요.</p>
+      <details><summary>포인트 받는 법</summary><div className="community-point-rules">
         <div><span>식단 공유 · 하루 1회</span><strong>+{reward.share_points} P · +{reward.share_xp} XP</strong></div>
         <div><span>좋아요 받기</span><strong>+{reward.like_xp} XP</strong></div>
         <div><span>추천 받기</span><strong>+{reward.recommend_xp} XP</strong></div>
@@ -80,7 +80,7 @@ function Points({data}) {
   const labels={like_received:'좋아요 받기',recommend_received:'추천 받기',like_given:'좋아요 누르기',recommend_given:'추천 누르기'};
   return <section className="community-points"><p className="community-eyebrow">MY CALO POINT</p><h2>내 포인트</h2><p className="community-balance">{number(data.balance)} <span>P</span></p>
     <p className="community-week">이번 주 <strong>+{number(data.earned_this_week)} P</strong><span className="community-negative">감점 {signed(data.deducted_this_week)} P</span></p>
-    <details><summary>커뮤니티 지급 기준</summary><div className="community-point-rules"><small>개발 중 지급 기준</small>{Object.entries(data.rules).map(([key,value])=><div key={key}><span>{labels[key]}</span><strong>+{value} P</strong></div>)}</div></details>
+    <details><summary>포인트 받는 법</summary><div className="community-point-rules"><small>개발 중 지급 기준</small>{Object.entries(data.rules).map(([key,value])=><div key={key}><span>{labels[key]}</span><strong>+{value} P</strong></div>)}</div></details>
     <details><summary>최근 포인트 내역</summary><ul className="community-transactions">{data.recent.map(row=><li key={row.id}><span>{row.reason.endsWith('_revoked')?(row.reason==='post_deleted_revoked'?'게시물 삭제로 감점':'반응 취소로 감점'):labels[row.reason]}<small>{relativeTime(row.created_at)}</small></span><strong className={row.amount<0?'community-negative':''}>{signed(row.amount)} P</strong></li>)}</ul>{!data.recent.length&&<p>아직 적립 내역이 없어요.</p>}</details></section>;
 }
 
@@ -226,15 +226,15 @@ export default function Community({api,onNavigate,initialMealId,onShareOpened,on
   async function openShareMeal(targetMealId){setError('');setSheet('share');setEligible(null);setMeal('');setPhoto(false);setComment('');try{const data=await api('/community/eligible-meals');if(alive.current){setEligible(data.items);if(targetMealId){const match=data.items.find(item=>String(item.meal_id)===String(targetMealId));if(match)setMeal(String(match.meal_id));else setError('방금 기록한 식단은 이미 공유했거나 공유할 수 없는 상태예요. 다른 식단을 선택해 주세요.');}}}catch(e){if(alive.current){setError(e.message);setSheet(null);}}}
   async function share(e){e.preventDefault();if(!selected)return;const showPhoto=photo===true&&selected.has_photo===true;await action(async()=>{await api('/community/posts',{meal_id:meal,comment,show_photo:showPhoto});setSheet(null);setToast(showPhoto?'사진과 함께 식단을 공유했어요.':'사진 없이 식단 정보만 공유했어요.');await loadFeed();await refreshStats();});}
   const selected=eligible?.find(m=>m.meal_id===meal);
-  return <div className={'community-page'+(isMobile?' is-timeline':'')}><MenuPageHero kind="community"><div className="section-tabs" role="group" aria-label="피드 선택"><button aria-pressed={!mine} className={!mine?'active':''} onClick={()=>setMine(false)}>전체</button><button aria-pressed={mine} className={mine?'active':''} onClick={()=>setMine(true)}>내 게시물</button><button onClick={openShare}>식단 공유하기</button></div></MenuPageHero><div className="community-heading"><div className="community-mobile-chips"><button onClick={()=>setSheet('points')}><span className="community-chip-label">내 포인트</span>{number(points?.balance)} P</button><button onClick={()=>{setSheet('ranking');refreshRank();}}><span className="community-chip-label">주간 랭킹</span>이번 주 {rank?.me.rank?`${rank.me.rank}위`:'집계 전'}</button></div></div>
+  return <div className={'community-page'+(isMobile?' is-timeline':'')}><MenuPageHero kind="community"><div className="section-tabs" role="group" aria-label="피드 선택"><button aria-pressed={!mine} className={!mine?'active':''} onClick={()=>setMine(false)}>전체</button><button aria-pressed={mine} className={mine?'active':''} onClick={()=>setMine(true)}>내 게시물</button><button onClick={openShare}>+ 내 식단 올리기</button></div></MenuPageHero><div className="community-heading"><div className="community-mobile-chips"><button onClick={()=>setSheet('points')}><span className="community-chip-label">내 포인트</span>{number(points?.balance)} P</button><button onClick={()=>{setSheet('ranking');refreshRank();}}><span className="community-chip-label">주간 랭킹</span>이번 주 {rank?.me.rank?`${rank.me.rank}위`:'집계 전'}</button></div></div>
     {error&&<p className="community-error" role="alert">{error}</p>}{toast&&<p className="community-toast" role="status">{toast}</p>}
     <div className="community-layout"><section className="community-feed" aria-label="식단 공유 피드">
       {items.length>0&&isMobile&&<div className="community-tl-list">{items.map(post=><MobilePost key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)} onOpen={openDetail}/>)}</div>}
       {items.length>0&&!isMobile&&<div className="community-grid">{items.map(post=><Post key={post.id} post={post} busy={pending===post.id||confirm?.post.id===post.id} onReact={react} onDelete={post=>preview(post,null)} onOpen={openDetail}/>)}</div>}
-      {loading&&<p className="community-empty" role="status">식단을 불러오는 중이에요.</p>}{!loading&&!items.length&&<div className="community-empty"><span>♧</span><h2>{mine?'아직 공유한 식단이 없어요':'첫 번째 한 끼를 나눠 주세요'}</h2><p>나의 식단이 누군가에게 좋은 영감이 될 수 있어요.</p><button onClick={openShare}>식단 공유하기</button></div>}
+      {loading&&<p className="community-empty" role="status">식단을 불러오는 중이에요.</p>}{!loading&&!items.length&&<div className="community-empty"><span>♧</span><h2>{mine?'아직 공유한 식단이 없어요':'첫 번째 한 끼를 나눠 주세요'}</h2><p>나의 식단이 누군가에게 좋은 영감이 될 수 있어요.</p><button onClick={openShare}>+ 내 식단 올리기</button></div>}
       {!loading&&cursor&&<button className="community-more" onClick={()=>loadFeed(true)}>더 보기</button>}</section>
       <aside className="community-sidebar"><Points data={points}/><Ranking data={rank} onRefresh={refreshRank}/></aside></div>
-    {!isMobile&&<button className="community-fab" aria-label="식단 공유하기" onClick={openShare}>+</button>}
+    {!isMobile&&<button className="community-fab" aria-label="내 식단 올리기" onClick={openShare}>+</button>}
     {sheet==='share'&&<Modal error={error} title="나의 한 끼 공유하기" onClose={()=>{if(!busy)setSheet(null);}}>
       <ShareMealForm eligible={eligible} meal={meal} comment={comment} photo={photo} busy={busy}
         onMeal={value=>{setMeal(value);setPhoto(false);}} onComment={setComment} onPhoto={setPhoto} onSubmit={share}

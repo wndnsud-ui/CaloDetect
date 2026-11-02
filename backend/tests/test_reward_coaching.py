@@ -23,8 +23,9 @@ def coach_on(env, monkeypatch):
     return client, engine, member(client, engine, 'coachee@example.com', points=1500), monkeypatch
 
 
-def buy(client, coach='kim', key='key-00000001'):
-    return client.post(f'/rewards/coaches/{coach}/passes', json={'idem_key': key})
+def buy(client, coach='kim', key='key-00000001', product=None):
+    body = {'idem_key': key, **({'product_id': product} if product else {})}
+    return client.post(f'/rewards/coaches/{coach}/passes', json=body)
 
 
 # T14. 플래그 off → 코칭 API 전부 404, 코칭 상품은 몰 목록에 없다(몰은 시안 화면 유지).
@@ -46,12 +47,12 @@ def test_buy(coach_on):
     assert response.status_code == 200, response.text
     data = response.json()
     assert data['status'] == 'in_use' and data['sessions'] == 7 and data['phone'] == PHONE and data['kakao_link']
-    assert data['balance'] == before['balance'] - 700
+    assert data['balance'] == before['balance'] - 200
     with Session(engine) as db:
         row = db.get(Pass, data['id'])
         spend = db.get(Spend, row.spend_id)
-        assert spend.kind == 'coach_pass' and spend.amount == 700
-        assert db.scalar(select(func.sum(Allocation.amount)).where(Allocation.spend_id == spend.id)) == 700
+        assert spend.kind == 'coach_pass' and spend.amount == 200
+        assert db.scalar(select(func.sum(Allocation.amount)).where(Allocation.spend_id == spend.id)) == 200
     after = client.get('/rewards/me').json()['exchange']
     assert after['monthly_used'] == before['exchange']['monthly_used']
     assert client.post('/rewards/exchanges', json={'product_id': 'energy_bar', 'option': '오리지널 견과'}).status_code == 201
@@ -77,6 +78,25 @@ def test_pass_in_use(coach_on):
     again = buy(client, key='key-00000002')
     assert again.status_code == 409 and again.json()['error']['code'] == 'PASS_IN_USE'
     assert buy(client, 'park', key='key-00000003').status_code == 200
+
+
+# 2026-11-02 가격 개편: 3회 체험권 100P. 3회권 사용 중에도 같은 코치 7회권을 따로 살 수 있고, 같은 종류는 409.
+def test_trial_pass(coach_on):
+    client, *_ = coach_on
+    offers = client.get('/rewards/coaches/kim').json()['offers']
+    assert [(o['product_id'], o['sessions'], o['price']) for o in offers] == [('coach_kim_trial', 3, 100), ('coach_kim', 7, 200)]
+    before = client.get('/rewards/me').json()['balance']
+    trial = buy(client, product='coach_kim_trial')
+    assert trial.status_code == 200, trial.text
+    assert trial.json()['sessions'] == 3 and trial.json()['points'] == 100 and trial.json()['phone'] == PHONE
+    assert trial.json()['balance'] == before - 100
+    again = buy(client, key='key-00000002', product='coach_kim_trial')
+    assert again.status_code == 409 and again.json()['error']['code'] == 'PASS_IN_USE'
+    full = buy(client, key='key-00000003')
+    assert full.status_code == 200 and full.json()['sessions'] == 7 and full.json()['points'] == 200
+    detail = client.get('/rewards/coaches/kim').json()
+    assert all(o['in_use'] for o in detail['offers']) and len(detail['passes']) == 2
+    assert buy(client, key='key-00000004', product='coach_park').status_code == 404
 
 
 # T18. 잔액 부족·제외 출처만 → 409, 차감 없음.

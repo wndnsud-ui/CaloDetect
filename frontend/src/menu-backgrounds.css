@@ -18,6 +18,7 @@
 .menu-ambient-management{--menu-background:url('/images/features/04_meal_management.png')}
 .menu-ambient-community{--menu-background:url('/images/features/05_community.png')}
 .menu-ambient-rewards{--menu-background:url('/images/features/06_rewards_points.png')}
+.member-page-content.menu-ambient-rewards .menu-page-hero .menu-hero-description{max-width:430px;text-wrap:pretty}
 /* Detail pages supply their own banners; the mall illustration belongs to its main hero. */
 .menu-ambient-rewards:not(:has(.menu-page-hero))::before{display:none}
 .menu-ambient-account{--menu-background:url('/images/menu-backgrounds/account-illustrated.png')}

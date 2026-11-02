@@ -1,7 +1,8 @@
 """리워드몰 v1.3 M4: 전문 코칭 이용권(외부 채널 연결형, 지시서 §6-4). REWARD_COACHING_ENABLED=false(기본)면 API 404.
 
-- 코치별 7회 이용권 700P. 구매 즉시 카카오톡·연락처 공개, 사용자 취소 없음(관리자 수동 환불만).
+- 코치별 3회 체험권 100P·7회 이용권 200P(2026-11-02 가격 개편). 구매 즉시 카카오톡·연락처 공개, 사용자 취소 없음(관리자 수동 환불만).
 - 가입 14일·월 1회·월 전체 상한·첫 교환 보류는 적용하지 않는다. 교환 제외 출처 lot은 쓰지 않는다.
+- 같은 코치라도 이용권 종류가 다르면 따로 살 수 있다(3회권 사용 중에도 7회권 구매 가능). 같은 종류는 사용 중이면 409.
 - 잠금 순서: reward_accounts → reward_point_lots → reward_coach_passes. 같은 (user_id, idem_key)는 같은 결과를 돌려준다.
 - 연락처(kakao_link·phone)는 목록·피드·비구매자 상세·로그에 넣지 않는다. 로그에는 코치 ID·포인트만 남긴다.
 - 코치 정보·평점·누적 코칭 수·후기는 시연용이다. 연락처는 자리표시 값만 쓴다.
@@ -124,15 +125,28 @@ def seeded(db):
     ensure_products(db)
 
 
-def product_of(db, coach_id):
-    return db.scalar(select(Product).where(Product.coach_id == coach_id, Product.active.is_(True)))
+def products_of(db, coach_id):
+    """코치의 판매 이용권(싼 것부터: 3회 체험 → 7회)."""
+    return list(db.scalars(select(Product).where(Product.coach_id == coach_id, Product.active.is_(True))
+                           .order_by(Product.price, Product.sort_order)))
 
 
-def in_use(db, user_id, coach_id):
+def product_of(db, coach_id, product_id=None):
+    """product_id가 없으면 기본 7회권(coach_<id>)을 고른다(이전 클라이언트 호환)."""
+    rows = products_of(db, coach_id)
+    wanted = product_id or f'coach_{coach_id}'
+    return next((p for p in rows if p.id == wanted), None if product_id else (rows[-1] if rows else None))
+
+
+def in_use_all(db, user_id, coach_id):
     # 목록에서 코치마다 부르므로 사용 중 이용권을 한 번에 읽어 같은 요청 안에서 재사용한다.
-    passes = rewards.request_cache(db, ('coach_passes_in_use', user_id), lambda: {
-        p.coach_id: p for p in db.scalars(select(Pass).where(Pass.user_id == user_id, Pass.status == 'in_use'))})
-    return passes.get(coach_id)
+    passes = rewards.request_cache(db, ('coach_passes_in_use', user_id), lambda: [
+        p for p in db.scalars(select(Pass).where(Pass.user_id == user_id, Pass.status == 'in_use').order_by(Pass.purchased_at.desc()))])
+    return [p for p in passes if p.coach_id == coach_id]
+
+
+def in_use(db, user_id, coach_id, product_id=None):
+    return next((p for p in in_use_all(db, user_id, coach_id) if not product_id or p.product_id == product_id), None)
 
 
 def coach_card(db, coach, user):
@@ -147,8 +161,8 @@ def coach_card(db, coach, user):
 def pass_offer(db, user, product):
     balance = rewards.balance_info(db, user.id)
     left = max(0, product.price - balance['exchangeable'])
-    return {'product_id': product.id, 'price': product.price, 'sessions': catalog.COACH_SESSIONS,
-            'exchangeable': balance['exchangeable'], 'shortfall': left,
+    return {'product_id': product.id, 'price': product.price, 'sessions': catalog.coach_sessions(product),
+            'in_use': bool(in_use(db, user.id, product.coach_id, product.id)), 'exchangeable': balance['exchangeable'], 'shortfall': left,
             'eta_days': rewards.eta_points(db, user, left, exchange_only=True) if left else 0,
             'is_goal': (rewards.account(db, user.id).goal_ref == f'product:{product.id}')}
 
@@ -160,8 +174,8 @@ def coaches(db, user, specialty=None):
         raise HTTPException(422, '분야를 확인해 주세요.')
     rows = [c for c in db.scalars(select(Coach).where(Coach.active.is_(True)).order_by(Coach.sort_order))
             if not specialty or specialty in (c.specialties or [])]
-    first = product_of(db, rows[0].id) if rows else db.scalar(select(Product).where(Product.coach_id.is_not(None)))
-    result = {'items': [coach_card(db, c, user) for c in rows], 'offer': pass_offer(db, user, first) if first else None,
+    offers = [pass_offer(db, user, p) for p in products_of(db, rows[0].id)] if rows else []
+    result = {'items': [coach_card(db, c, user) for c in rows], 'offer': offers[-1] if offers else None, 'offers': offers,
               'notice': NOTICE}
     db.commit()
     return result
@@ -194,11 +208,12 @@ def coach_detail(db, user, coach_id):
     require_enabled()
     seeded(db)
     coach = db.get(Coach, coach_id)
-    product = product_of(db, coach_id) if coach else None
-    if coach is None or not coach.active or product is None:
+    products = products_of(db, coach_id) if coach else []
+    if coach is None or not coach.active or not products:
         raise HTTPException(404, '코치를 찾을 수 없습니다.')
     extra = coach.steps or {}
-    current = in_use(db, user.id, coach_id)
+    offers = [pass_offer(db, user, p) for p in products]
+    current = in_use_all(db, user.id, coach_id)
     result = {**coach_card(db, coach, user), 'philosophy': coach.philosophy, 'career': list(coach.career or []),
               'introduction': coach.introduction, 'steps': extra.get('steps', []), 'how': extra.get('how'),
               'areas': extra.get('areas', []), 'includes': extra.get('includes', []), 'reviews': extra.get('reviews', []),
@@ -206,8 +221,9 @@ def coach_detail(db, user, coach_id):
               'side_note': extra.get('side_note'),
               'contents': [{'id': c.id, 'kind': c.kind, 'label': c.label, 'title': c.title, 'body': c.body, 'image': c.image_key}
                            for c in db.scalars(select(Content).where(Content.coach_id == coach_id).order_by(Content.sort_order))],
-              'offer': pass_offer(db, user, product), 'notice': NOTICE,
-              'pass': pass_json(db, current, coach) if current else None}
+              'offer': offers[-1], 'offers': offers, 'notice': NOTICE,
+              'pass': pass_json(db, current[0], coach) if current else None,
+              'passes': [pass_json(db, row, coach) for row in current]}
     db.commit()
     return result
 
@@ -224,24 +240,24 @@ def pass_json(db, row, coach=None):
     return data
 
 
-def buy(db, user, coach_id, idem_key):
+def buy(db, user, coach_id, idem_key, product_id=None):
     """이용권 구매(한 트랜잭션, §6-4). 잠금: 계정 → lot(spend_points 안) → 이용권."""
     require_enabled()
     seeded(db)
     coach = db.get(Coach, coach_id)
-    product = product_of(db, coach_id) if coach else None
+    product = product_of(db, coach_id, product_id) if coach else None
     if coach is None or not coach.active or product is None or not product.available:
         raise HTTPException(404, '코치를 찾을 수 없습니다.')
     rewards.account(db, user.id, lock=True)                       # 1) 계정
     done = db.scalar(select(Pass).where(Pass.user_id == user.id, Pass.idem_key == idem_key))
     if done is not None:                                         # 2) 같은 요청 → 같은 결과(연타 방지)
-        if done.coach_id != coach_id:
+        if done.coach_id != coach_id or (product_id and done.product_id != product_id):
             db.rollback()
             raise HTTPException(409, {'code': 'IDEM_CONFLICT', 'message': '다른 구매 요청에 쓰인 키예요.'})
         result = {**pass_json(db, done, coach), 'balance': rewards.balance_info(db, user.id)['balance']}
         db.commit()
         return result
-    if in_use(db, user.id, coach_id):                            # 3) 같은 코치 사용 중(D7)
+    if in_use(db, user.id, coach_id, product.id):                # 3) 같은 코치·같은 이용권 사용 중(D7)
         db.rollback()
         raise HTTPException(409, {'code': 'PASS_IN_USE', 'message': '이 코치의 이용권을 이미 사용 중이에요.'})
     try:                                                         # 4) 교환 가능 lot만 만료 빠른 순으로 잠금·차감
@@ -250,7 +266,7 @@ def buy(db, user, coach_id, idem_key):
         db.rollback()
         raise HTTPException(409, {'code': 'INSUFFICIENT_POINTS',
                                   'message': f'실물 교환에 쓸 수 있는 포인트가 {error.needed}P 부족해요.'}) from None
-    row = Pass(user_id=user.id, coach_id=coach_id, product_id=product.id, sessions=catalog.COACH_SESSIONS,
+    row = Pass(user_id=user.id, coach_id=coach_id, product_id=product.id, sessions=catalog.coach_sessions(product),
                points=product.price, status='in_use', purchased_at=rewards.now(), spend_id=spend.id, idem_key=idem_key)
     db.add(row)                                                  # 5) 이용권
     db.flush()
@@ -274,7 +290,7 @@ def admin_list(db):
     nicknames = {n.user_id: n.nickname for n in db.scalars(select(Nickname))}
     rows = db.scalars(select(Pass).order_by(Pass.purchased_at.desc()).limit(200))
     return {'items': [{'id': r.id, 'user_id': r.user_id, 'nickname': nicknames.get(r.user_id), 'coach_id': r.coach_id,
-                       'points': r.points, 'status': r.status, 'purchased_at': rules.as_aware(r.purchased_at),
+                       'sessions': r.sessions, 'points': r.points, 'status': r.status, 'purchased_at': rules.as_aware(r.purchased_at),
                        'closed_at': rules.as_aware(r.closed_at)} for r in rows]}
 
 

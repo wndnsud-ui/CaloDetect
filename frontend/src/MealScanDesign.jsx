@@ -30,7 +30,7 @@ export function MealScanFood() {
 
 export function MealScanJibang({level, equipment}) {
   return <div className="meal-scan-jibang" aria-hidden="true">
-    <p>지방이와 기록하는 한 끼,<br/>건강한 습관의 시작이에요!</p>
+    <p>한 끼씩, 지방이랑 같이!</p>
     <div className="meal-scan-jibang-stage">
       <svg className="meal-scan-rug" viewBox="0 0 280 60" aria-hidden="true">
         <ellipse cx="140" cy="30" rx="140" ry="30" fill="#EAF5EE"/>

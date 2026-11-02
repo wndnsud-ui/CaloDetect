@@ -13,7 +13,7 @@ from .correction import apply_correction
 def owned_saved_item(db, user, item_id):
     item = db.get(MealItem, item_id)
     meal = db.get(Meal, item.meal_id) if item else None
-    if not item or not meal or meal.user_id != user.id:
+    if not item or not meal or meal.user_id != user.id or meal.deleted_at is not None:
         raise ChatRecordError(404, '404', '기록을 찾을 수 없습니다.')
     return item, meal
 
@@ -44,7 +44,7 @@ def apply_edit(db, user, payload, request_id):
     # Match the meal editor lock order and check versions after taking locks.
     meal = db.get(Meal, payload['meal_id'], with_for_update=True, populate_existing=True)
     item = db.get(MealItem, payload['item_id'], with_for_update=True, populate_existing=True)
-    if not meal or meal.user_id != user.id or not item or item.meal_id != meal.id:
+    if not meal or meal.user_id != user.id or meal.deleted_at is not None or not item or item.meal_id != meal.id:
         raise ChatRecordError(404, '404', '기록을 찾을 수 없습니다.')
     if meal.version != payload['meal_version'] or item.version != payload['item_version']:
         raise ChatRecordError(409, 'version_conflict', '기록이 변경됐어요. 다시 확인해 주세요.')

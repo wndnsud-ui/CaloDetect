@@ -102,3 +102,29 @@
 .hd-overview-summary .hd-date{margin-bottom:0}
 .hd-overview-summary .hd-stats{margin-bottom:0}
 @media(max-width:1000px){.hd-overview-summary .hd-overview-nutrition{grid-row:4}.hd-overview-macros{gap:12px}}
+
+/* 승인된 홈 구성: 영양 상태를 넓게, 오른쪽 지방이는 보조 크기로. */
+.home-dashboard .hd-overview-summary .hd-hero-content{grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:20px 24px;align-items:start}
+.home-dashboard .hd-overview-summary .hd-summary-nutrition{grid-column:1;grid-row:2;min-width:0}
+.home-dashboard .hd-overview-summary .hd-summary-nutrition>.hd-panel{padding:0;border:0;background:transparent;box-shadow:none;margin:0}
+.home-dashboard .hd-overview-summary .hd-summary-nutrition .hd-section-head{gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.home-dashboard .hd-overview-summary .hd-summary-nutrition .hd-section-head h2{font-size:20px}
+.home-dashboard .hd-overview-summary .hd-summary-nutrition .hd-tip{margin-top:16px}
+.home-dashboard .hd-overview-summary .hd-hero-content>.hd-room{grid-column:2;grid-row:1 / span 2;width:100%;height:360px;margin:0;max-width:320px;align-self:center}
+.home-dashboard .hd-overview-summary .hd-room .jb-bubble{font-size:16px;max-width:85%;right:7.5%;top:12px}
+@media(min-width:761px) and (max-width:1200px){.home-dashboard .hd-overview-summary .hd-hero-content{grid-template-columns:minmax(0,1fr) minmax(200px,28%);column-gap:20px}.home-dashboard .hd-overview-summary .hd-hero-content>.hd-room{height:320px}.home-dashboard .hd-overview-summary .hd-date{flex-wrap:wrap}.home-dashboard .hd-overview-summary .hd-nutrition{grid-template-columns:1fr}.home-dashboard .hd-overview-summary .hd-energy{padding:16px}.home-dashboard .hd-overview-summary .hd-nutrient{padding:12px 8px}}
+
+@media(min-width:761px){
+.home-dashboard .hd-overview-summary .hd-nutrition{grid-template-columns:minmax(160px,.75fr) minmax(0,1.5fr);gap:16px}
+.home-dashboard .hd-overview-summary .hd-ring{width:160px;height:160px;padding:11px}
+.home-dashboard .hd-overview-summary .hd-ring strong{font-size:32px}
+.home-dashboard .hd-overview-summary .hd-ring small,.home-dashboard .hd-overview-summary .hd-ring b{font-size:12px}
+.home-dashboard .hd-overview-summary .hd-nutrient{padding:16px 12px;gap:10px}
+.home-dashboard .hd-overview-summary .hd-nutrient>div>span{font-size:12px}
+.home-dashboard .hd-overview-summary .hd-nutrient strong{font-size:16px;line-height:1.4}
+.home-dashboard .hd-overview-summary .hd-nutrient>small{font-size:10px}
+.home-dashboard .hd-overview-summary .hd-room .jb-bubble{font-size:14px;line-height:1.6}
+}
+@media(min-width:761px) and (max-width:1000px){.home-dashboard .hd-overview-summary .hd-nutrition{grid-template-columns:1fr}}
+.hd-nutrient-track.is-over>span,.m-home .m-home-bar.is-over>span{background:#d87332}
+.hd-nutrient-track.is-met>span{background:#168265}

@@ -124,3 +124,5 @@
 }
 
 @media(min-width:761px){.landing .landing-promos .mall-slider-controls{left:auto;right:calc(53.49% + 24px);top:20px;bottom:auto;margin:0}}
+.landing .landing-header .landing-account{flex-wrap:nowrap;min-width:0;max-width:480px}
+.landing .landing-header .welcome-message{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;min-width:0;max-width:none}

@@ -7,6 +7,8 @@ from ..models import Meal, Profile, Detection, ImageUpload, NutritionFood
 from sqlalchemy.orm import object_session
 from .timezone import korean_date
 from ..config import settings
+from .profile import calculate_macro_targets
+from .nutrition_limits import daily_limits
 
 NUTRIENTS = ['cal', 'carbs', 'protein', 'fat', 'sugar', 'sodium']
 
@@ -16,7 +18,7 @@ def get_month_status(db, user_id, year, month):
     # 윤년과 월별 길이를 반영해 해당 월의 마지막 날짜를 얻는다.
     days = monthrange(year, month)[1]
     # 히스토리 API의 조회 개수 제한 없이 월 범위 전체를 조회해 집계 누락을 방지한다.
-    meals = db.scalars(select(Meal).where(Meal.user_id == user_id,
+    meals = db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.deleted_at.is_(None),
         Meal.meal_date >= date(year, month, 1), Meal.meal_date <= date(year, month, days))).all()
     records = []
     for day in range(1, days + 1):
@@ -85,7 +87,7 @@ def meal_json(meal):
 def get_today_status(db, user_id, instant=None):
     today = korean_date(instant or datetime.now(timezone.utc))
     # 히스토리 API의 조회 개수 제한 없이 월 범위 전체를 조회해 집계 누락을 방지한다.
-    meals = db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.meal_date == today)
+    meals = db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.deleted_at.is_(None), Meal.meal_date == today)
                        .order_by(Meal.created_at.desc())).all()
     totals = {key: round(sum((item.nutrition.get(key) or 0) for meal in meals for item in meal.items), 2) for key in NUTRIENTS}
     profile = db.get(Profile, user_id)
@@ -94,8 +96,8 @@ def get_today_status(db, user_id, instant=None):
     return {'date': str(today), 'timezone': 'Asia/Seoul', 'totals': totals,
             'target_calories': target,
             'remaining_calories': max(0, round(target - totals['cal'], 2)) if target else None,
-            # 미확정 탄단지 목표와 당류/나트륨 제한은 숫자를 만들어 표시하지 않는다.
-            'macro_targets': None, 'sugar_sodium_limits': None,
+            # 탄단지는 승인된 비율, 당류·나트륨은 추천 엔진과 같은 개발 상한 기준.
+            'macro_targets': calculate_macro_targets(target), 'sugar_sodium_limits': daily_limits(target),
             'meals': [meal_json(m) for m in meals],
             'message': '목표를 설정해 주세요.' if not target else
                 ('오늘 섭취량이 목표를 초과했습니다.' if totals['cal'] > target else '기록한 식단을 바탕으로 다음 식사를 선택해 보세요.')}

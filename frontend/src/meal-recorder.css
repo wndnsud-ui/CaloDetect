@@ -62,3 +62,5 @@
 /* 식단 기록 페이지: 카드 좌우를 위쪽 히어로(탭 버튼) 안쪽 라인에 맞춘다(menu-page-hero padding 46px/22px). */
 .member-page-content>.meal-recorder{width:auto;margin-inline:46px}
 @media(max-width:760px){.member-page-content>.meal-recorder{margin-inline:16px}}
+
+.recorder-heading-actions{display:flex;gap:8px;align-items:center}.recorder-heading .recorder-delete{color:#B4462F;border-color:#F0D2C8;background:#FFF6F3}

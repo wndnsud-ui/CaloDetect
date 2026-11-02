@@ -49,11 +49,11 @@ def test_quantity_and_total(buyer):
     assert ask(client, 'pita_sandwich', '바질치즈', quantity=2).json()['error']['code'] == 'QTY_LIMIT_EXCEEDED'
     before = balance(client)
     done = ask(client, 'ginseng_daily10', quantity=3).json()
-    assert done['points'] == 540 and done['quantity'] == 3 and done['option_label'] is None and done['unit_points'] == 180
-    assert balance(client) == before - 540
+    assert done['points'] == 300 and done['quantity'] == 3 and done['option_label'] is None and done['unit_points'] == 100
+    assert balance(client) == before - 300
     with Session(engine) as db:
         row = db.get(Exchange, done['id'])
-        assert row.points == 540 == db.scalar(select(func.sum(Allocation.amount)).where(Allocation.spend_id == row.spend_id))
+        assert row.points == 300 == db.scalar(select(func.sum(Allocation.amount)).where(Allocation.spend_id == row.spend_id))
 
 
 # T3·T4. 수량 교환도 월 1건 → 다른 교환 409. 취소하면 전체 환불·월 횟수 복구·재신청 가능.
@@ -195,7 +195,7 @@ def test_admin_sees_quantity(buyer):
     ask(client, 'ginseng_daily10', quantity=2)
     make_admin(engine, user['id'])
     row = client.get('/admin/rewards/exchanges').json()['items'][0]
-    assert (row['quantity'], row['option_label'], row['points']) == (2, None, 360)
+    assert (row['quantity'], row['option_label'], row['points']) == (2, None, 200)
 
 
 # T23. 시나리오 v13: 테스트 계정 외 403, 생성 후 교환 가능 320P·지난 쿠폰 2건·목표 프리미엄 30포. 코칭 변형 760P.

@@ -276,3 +276,95 @@ def test_signup_day_missed_next_day_breaks_streak(member):
     on(mp, 2)
     state = client.get('/rewards/me').json()['streak']
     assert state['days'] == 0 and state['missed_yesterday']
+
+
+# 2026-11-02 사용자 결정: 식단 사진 삭제 → 사진 파일 삭제, 그 식단을 올린 게시물 삭제(공유 포인트 회수), 기록 포인트·XP 전부 회수.
+def test_meal_photo_delete_revokes_points_and_post(member):
+    from backend.tests.test_meal_fallback import photo as upload
+    client, engine, user, mp = member
+    mp.setattr(settings, 'reward_community_xp_mode', True)
+    day = on(mp, 0)
+    image = upload(client)
+    meal = client.post('/meals', json={'meal_type': 'lunch', 'meal_date': str(day), 'image_upload_id': image['image_group_id'],
+                                       'items': [{'class_id': 0, 'serving_multiplier': 1}]}).json()
+    post = client.post('/community/posts', json={'meal_id': meal['id']}).json()
+    granted = lots(engine, user['id'])
+    assert granted[f'meal:{day}:lunch'][1] == settings.reward_meal_photo_points and granted[f'share:{day}'][1] == 1
+    before = client.get('/rewards/me').json()['balance']
+    response = client.patch(f"/meals/{meal['id']}", json={'expected_version': meal['version'], 'image_upload_id': None})
+    assert response.status_code == 200, response.text
+    assert response.json()['image_urls'] == [] and response.json()['items']
+    assert client.get('/rewards/me').json()['balance'] == before - settings.reward_meal_photo_points - 1
+    assert xps(engine, user['id'])[f'revoke:meal:{day}:lunch'] == -settings.reward_meal_xp
+    assert client.get(image['image_url'].replace('/api', '')).status_code == 404
+    assert client.delete(f"/community/posts/{post['id']}").status_code == 404
+    # 다시 PATCH해도 두 번 회수하지 않는다.
+    again = client.patch(f"/meals/{meal['id']}", json={'expected_version': response.json()['version'], 'meal_type': 'dinner'})
+    assert again.status_code == 200 and client.get('/rewards/me').json()['balance'] == before - settings.reward_meal_photo_points - 1
+
+
+# 사진 2끼 미션은 사진 삭제로 조건이 깨지면 회수. 회수가 실패하면 사진 삭제도 되돌린다(무조건 회수).
+def test_meal_photo_delete_revokes_mission_and_is_atomic(member):
+    import io
+    from PIL import Image
+    from sqlalchemy.exc import OperationalError
+    client, engine, user, mp = member
+    day = on(mp, 0)
+    meals = []
+    for meal_type, color in (('lunch', 'red'), ('dinner', 'blue')):   # 같은 사진 재사용은 보상 제외라 색을 다르게
+        buffer = io.BytesIO()
+        Image.new('RGB', (20, 20), color).save(buffer, 'PNG')
+        image = client.post('/meals/detect?analyze=false', files={'file': ('p.png', buffer.getvalue(), 'image/png')}).json()
+        meals.append(client.post('/meals', json={'meal_type': meal_type, 'meal_date': str(day),
+            'image_upload_id': image['image_group_id'], 'items': [{'class_id': 0, 'serving_multiplier': 1}]}).json())
+    assert lots(engine, user['id'])[f'mission:{day}'][1] == settings.reward_daily_mission_points
+
+    def broken(*_):
+        raise OperationalError('revoke', {}, Exception('down'))
+    with mp.context() as patch:
+        patch.setattr(service, '_meal_photo_removed', broken)
+        failed = client.patch(f"/meals/{meals[0]['id']}", json={'expected_version': meals[0]['version'], 'image_upload_id': None})
+        assert failed.status_code == 503
+    history = {m['id']: m for m in client.get('/meals/history').json()['items']}
+    assert history[meals[0]['id']]['image_urls'] and history[meals[0]['id']]['version'] == meals[0]['version']
+
+    before = client.get('/rewards/me').json()['balance']
+    assert client.patch(f"/meals/{meals[0]['id']}", json={'expected_version': meals[0]['version'],
+                                                          'image_upload_id': None}).status_code == 200
+    assert client.get('/rewards/me').json()['balance'] == (before - settings.reward_meal_photo_points
+                                                           - settings.reward_daily_mission_points)
+    assert xps(engine, user['id'])[f'revoke:mission:{day}'] == -settings.reward_daily_mission_xp
+
+
+# 식단 전체 삭제: 조회에서 빠지고 사진·게시물 삭제, 기록·미션·3끼 보상 회수. 되돌리기·재삭제 없음.
+def test_meal_delete_hides_and_revokes(member):
+    import io
+    from PIL import Image
+    client, engine, user, mp = member
+    mp.setattr(settings, 'reward_community_xp_mode', True)
+    mp.setattr(settings, 'reward_three_meal_min_gap_minutes', 0, raising=False)
+    day = on(mp, 0)
+    meals = {}
+    for meal_type, color in (('breakfast', 'red'), ('lunch', 'blue'), ('dinner', 'green')):
+        buffer = io.BytesIO()
+        Image.new('RGB', (20, 20), color).save(buffer, 'PNG')
+        image = client.post('/meals/detect?analyze=false', files={'file': ('p.png', buffer.getvalue(), 'image/png')}).json()
+        meals[meal_type] = (client.post('/meals', json={'meal_type': meal_type, 'meal_date': str(day),
+            'image_upload_id': image['image_group_id'], 'items': [{'class_id': 0, 'serving_multiplier': 1}]}).json(), image)
+    target, image = meals['lunch']
+    post = client.post('/community/posts', json={'meal_id': target['id']}).json()
+    granted = lots(engine, user['id'])
+    three = granted.get(f'three:{day}', (None, 0))[1]
+    before = client.get('/rewards/me').json()['balance']
+    assert client.delete(f"/meals/{target['id']}?expected_version=99").status_code == 409
+    response = client.delete(f"/meals/{target['id']}?expected_version={target['version']}")
+    assert response.status_code == 200, response.text
+    assert target['id'] not in {m['id'] for m in client.get('/meals/history').json()['items']}
+    assert target['id'] not in {m['id'] for m in client.get('/analytics/today').json()['meals']}
+    assert client.get(image['image_url'].replace('/api', '')).status_code == 404
+    assert client.delete(f"/community/posts/{post['id']}").status_code == 404
+    expected = before - settings.reward_meal_photo_points - 1 - three
+    assert client.get('/rewards/me').json()['balance'] == expected
+    assert xps(engine, user['id'])[f'revoke:meal:{day}:lunch'] == -settings.reward_meal_xp
+    assert client.delete(f"/meals/{target['id']}?expected_version={target['version'] + 1}").status_code == 404
+    assert client.patch(f"/meals/{target['id']}", json={'expected_version': target['version'] + 1, 'meal_type': 'snack'}).status_code == 404

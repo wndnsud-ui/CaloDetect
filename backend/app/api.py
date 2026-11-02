@@ -70,12 +70,13 @@ def preview_food_portion(body: dict, user: CurrentUser, db: DB):
 
 @router.patch('/meals/{meal_id}')
 def edit_meal(meal_id: str, body: dict, user: CurrentUser, db: DB):
-    from .services.meal_fallback import owned_photo, fill_item
+    from .services.meal_fallback import owned_photo, fill_item, photo_ids, unused_photos
     from .schemas import MealItemRequest
     from pydantic import ValidationError
     meal = db.get(Meal, meal_id, with_for_update=True)
-    if not meal or meal.user_id != user.id:
+    if not meal or meal.user_id != user.id or meal.deleted_at is not None:
         raise HTTPException(404, '식단을 찾을 수 없습니다.')
+    shown = photo_ids(meal_json(meal)) if 'image_upload_id' in body else set()
     if body.get('expected_version') != meal.version:
         raise HTTPException(409, '다른 곳에서 수정한 기록입니다. 다시 열어 주세요.')
     if 'meal_date' in body and body['meal_date'] is None:
@@ -113,8 +114,43 @@ def edit_meal(meal_id: str, body: dict, user: CurrentUser, db: DB):
     if 'image_upload_id' in body:
         meal.photo_override = True
     meal.version += 1
+    db.flush()
+    result = meal_json(meal)
+    keys = []
+    if shown and not result['image_urls']:
+        # 사진 삭제(2026-11-02 사용자 결정). 사진 교체는 기존처럼 참조만 바꾼다.
+        # 다른 기록이 쓰지 않는 사진은 파일까지 지우고, 이 식단을 올린 게시물(사진 사본 포함)을 지워 공유·반응 포인트를,
+        # 이 식단의 기록 포인트·XP를 회수한다.
+        from .services import community
+        keys = unused_photos(db, user.id, shown) + community.remove_meal_post(db, user, meal.id)
+        rewards.meal_photo_removed(db, user.id, meal)
     db.commit()
-    return meal_json(meal)
+    for key in keys:
+        storage.delete(key)
+    return result
+
+
+# 식단 전체 삭제(2026-11-02 사용자 요청). 행은 남기고 deleted_at으로 모든 조회에서 뺀다.
+# 다른 기록이 쓰지 않는 사진은 파일까지 지우고, 이 식단을 올린 게시물을 지우며, 받은 포인트·XP를 무조건 회수한다.
+@router.delete('/meals/{meal_id}')
+def delete_meal(meal_id: str, user: CurrentUser, db: DB, expected_version: int = Query(ge=1)):
+    from .services.meal_fallback import photo_ids, unused_photos
+    from .services import community
+    meal = db.get(Meal, meal_id, with_for_update=True)
+    if not meal or meal.user_id != user.id or meal.deleted_at is not None:
+        raise HTTPException(404, '식단을 찾을 수 없습니다.')
+    if expected_version != meal.version:
+        raise HTTPException(409, '다른 곳에서 수정한 기록입니다. 다시 열어 주세요.')
+    shown = photo_ids(meal_json(meal))
+    meal.deleted_at, meal.version = utcnow(), meal.version + 1
+    db.flush()
+    keys = unused_photos(db, user.id, shown) + community.remove_meal_post(db, user, meal.id)
+    rewards.meal_deleted(db, user.id, meal)
+    db.commit()
+    for key in keys:
+        storage.delete(key)
+    logger.info('meal deleted')
+    return {'deleted': True, 'id': meal.id}
 
 
 # 로컬 사진 분석 테스트가 활성화된 경우 개발 환경/loopback 접속인지 검사한다.
@@ -269,7 +305,7 @@ def today_meals(user: CurrentUser, db: DB):
 @router.get('/meals/history')
 def history(user: CurrentUser, db: DB, start: date | None = None, end: date | None = None,
             limit: int = Query(default=100, ge=1, le=500)):
-    query = select(Meal).where(Meal.user_id == user.id)
+    query = select(Meal).where(Meal.user_id == user.id, Meal.deleted_at.is_(None))
     if start:
         query = query.where(Meal.meal_date >= start)
     if end:

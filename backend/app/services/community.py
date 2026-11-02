@@ -145,7 +145,7 @@ def feed(db, user, limit, cursor=None, mine=False):
 
 
 def eligible(db, user, limit):
-    meals = list(db.scalars(select(Meal).options(selectinload(Meal.items)).where(Meal.user_id == user.id,
+    meals = list(db.scalars(select(Meal).options(selectinload(Meal.items)).where(Meal.user_id == user.id, Meal.deleted_at.is_(None),
         ~select(Post.id).where(Post.meal_id == Meal.id).exists(), Meal.items.any())
         .order_by(Meal.meal_date.desc(), Meal.created_at.desc()).limit(limit)))
     foods = {f.id: f for f in db.scalars(select(Food))}
@@ -156,7 +156,8 @@ def eligible(db, user, limit):
 
 
 def create_post(db, user, body):
-    meal = db.scalar(select(Meal).options(selectinload(Meal.items)).where(Meal.id == body.meal_id, Meal.user_id == user.id))
+    meal = db.scalar(select(Meal).options(selectinload(Meal.items)).where(Meal.id == body.meal_id, Meal.user_id == user.id,
+                                                                     Meal.deleted_at.is_(None)))
     if not meal:
         raise HTTPException(404, '식단을 찾을 수 없습니다.')
     old = db.scalar(select(Post).where(Post.meal_id == meal.id))
@@ -294,23 +295,41 @@ def delete_preview(db, user, post_id):
     return {'me': -max(0, deletion_net(db, post)) - shared, 'reactors_affected': False}
 
 
-def delete_post(db, user, post_id):
-    post = active_post(db, post_id, 'update')
-    if post.user_id != user.id:
-        raise HTTPException(403, '본인 게시물만 삭제할 수 있어요.')
+def remove_post(db, user, post):
+    """게시물 삭제 공통(커밋은 호출 측): 받은 반응 포인트·공유 포인트를 회수한다. 이미 삭제됐으면 None."""
     net = deletion_net(db, post)
     shared = sum(lot.amount for lot in rewards.post_share_lots(db, user.id, post.id))
     already = db.scalar(select(Tx.id).where(Tx.post_id == post.id, Tx.reason == 'post_deleted_revoked'))
     deducted = -net if net > 0 and already is None else 0
+    if db.execute(update(Post).where(Post.id == post.id, Post.deleted_at.is_(None)).values(deleted_at=utcnow())).rowcount != 1:
+        return None
     if deducted:
         db.add(Tx(user_id=user.id, amount=deducted, reason='post_deleted_revoked', post_id=post.id))
-    if db.execute(update(Post).where(Post.id == post.id, Post.deleted_at.is_(None)).values(deleted_at=utcnow())).rowcount != 1:
+    rewards.community_post_deleted(db, user.id, post.id, -deducted)  # 리워드 원장 회수
+    log.info('community post deleted deducted=%d', deducted)
+    return deducted - shared
+
+
+def remove_meal_post(db, user, meal_id):
+    """식단 사진을 지우면 그 식단을 올린 게시물도 지운다(2026-11-02 사용자 결정). 커밋은 호출 측.
+    게시물에 복사해 둔 사진의 저장소 키를 돌려준다(커밋 뒤 호출 측이 지운다)."""
+    post = db.scalar(select(Post).where(Post.meal_id == meal_id, Post.user_id == user.id, Post.deleted_at.is_(None))
+                     .with_for_update().execution_options(populate_existing=True))
+    if post is None or remove_post(db, user, post) is None:
+        return []
+    return [community_key(photo.storage_key) for photo in db.scalars(select(Photo).where(Photo.post_id == post.id))]
+
+
+def delete_post(db, user, post_id):
+    post = active_post(db, post_id, 'update')
+    if post.user_id != user.id:
+        raise HTTPException(403, '본인 게시물만 삭제할 수 있어요.')
+    me = remove_post(db, user, post)
+    if me is None:
         db.rollback()
         raise HTTPException(404, '이미 삭제된 게시물입니다.')
-    rewards.community_post_deleted(db, user.id, post.id, -deducted)  # 리워드 원장 회수
     commit_or_404(db)
-    log.info('community post deleted deducted=%d', deducted)
-    return {'deleted': True, 'deducted': {'me': deducted - shared}}
+    return {'deleted': True, 'deducted': {'me': me}}
 
 
 def points(db, user):

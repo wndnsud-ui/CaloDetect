@@ -112,7 +112,7 @@ function Mall({api, me, catalog, onChanged, onTab, initialCategory}) {
   }
   const figure = <JibangFigure equipment={shown} level={me.level} width={80} motion="breathe"/>;
   const figureLabel = trying ? <><b>{trying.name} 미리보기</b><button type="button" className="text-button" onClick={() => setTrying(null)}>되돌리기</button></>
-    : <><b>내 {CHARACTER_NAME}</b><small>바로 적용하면 여기 보여요</small></>;
+    : <><b>내 {CHARACTER_NAME}</b><small>꾸미면 여기 보여요</small></>;
   const deco = <>
     <div className="mall-grid mall-deco-grid">{items.map(item => <article key={item.id} className={`mall-item${item.equipped ? ' is-equipped' : ''}`}>
       {tryable(item) ? <button type="button" className={`mall-try${trying?.id === item.id ? ' is-trying' : ''}`} aria-pressed={trying?.id === item.id}

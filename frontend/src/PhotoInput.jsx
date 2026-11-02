@@ -90,7 +90,7 @@ export default function PhotoInput({file, onChange, busy = false}) {
       <button type="button" className="outline" disabled={busy || starting || camera} onClick={()=>picker.current.click()}>사진 선택</button>
       <button type="button" className="outline" disabled={busy || starting || camera} onClick={openCamera}>{starting ? '카메라 연결 중…' : '사진 바로 찍기'}</button>
     </div>
-    <p className="muted">JPG/PNG · 최대 10MB · 음식이 잘 보이도록 촬영해 주세요.</p>
+    <p className="muted">위에서 찍으면 더 정확해요 · JPG/PNG 10MB</p>
     {error && <p className="error" role="alert">{error}</p>}
     {starting && <button type="button" className="text-button" onClick={stopCamera}>카메라 연결 취소</button>}
     {camera && <div className="camera-preview"><video ref={video} autoPlay muted playsInline aria-label="촬영할 음식 미리보기"/><div className="photo-actions camera-actions"><button type="button" className="outline" onClick={capture}>촬영하기</button><button type="button" className="outline" onClick={stopCamera}>촬영 취소</button></div></div>}

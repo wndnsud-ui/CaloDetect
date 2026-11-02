@@ -183,6 +183,7 @@ def coupon_used(exchange_id: str, user: CurrentUser, db: DB):
 
 class PassRequest(RequestModel):
     idem_key: str = Field(min_length=8, max_length=120)
+    product_id: str | None = Field(default=None, max_length=40)   # 없으면 7회권
 
 
 @router.get('/rewards/coaches')
@@ -202,7 +203,7 @@ def coach_detail(coach_id: str, user: CurrentUser, db: DB):
 
 @router.post('/rewards/coaches/{coach_id}/passes')
 def coach_buy(coach_id: str, body: PassRequest, user: CurrentUser, db: DB):
-    return coaching.buy(db, user, coach_id, body.idem_key)
+    return coaching.buy(db, user, coach_id, body.idem_key, body.product_id)
 
 
 @router.get('/rewards/coach-passes')

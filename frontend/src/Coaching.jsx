@@ -3,11 +3,15 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import RewardDialog from './RewardDialog';
 import {MOOD_IMAGES, CHARACTER_NAME} from './Jibang';
-import {Progress, etaText, fmt} from './RewardHomeCard';
+import {Progress, fmt} from './RewardHomeCard';
 import {imageUrl} from './rewardMallUtils';
 
 const SPECS = [['', '전체'], ['nutrition', '영양'], ['diet', '다이어트'], ['exercise', '운동'], ['lifestyle', '생활습관']];
-const NOTICE = '코치 정보와 AI 생성 프로필 사진은 시연용이에요. 코칭은 영양·생활습관 조언이며 질병 진단이나 처방은 제공하지 않아요.';
+const NOTICE = '코치 정보와 AI 생성 프로필 사진은 시연용이에요.';
+// 2026-11-02 가격 개편: 코칭 이용권은 매일 기록하면 3주 안에 모이는 가격이라 예상 기간을 계산하지 않고 고정 문구로 보여 준다.
+const PASS_ETA = '매일 기록하면 3주 안에 받아요';
+const passLabel = offer => offer.sessions === 3 ? '3회 체험' : `${offer.sessions}회 코칭`;
+const offersOf = data => data.offers?.length ? data.offers : data.offer ? [data.offer] : [];
 const day = value => value ? new Date(value).toLocaleDateString('ko-KR', {timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\. ?/g, '.').replace(/\.$/, '') : '—';
 const newKey = () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
@@ -29,13 +33,17 @@ function Avatar({coach, size = 'md'}) {
 }
 
 function OfferCard({offer}) {
-  if (!offer) return null;
   const left = offer.shortfall;
   return <div className="coach-offer">
-    <div className="mall-goal-head"><b>7회 코칭 이용권</b><b>{fmt(offer.price)}P</b></div>
-    <Progress value={offer.price ? offer.exchangeable / offer.price : 0} tone={left ? 'gold' : 'xp'} label="코칭 이용권까지 진행률"/>
-    <div className="mall-goal-foot"><span>보유 {fmt(offer.exchangeable)}P{left ? ` · ${fmt(left)}P 남음` : ' · 지금 구매 가능'}</span><span>{left ? etaText(offer.eta_days) : ''}</span></div>
+    <div className="mall-goal-head"><b>{passLabel(offer)}</b><b>{fmt(offer.price)}P</b></div>
+    <Progress value={offer.price ? offer.exchangeable / offer.price : 0} tone={left ? 'gold' : 'xp'} label={`${passLabel(offer)} 이용권까지 진행률`}/>
+    <div className="mall-goal-foot"><span>{left ? `${fmt(left)}P 남음` : '지금 구매 가능'}</span><span>{left ? PASS_ETA : ''}</span></div>
   </div>;
+}
+
+function OfferCards({offers}) {
+  if (!offers.length) return null;
+  return <div className="coach-offers">{offers.map(offer => <OfferCard key={offer.product_id} offer={offer}/>)}</div>;
 }
 
 function MyPasses({api}) {
@@ -61,7 +69,7 @@ function MyPasses({api}) {
   </div>;
 }
 
-// 전문 코칭 탭: 코치 찾기(분야 필터·코치 카드) + Coach Feed + 내 이용권.
+// 전문 코칭 탭: 코치 찾기(분야 필터·코치 카드) + 코치 팁 + 내 이용권.
 export default function CoachingTab({api, preview, onOpenCoach}) {
   const [state, setState] = useState('loading'), [spec, setSpec] = useState(''), [data, setData] = useState(null), [feed, setFeed] = useState([]), [sub, setSub] = useState('find');
   const load = useCallback(() => api(`/rewards/coaches${spec ? `?specialty=${spec}` : ''}`).then(row => { setData(row); setState('on'); })
@@ -72,12 +80,12 @@ export default function CoachingTab({api, preview, onOpenCoach}) {
   if (state === 'loading' && !data) return <p className="muted" role="status">코치를 불러오고 있어요…</p>;
   if (state === 'error') return <p className="error" role="alert">코치 정보를 불러오지 못했어요.</p>;
   return <div className="coach-tab">
-    <div className="mall-chips" role="tablist" aria-label="코칭 메뉴">{[['find', '코치 찾기'], ['feed', 'Coach Feed'], ['my', '내 이용권']].map(([key, label]) =>
+    <div className="mall-chips" role="tablist" aria-label="코칭 메뉴">{[['find', '코치 찾기'], ['feed', '코치 팁'], ['my', '내 이용권']].map(([key, label]) =>
       <button key={key} type="button" role="tab" aria-selected={sub === key} className={sub === key ? 'on' : ''} onClick={() => setSub(key)}>{label}</button>)}</div>
     {sub === 'my' ? <MyPasses api={api}/> : <>
-      <section className="coach-hero"><div><p className="mall-eyebrow light">COACHING</p><h2>나에게 맞는 코치와 <br/>7회 코칭을 시작해요</h2>
-        <p>이용권을 사면 코치의 카카오톡이 열려요. 상담과 식단 피드백은 카카오톡에서 진행해요.</p></div><img className="coach-hero-art" src={MOOD_IMAGES.cheer} alt="" aria-hidden="true"/><OfferCard offer={data.offer}/></section>
-      <ol className="coach-steps">{[['코치 고르기', '프로필과 활동 콘텐츠 확인'], ['700P로 이용권 구매', '총 7회 피드백·상담'], ['카카오톡으로 상담', '구매 후 연락처가 열려요']].map(([t, d], i) =>
+      <section className="coach-hero"><div><p className="mall-eyebrow light">COACHING</p><h2>나에게 맞는 코치와 <br/>코칭을 시작해요</h2>
+        <p>코치가 내 식단을 직접 봐 드려요.</p></div><img className="coach-hero-art" src={MOOD_IMAGES.cheer} alt="" aria-hidden="true"/><OfferCards offers={offersOf(data)}/></section>
+      <ol className="coach-steps">{[['코치 고르기', '프로필과 활동 콘텐츠 확인'], ['100P부터 이용권 구매', '3회 체험 또는 7회 코칭'], ['카카오톡으로 상담', '구매 후 연락처가 열려요']].map(([t, d], i) =>
         <li key={t}><span>{i + 1}</span><p><b>{t}</b><small>{d}</small></p></li>)}</ol>
       {sub === 'find' && <>
         <div className="mall-tabs" role="tablist" aria-label="코칭 분야">{SPECS.map(([key, label]) =>
@@ -87,10 +95,10 @@ export default function CoachingTab({api, preview, onOpenCoach}) {
             {coach.pass_status === 'in_use' && <span className="coach-inuse with-dot">이용권 사용 중</span>}</span><small className={`ink-${coach.tone}`}>{coach.headline}</small></div></div>
           <p className="mall-small"><span aria-hidden="true" className="star">★</span> <b>{coach.rating_text}</b> · 누적 코칭 {fmt(coach.coaching_count)}회 · 시연용</p>
           <p className="coach-quote">“{coach.quote}”</p>
-          <button type="button" className="primary" onClick={() => onOpenCoach(coach.id)}>코칭 보기</button>
+          <button type="button" className="primary" onClick={() => onOpenCoach(coach.id)}>프로필 보기</button>
         </article>)}</div> : <p className="mall-panel muted center">이 분야 코치는 준비 중이에요.</p>}
       </>}
-      {sub === 'feed' || sub === 'find' ? <section className="coach-feed" aria-labelledby="coach-feed-title"><h2 id="coach-feed-title">Coach Feed</h2>
+      {sub === 'feed' || sub === 'find' ? <section className="coach-feed" aria-labelledby="coach-feed-title"><h2 id="coach-feed-title">코치 팁</h2>
         {feed.map(item => <button type="button" key={item.id} className="coach-feed-item" onClick={() => onOpenCoach(item.coach_id)}>
           <span className="coach-feed-head"><Avatar coach={{name: item.coach_name, tone: item.tone}} size="sm"/><b>{item.coach_name}</b><em>{item.label}</em></span>
           <b>{item.title}</b><small>{item.body}</small></button>)}</section> : null}
@@ -104,14 +112,14 @@ function BuyFlow({api, coach, offer, onClose, onDone}) {
   async function buy() {
     if (busy) return;
     setBusy(true); setError('');
-    try { const row = await api(`/rewards/coaches/${coach.id}/passes`, {idem_key: key}); setResult(row); onDone(); }
+    try { const row = await api(`/rewards/coaches/${coach.id}/passes`, {idem_key: key, product_id: offer.product_id}); setResult(row); onDone(); }
     catch (e) { setError(e.message); } finally { setBusy(false); }
   }
   return <RewardDialog labelledBy="coach-buy-title" onClose={onClose} className={`mall-flow${result ? ' is-done' : ''}`}>
     <div className="mall-flow-art">{result ? <><img src={MOOD_IMAGES.cheer} alt={`신난 ${CHARACTER_NAME}`}/><p className="mall-hand">코치님한테 인사해 봐!</p></> : <Avatar coach={coach} size="lg"/>}</div>
     <div className="mall-flow-body">
       {!result ? <>
-        <div><p className="mall-kicker orange">전문 코칭 · 7회 이용권</p><h2 id="coach-buy-title">{coach.name}</h2></div>
+        <div><p className="mall-kicker orange">전문 코칭 · {passLabel(offer)} 이용권</p><h2 id="coach-buy-title">{coach.name}</h2></div>
         <dl className="mall-sum"><div><dt>쓸 수 있는 포인트</dt><dd>{fmt(offer.exchangeable)}P</dd></div><div><dt>사용할 포인트</dt><dd className="gold">−{fmt(offer.price)}P</dd></div>
           <div className="total"><dt>구매 후 잔액</dt><dd>{fmt(Math.max(0, offer.exchangeable - offer.price))}P</dd></div></dl>
         <p className="mall-warn">구매하면 코치 연락처가 바로 공개되어 취소할 수 없어요.</p>
@@ -132,13 +140,13 @@ function BuyFlow({api, coach, offer, onClose, onDone}) {
 
 // 코치 상세(시안 CW2): 프로필·이렇게 관리해요·코치 활동·후기(시연용 예시)·오른쪽 이용권 카드·연락 채널·지방이 응원.
 export function CoachDetail({api, id, onBack, onChanged, onCategory}) {
-  const [data, setData] = useState(null), [error, setError] = useState(''), [buying, setBuying] = useState(false), [busy, setBusy] = useState(false);
+  const [data, setData] = useState(null), [error, setError] = useState(''), [buying, setBuying] = useState(null), [busy, setBusy] = useState(false);
   const load = useCallback(() => api(`/rewards/coaches/${id}`).then(setData).catch(e => setError(e.message)), [api, id]);
   useEffect(() => { load(); window.scrollTo?.({top: 0}); }, [load]);
   if (error) return <div className="mall-page"><button type="button" className="text-button" onClick={onBack}>← 리워드몰</button><p className="error" role="alert">{error}</p></div>;
   if (!data) return <p className="muted" role="status">코치 정보를 불러오고 있어요…</p>;
-  const offer = data.offer, mine = data.pass;
-  async function goal() {
+  const offers = offersOf(data), mine = data.pass;
+  async function goal(offer) {
     setBusy(true);
     try { await api('/rewards/goal', {ref: `product:${offer.product_id}`}, 'PUT'); onChanged(); await load(); } finally { setBusy(false); }
   }
@@ -155,7 +163,7 @@ export function CoachDetail({api, id, onBack, onChanged, onCategory}) {
           <div className="coach-profile-stats" aria-label="코치 활동 요약">
             <div><span>만족도</span><b><span className="star" aria-hidden="true">★</span> {data.rating_text}</b></div>
             <div><span>누적 코칭</span><b>{fmt(data.coaching_count)}<small>회</small></b></div>
-            <div><span>이용권</span><b>7<small>회 코칭</small></b></div>
+            <div><span>이용권</span><b>{offers.map(o => o.sessions).join('·')}<small>회</small></b></div>
           </div>
           <blockquote className="coach-philosophy"><small>코칭 방향</small>{data.philosophy}</blockquote>
           <div className="coach-profile-facts">
@@ -176,18 +184,20 @@ export function CoachDetail({api, id, onBack, onChanged, onCategory}) {
           <p className="mall-note">실제 이용자 후기 영역 · 위 후기는 시연용 예시이며, 구매자 후기가 쌓이면 대체돼요.</p></section>
       </div>
       <div className="coach-detail-side" role="complementary" aria-label="코칭 이용권과 연락 채널">
-        <section className="coach-pass-card" aria-labelledby="coach-pass-title"><p className="mall-kicker orange">전문 코칭 · 외부 채널</p><h2 id="coach-pass-title">7회 코칭 이용권</h2>
-          <p className="mall-small">{data.name} · 총 7회 피드백·상담</p>
-          <div className="coach-pass-art"><div><p className="mall-price-big">{fmt(offer.price)}<span>P</span></p>
-            <ul>{data.includes.map(t => <li key={t}>{t}</li>)}</ul></div>
+        <section className="coach-pass-card" aria-labelledby="coach-pass-title"><p className="mall-kicker orange">전문 코칭 · 외부 채널</p><h2 id="coach-pass-title">코칭 이용권</h2>
+          <p className="mall-small">{data.name} · {offers.map(passLabel).join(' / ')}</p>
+          <div className="coach-pass-art"><div><ul>{data.includes.map(t => <li key={t}>{t}</li>)}</ul></div>
             <img src={imageUrl('coaches/pass_jibang.png')} alt=""/><p className="mall-hand note">건강한 식사가<br/>좋은 하루를 만듭니다.</p></div>
-          {mine ? <p className="coach-inuse big">● 이용권 사용 중</p>
-            : offer.shortfall ? <div className="mall-short"><div className="mall-row"><span>쓸 수 있는 포인트</span><b>{fmt(offer.exchangeable)} / {fmt(offer.price)}P</b></div>
-                <Progress value={offer.exchangeable / offer.price} tone="gold" label="코칭 이용권까지 진행률"/>
-                <p className="mall-small">{fmt(offer.shortfall)}P 더 모으면 돼요 · {etaText(offer.eta_days)}</p>
-                {offer.is_goal ? <p className="mall-goal-now"><b>나의 목표</b> · {fmt(offer.shortfall)}P 남음</p>
-                  : <button type="button" className="primary" disabled={busy} onClick={goal}>목표 리워드로 설정하기</button>}</div>
-            : <button type="button" className="primary mall-cta" onClick={() => setBuying(true)}>{fmt(offer.price)}P로 이용권 구매하기 →</button>}
+          {offers.map(offer => <div key={offer.product_id} className="coach-pass-option">
+            <div className="mall-row"><b>{passLabel(offer)}</b><p className="mall-price-big">{fmt(offer.price)}<span>P</span></p></div>
+            {offer.in_use ? <p className="coach-inuse big">● 이용권 사용 중</p>
+              : offer.shortfall ? <div className="mall-short"><div className="mall-row"><span>쓸 수 있는 포인트</span><b>{fmt(offer.exchangeable)} / {fmt(offer.price)}P</b></div>
+                  <Progress value={offer.exchangeable / offer.price} tone="gold" label={`${passLabel(offer)} 이용권까지 진행률`}/>
+                  <p className="mall-small">{fmt(offer.shortfall)}P 더 모으면 돼요 · {PASS_ETA}</p>
+                  {offer.is_goal ? <p className="mall-goal-now"><b>나의 목표</b> · {fmt(offer.shortfall)}P 남음</p>
+                    : <button type="button" className="primary" disabled={busy} onClick={() => goal(offer)}>목표 리워드로 설정하기</button>}</div>
+              : <button type="button" className="primary mall-cta" onClick={() => setBuying(offer)}>{fmt(offer.price)}P로 {passLabel(offer)} 구매하기 →</button>}
+          </div>)}
         </section>
         <section className="mall-panel" aria-labelledby="coach-contact"><h2 id="coach-contact">코치 연락 채널</h2>
           {mine ? <><a className="kakao-button" href={mine.kakao_link} target="_blank" rel="noreferrer">카카오톡으로 상담하기</a><div className="mall-row"><span>연락처</span><b>{mine.phone} (시연용)</b></div></>
@@ -198,6 +208,6 @@ export function CoachDetail({api, id, onBack, onChanged, onCategory}) {
       </div>
     </div>
     <p className="mall-small">{data.notice}</p>
-    {buying && <BuyFlow api={api} coach={data} offer={offer} onClose={() => { setBuying(false); load(); }} onDone={onChanged}/>}
+    {buying && <BuyFlow api={api} coach={data} offer={buying} onClose={() => { setBuying(null); load(); }} onDone={onChanged}/>}
   </div>;
 }

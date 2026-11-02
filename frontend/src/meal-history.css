@@ -66,3 +66,5 @@
   .history-database .history-chat-edit{margin-left:12px;padding:7px 12px;line-height:1.4}
   .history-database .history-number{min-width:84px}
 }
+
+.history-database .history-photo-delete{margin-left:6px;color:#B4462F;border-color:#F0D2C8;background:#FFF6F3}

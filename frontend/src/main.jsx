@@ -1,3 +1,5 @@
+import {recommendationReasons, recommendationNotice} from './recommendationCopy';
+import {homePrompt} from './homePresentation';
 import MealRecorder from './MealRecorder';
 import AppSidebar from './AppSidebar';
 // 회원 웹앱의 상태와 화면 전환을 조정하는 상위 컴포넌트.
@@ -189,7 +191,18 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 채팅 식사기록은 서버 기능 플래그가 켜져 /chat/status가 있을 때만 메뉴에 보인다.
   const [chatEnabled,setChatEnabled] = useState(false);
   useEffect(()=>{let active=true;if(!user){setChatEnabled(false);return;}api('/chat/status').then(()=>{if(active)setChatEnabled(true)}).catch(()=>{if(active)setChatEnabled(false)});return()=>{active=false};},[user]);
-  async function loadAccount() {const [t,h,p,r] = await Promise.all([api('/analytics/today'),api('/meals/history'),api('/users/me/profile'),loadRewards()]);setToday(t);setHistory(h.items);setProfile(p.profile);return r;}
+  async function loadAccount() {
+    // 각 조회가 성공하는 즉시 반영한다. 이력 오류가 오늘 영양·목표까지 비우지 않게 한다.
+    const results = await Promise.allSettled([
+      api('/analytics/today').then(value=>{setToday(value);return value;}),
+      api('/meals/history').then(value=>{setHistory(value.items);return value;}),
+      api('/users/me/profile').then(value=>{setProfile(value.profile);return value;}),
+      loadRewards(),
+    ]);
+    const failed=results.find(result=>result.status==='rejected');
+    if(failed)throw failed.reason;
+    return results[3].value;
+  }
   // 리워드 요약은 식단·계정 화면과 독립이라 실패해도 다른 화면을 막지 않는다. 가입 단계 닉네임이 필요하면 홈보다 먼저 띄운다.
   async function loadRewards() {try {const data=await api('/rewards/me');setRewards(data);if(data.nickname_prompt==='signup')setNicknameStep(current=>current||(signupFlow.current?'signup':'relogin'));return data;} catch {return null;}}
   // 비동기 작업의 진행/오류 상태를 공통 처리해 중복 제출과 사용자 안내를 관리한다.
@@ -253,14 +266,14 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
   // 지방이 버튼은 앱 화면 어디에나 둔다. 비로그인은 로그인 안내, 로그인 회원은 서버 채팅 기능이 켜졌을 때만.
   const coachAvailable = !authLayout && (!user || chatEnabled);
   return <div className={'shell integrated-app' + (authLayout ? ' auth-layout' : ' has-mobile-shell') + (coachAvailable ? ' has-coach' : '')}><AppSidebar user={user} today={today} rewards={rewards} page={page} menus={mainMenus} accountPages={accountPages} canUseDevDemo={canUseDevDemo} onNavigate={navigate} onHomepage={onHomepage}/><main>{!authLayout&&<MobileTopBar user={user} rewards={rewards} page={page} busy={busy} onNavigate={navigate} onHomepage={onHomepage} onLogout={logout}/>}<header><span className={page==='마이페이지'&&user?'account-page-title':undefined}>{user?(page==='마이페이지'?`${displayName}님의 계정`:`${displayName}님의 식단 기록`):'오늘 뭘 먹지? 데이터로 확인하세요.'}</span><AccountActions user={user} rewards={rewards} page={page} busy={busy} onNavigate={navigate} onLogout={logout}/></header><div className={user?`member-page-content${menuBackground ? ` menu-ambient menu-ambient-${menuBackground}` : ''}`:"page-content-pass-through"}>{error&&<div className="error" role="alert">{error}</div>}{message&&<div className="notice" role="status">{message}</div>}{busy&&<p role="status" className="muted">처리 중입니다. 사진 분석은 잠시 시간이 걸릴 수 있습니다.</p>}
-    {user&&menuBackground&&!['community','rewards','account'].includes(menuBackground)&&!(isMobile&&page==='홈')&&<MenuPageHero kind={menuBackground}>
+    {user&&menuBackground&&!['community','rewards','account'].includes(menuBackground)&&!(isMobile&&page==='홈')&&<MenuPageHero kind={menuBackground} titleOverride={menuBackground==='home'?homePrompt(today?.meals).title:undefined}>
       {menuBackground==='home'&&<button type="button" className="primary" onClick={()=>navigate('음식 추가')}>＋ 식단 기록하기</button>}
-      {menuBackground==='management'&&<div className="management-hero-actions">{managementTabs}{page==='히스토리'&&<button type="button" className="primary" onClick={()=>navigate('음식 추가')}>+ 식단 추가하기</button>}</div>}
+      {menuBackground==='management'&&<div className="management-hero-actions">{managementTabs}{page==='히스토리'&&<button type="button" className="primary" onClick={()=>navigate('음식 추가')}>+ 기록하기</button>}</div>}
       {menuBackground==='recommend'&&<div className="section-tabs" role="group" aria-label="추천 테마 선택">{[['balance','기본 맞춤 추천'],['protein','단백질 충전'],['light','가벼운 식단']].map(([key,label])=><button type="button" key={key} className={recommendTheme===key?'active':''} aria-pressed={recommendTheme===key} disabled={busy} onClick={()=>changeRecommendTheme(key)}>{label}</button>)}</div>}
     </MenuPageHero>}
     {recordPages.includes(page)&&(user?<MealScanHero>{recordTabs}</MealScanHero>:recordTabs)}
     {user&&accountPages.includes(page)&&<><MenuPageHero kind="account"><div className="section-tabs" role="group" aria-label="내 정보 및 설정 메뉴"><button type="button" className={page==='목표 설정'||accountTab==='profile'?'active':''} aria-pressed={page==='목표 설정'||accountTab==='profile'} onClick={()=>navigate('마이페이지')}>회원정보 & 건강 목표</button><button type="button" className={page==='마이페이지'&&['room','growth'].includes(accountTab)?'active':''} aria-pressed={page==='마이페이지'&&['room','growth'].includes(accountTab)} onClick={()=>navigate('리워드','growth')}>지방이 성장</button>{rewards?.exchange&&<button type="button" className={page==='마이페이지'&&['coupons','ledger'].includes(accountTab)?'active':''} aria-pressed={page==='마이페이지'&&['coupons','ledger'].includes(accountTab)} onClick={()=>navigate('리워드','coupons')}>쿠폰함</button>}</div></MenuPageHero>{(page==='목표 설정'||accountTab==='profile')&&<div className="section-tabs sub-tabs" role="group" aria-label="회원정보 및 건강 목표"><button type="button" className={page==='마이페이지'?'active':''} aria-pressed={page==='마이페이지'} onClick={()=>navigate('마이페이지')}>회원정보</button><button type="button" className={page==='목표 설정'?'active':''} aria-pressed={page==='목표 설정'} onClick={()=>navigate('목표 설정')}>건강 목표</button></div>}</>}
-    {page==='홈'&&<Dashboard user={user} displayName={displayName} today={today} api={api} me={user?rewards:null} onRewardsChanged={loadRewards} onNavigate={navigate} onOpenCoach={coachAvailable?()=>openCoach():undefined} onAddMeal={type=>{setMealType(type);navigate('음식 추가')}}
+    {page==='홈'&&<Dashboard user={user} displayName={displayName} today={today} api={api} me={user?rewards:null} onRewardsChanged={loadRewards} onMealsChanged={()=>loadAccount().catch(e=>setError(e.message))} onNavigate={navigate} onOpenCoach={coachAvailable?()=>openCoach():undefined} onAddMeal={type=>{setMealType(type);navigate('음식 추가')}}
       homeCard={user&&rewards?.onboarding?<StartGuide key={user.id} userId={user.id} onboarding={rewards.onboarding} level={rewards.level} equipment={rewards.equipment} onStep={key=>{if(key==='nickname'){setNicknameEdit(true);navigate('마이페이지')}else navigate(key==='goal'?'목표 설정':'음식 추가')}}/>
         :user&&rewards?.nickname_prompt==='card'&&<NicknamePromptCard api={api} nickname={rewards.nickname.nickname} onChoose={()=>{setNicknameEdit(true);navigate('마이페이지')}} onDismissed={loadRewards}/>}/>}
     {(page==='로그인'||(!user&&['커뮤니티','히스토리','식사 추천','식단 분석','마이페이지','채팅으로 식사기록','리워드'].includes(page)))&&<div className={signup ? 'auth-card auth-card-signup' : 'auth-card auth-card-login'}><div className="auth-visual"><Brand onClick={onHomepage}/><h1>오늘의 한 끼가<br/>내일의 나를 만듭니다.</h1><p>나를 위한 건강한 선택, 지금 시작하세요.</p><img className="auth-bowl" src="/images/cta-poke.webp.png" alt="신선한 채소와 토핑을 담은 포케 보울"/></div><div className="auth-form"><p className="eyebrow">WELCOME TO CALODETECT</p><h2>{signup?'회원가입':'로그인'}</h2><p className="muted">만 {policy?.age_min||18}세 이상부터 이용할 수 있습니다.</p><div className="segmented" role="group" aria-label="인증 방식"><button type="button" className={!signup?'selected':''} aria-pressed={!signup} disabled={busy} onClick={()=>{setSignup(false);setError('')}}>로그인</button><button type="button" className={signup?'selected':''} aria-pressed={signup} disabled={busy} onClick={()=>{setSignup(true);setError('')}}>회원가입</button></div><SocialLogin signup={signup} api={api} policy={policy} disabled={busy} onAuthenticated={async (result,registered)=>{signupFlow.current=true;setUser(result.user);setPage(file?'음식 추가':'홈');await run(async()=>{const account=await loadAccount();if(registered&&earnedSignupPoints(account))setFirstDecorate('signup')})}}/>{authForm}</div></div>}
@@ -286,8 +299,8 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
           {key:'light',name:'가벼운 식단',description:'상대적으로 가벼운 열량의 메뉴를 우선 추천'}
         ].map(theme=><p key={theme.key} className="recommendation-helper" hidden={recommendTheme!==theme.key}>{theme.description}</p>)}
       </div>
-      {recommendationLoading?<p className="recommendation-helper" role="status">추천 메뉴를 불러오고 있습니다…</p>:recommendation?<p className="recommendation-helper" role="status">추천 메뉴가 아래에 표시됩니다.</p>:<p className="recommendation-helper">추천 테마를 선택하면 메뉴 3개가 아래에 표시됩니다.</p>}
-    </section>{recommendation&&<><p className="notice">{recommendation.notice}</p><div className="recommend-card-grid">{recommendation.items.map(item=>{
+      {recommendationLoading?<p className="recommendation-helper" role="status">추천 메뉴를 불러오고 있습니다…</p>:recommendation?null:<p className="recommendation-helper">추천 테마를 선택하면 메뉴 3개가 아래에 표시됩니다.</p>}
+    </section>{recommendation&&<><p className="notice">{recommendationNotice(recommendation.notice)}</p><div className="recommend-card-grid">{recommendation.items.map(item=>{
       const nutrition=item.nutrition;
       const eatenValue=recommendation.snapshot?.totals?.cal;
       const targetValue=recommendation.snapshot?.target_calories;
@@ -327,11 +340,11 @@ export default function App({initialPage='홈',onHomepage,onPageChange}) {
           </div>
           <small className="simulation-caption">현재 {eatenCalories.toLocaleString()} kcal + 이 메뉴 {menuCalories.toLocaleString()} kcal</small>
         </div>}
-        <ul className="card-reasons">{item.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
+        <ul className="card-reasons">{recommendationReasons(item.reasons).map(reason=><li key={reason}>{reason}</li>)}</ul>
         <button type="button" className="outline finder-open" onClick={()=>setFinderFood({name:item.food_name,query:item.place_query||item.food_name})}>근처 맛집 찾기</button>
       </article>;
     })}</div>{finderFood&&<RestaurantFinder api={api} food={finderFood.name} query={finderFood.query} onClose={()=>setFinderFood(null)}/>}</>}</>}
-    {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories}/>}
+    {page==='식단 분석'&&user&&<MealAnalytics api={api} targetCalories={profile?.target_calories} onMealsChanged={()=>loadAccount().catch(e=>setError(e.message))}/>}
     {page==='커뮤니티'&&user&&<Community api={api} onNavigate={navigate} initialMealId={communityMeal} onRewardsChanged={loadRewards} onShareOpened={()=>setCommunityMeal(null)}/>}
     {page==='관리자'&&user?.role==='admin'&&<AdminPage api={api}/>}
     {page==='마이페이지'&&canUseDevDemo&&<button type="button" className="outline" onClick={()=>navigate('테스트')}>테스트 더미 설정</button>}

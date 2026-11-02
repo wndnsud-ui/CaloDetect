@@ -226,6 +226,8 @@ class Meal(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     # 채팅으로 기록한 식사의 사진 첨부. 기존 기록과 직접 기록은 null이다.
     chat_attachment_id: Mapped[str | None] = mapped_column(ForeignKey('chat_attachments.id'), nullable=True)
+    # 회원이 지운 식단(2026-11-02). 게시물·리워드 원장·사진 중복 기록이 참조하므로 행은 남기고 모든 조회에서 뺀다.
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     items: Mapped[list['MealItem']] = relationship(cascade='all, delete-orphan', lazy='selectin')
 
 

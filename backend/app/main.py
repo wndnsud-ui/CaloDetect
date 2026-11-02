@@ -19,6 +19,9 @@ from .kakao_auth import router as kakao_router
 from .community import router as community_router
 from .rewards import router as rewards_router
 from sqlalchemy.exc import SQLAlchemyError
+import logging
+
+log = logging.getLogger('calodetect')
 
 # 앱 객체를 Uvicorn이 backend.app.main:app으로 불러온다. 라우터 등록 순서를 그대로 유지한다.
 app = FastAPI(title='CaloDetect API', version='0.1.0')
@@ -53,6 +56,9 @@ app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin],
 # DB 예외를 자격정보가 없는 공통 503 응답으로 변환한다.
 @app.exception_handler(SQLAlchemyError)
 async def database_error(request: Request, error: SQLAlchemyError):
+    # 원인 확인용: 경로와 예외 종류·첫 줄만 남긴다(SQL 파라미터·접속 정보는 남기지 않는다).
+    cause = str(getattr(error, 'orig', None) or type(error).__name__).splitlines()[0][:200]
+    log.warning('database error %s %s: %s', request.url.path, type(error).__name__, cause)
     return JSONResponse(status_code=503, content={'error': {'code': 'DATABASE_UNAVAILABLE',
                         'message': '데이터베이스 실행 상태와 마이그레이션을 확인하세요.'}})
 

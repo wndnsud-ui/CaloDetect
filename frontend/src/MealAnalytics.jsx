@@ -1,7 +1,7 @@
 // 기존 월별 분석 API로 일간 식사별·월간 날짜별 영양 차트를 표시한다.
 // 미기록(null)과 0 섭취량을 구분하며 월 차트의 날짜를 선택하면 해당 일간 기록으로 이동한다.
 import React, {useEffect, useState} from 'react';
-import SavedMeals from './SavedMeals';
+import SavedMeals, {deleteMealPhoto} from './SavedMeals';
 import StreamlitChart from './StreamlitChart';
 import MacroDonut from './MacroDonut';
 import './meal-analytics.css';
@@ -15,7 +15,7 @@ function Bars({items,unit,onSelect,target,monthly}) {
   return <StreamlitChart kind="bars" data={{items,unit,target,monthly}} onSelect={onSelect} height={270} title="식단 칼로리 및 영양 막대그래프"/>;
 }
 // 기존 월별 분석 API로 일간 식사별·월간 날짜별 영양 차트를 표시한다.
-export default function MealAnalytics({api, targetCalories, headerTabs}) {
+export default function MealAnalytics({api, targetCalories, headerTabs, onMealsChanged}) {
   const [date,setDate] = useState(kstDate), [mode,setMode] = useState('daily');
   const [metric,setMetric] = useState('cal'), [data,setData] = useState(null);
   const [error,setError] = useState(''), [retry,setRetry] = useState(0);
@@ -52,7 +52,7 @@ export default function MealAnalytics({api, targetCalories, headerTabs}) {
     {mode==='daily'&&metric==='cal'&&<p className="analysis-target">목표 칼로리: {targetCalories>0?`${targetCalories}kcal`:'미설정'}</p>}
     <p className="muted">단위: {unit} · 한국 시간 기준 · —는 미기록입니다.{mode==='monthly'&&' 막대를 누르면 해당 날짜의 일간 분석을 볼 수 있습니다.'}</p>
     {mode==='daily'&&!day?.totals?<p className="empty">이 기간에 기록된 식단이 없습니다.</p>:<Bars items={bars} unit={unit} monthly={mode==='monthly'} target={metric==='cal'?targetCalories:undefined} onSelect={mode==='monthly'?item=>{setDate(item.date);setMode('daily')}:undefined}/>}
-    {mode==='daily'&&<SavedMeals meals={day?.meals||[]} title={`${date} 먹은 식단 · 저장한 사진`}/>}
+    {mode==='daily'&&<SavedMeals meals={day?.meals||[]} title={`${date} 먹은 식단 · 저장한 사진`} onDeletePhoto={async meal=>{await deleteMealPhoto(api,meal);setRetry(n=>n+1);await onMealsChanged?.();}}/>}
     <h2>{mode==='daily'?'하루 기록 합계':'기록한 날의 하루 평균'}</h2><div className="analysis-summary"><div className="nutrition-grid">{Object.entries(nutrients).map(([key,[label,unit]])=><div key={key}><span>{label}</span><strong>{totals?.[key]?.toLocaleString()??'—'}<small> {unit}</small></strong></div>)}</div><MacroDonut data={totals}/></div>
     {mode==='monthly'&&<p className="muted">{data.recorded_days}일 기록 · 미기록일은 평균에서 제외합니다. 일부 식사만 기록한 날도 포함됩니다.</p>}
     </>}</section></>;

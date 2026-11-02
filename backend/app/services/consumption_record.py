@@ -41,7 +41,7 @@ def supports_consumption_edit(item):
 def owned_item(db, user, item_id, lock=False):
     item = db.get(MealItem, item_id, with_for_update=lock) if item_id else None
     meal = db.get(Meal, item.meal_id) if item else None
-    if not item or not meal or meal.user_id != user.id:
+    if not item or not meal or meal.user_id != user.id or meal.deleted_at is not None:
         raise not_found()
     if not supports_consumption_edit(item):
         raise ChatRecordError(422, 'manual_nutrition', '이 항목은 히스토리의 전체 수정에서 양과 영양값을 수정해 주세요.')
@@ -50,7 +50,7 @@ def owned_item(db, user, item_id, lock=False):
 
 def owned_meal(db, user, meal_id):
     meal = db.get(Meal, meal_id) if meal_id else None
-    if not meal or meal.user_id != user.id:
+    if not meal or meal.user_id != user.id or meal.deleted_at is not None:
         raise not_found()
     return meal
 

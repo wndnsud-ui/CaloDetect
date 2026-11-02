@@ -77,11 +77,11 @@ def ensure_products(db):
     from .reward_coaching import ensure_coaches
     ensure_coaches(db)
     base = len(catalog.PRODUCTS)
-    for offset, (product_id, coach_id, name) in enumerate(catalog.COACH_PRODUCTS):
+    for offset, (product_id, coach_id, name, sessions, price) in enumerate(catalog.COACH_PRODUCTS):
         if product_id not in rows:
             rewards.savepoint(db, lambda: (db.add(Product(
-                id=product_id, name=name, category='pro', price=catalog.COACH_PRICE, available=True,
-                partner_label='[코치 채널]', description='7회 코칭 이용권', image_key=None, active=True,
+                id=product_id, name=name, category='pro', price=price, available=True,
+                partner_label='[코치 채널]', description=f'{sessions}회 코칭 이용권', image_key=None, active=True,
                 sort_order=base + offset, listed=True, coach_id=coach_id, options=[], max_qty=1, content={},
                 is_mock=True)), db.flush()))
     db.info['reward_products_synced'] = True
@@ -447,7 +447,7 @@ def record_summary(db, user_id):
     """판단 보조: 최근 30일 기록 일수와 사진 기록 비율(자동 차단 없음)."""
     day = rewards.today()
     start = day - timedelta(days=29)
-    meals = list(db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.meal_date >= start)))
+    meals = list(db.scalars(select(Meal).where(Meal.user_id == user_id, Meal.deleted_at.is_(None), Meal.meal_date >= start)))
     return {'recorded_days_30': len(rewards.recorded_days(db, user_id, start, day)), 'meals_30': len(meals),
             'photo_ratio_30': round(sum(rewards.is_photo_meal(m) for m in meals) / len(meals), 2) if meals else 0}
 

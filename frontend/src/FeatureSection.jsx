@@ -17,7 +17,7 @@ const rewards = [
   {name: '지방이 꾸미기', points: '3P부터', img: 'jibangi-front.png', fit: 'contain'},
   {name: '프로틴바', points: '200P', img: 'reward-bar.jpg'},
   {name: '단백질 쉐이크', points: '400P', img: 'reward-shake.jpg'},
-  {name: '식단 피드백 코칭', points: '1,500P', img: 'jibangi-cheer.png', fit: 'contain'},
+  {name: '식단 피드백 코칭', points: '100P부터', img: 'jibangi-cheer.png', fit: 'contain'},
 ];
 
 const Icon = ({name, ...rest}) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...rest}>

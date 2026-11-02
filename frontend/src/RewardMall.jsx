@@ -13,8 +13,8 @@ import MenuPageHero from './MenuPageHero';
 const TAG_TONE = {green: 'tone-green', gold: 'tone-gold', dark: 'tone-dark', soft: 'tone-soft'};
 const NOTICES = {
   deco: '디지털 아이템은 바로 쓸 수 있어요. 카드 그림을 누르면 내 지방이에게 미리 입혀 볼 수 있어요.',
-  goods: '실물 교환은 가입 14일 이후 월 1회 가능해요. 모바일 쿠폰으로 쿠폰함에 발급돼요.',
-  pro: '코치별 7회 코칭 이용권이에요. 구매하면 코치의 카카오톡·연락처가 열리고, 상담은 카카오톡에서 진행해요. 질병 진단이나 처방은 제공하지 않아요.',
+  goods: '실물 교환을 준비하고 있어요.',
+  pro: '코칭은 영양·생활습관 조언이며, 진단·처방은 하지 않아요.',
 };
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -41,6 +41,7 @@ function Tags({tags}) {
 // 상단: 포인트 카드(보유·실물 교환에 쓸 수 있는 포인트·내 지방이·쿠폰함/포인트 내역 바로 가기) + 나의 목표 카드.
 function MallHeader({me, figure, figureLabel, onTab, onOpenGoal}) {
   const goal = me.goal;
+  const goalReady=goal && !goal.remaining && (!goal.product_id || (me.exchange?.account_days_left===0 && me.exchange.monthly_used<me.exchange.monthly_limit));
   return <section className="mall-hero-card" aria-label="보유 포인트와 나의 목표">
     <div className="mall-hero-me">
       <span className="mall-hero-figure">{figure}</span>
@@ -55,9 +56,9 @@ function MallHeader({me, figure, figureLabel, onTab, onOpenGoal}) {
       {me.exchange && <div className="mall-hero-links"><button type="button" onClick={() => onTab('coupons')}>쿠폰함</button><button type="button" onClick={() => onTab('ledger')}>포인트 내역</button></div>}
     </div>
     {goal && <button type="button" className="mall-goal-card" onClick={() => onOpenGoal(goal)}>
-      <span className="mall-goal-head"><b>{goal.chosen ? '나의 목표' : '다음 목표'} · {goal.name}</b><b>{fmt(goal.price)}P</b></span>
+      <span className="mall-goal-head"><b>{goalReady?'지금 받을 수 있어요':goal.chosen ? '나의 목표' : '다음 목표'} · {goal.name}</b><b>{fmt(goal.price)}P</b></span>
       <Progress value={goal.progress} tone={goal.remaining ? 'gold' : 'xp'} label={`${goal.name}까지 진행률`}/>
-      <span className="mall-goal-foot"><span>{goal.remaining ? `${fmt(goal.remaining)}P 남음` : '지금 교환할 수 있어요'}</span>
+      <span className="mall-goal-foot"><span>{goal.remaining ? `${fmt(goal.remaining)}P 남음` : goalReady?'받으러 가기 →':'교환 조건을 확인해 주세요'}</span>
         <span>{goal.remaining ? etaText(goal.eta_days) : me.exchange ? `이번 달 교환 ${me.exchange.monthly_used} / ${me.exchange.monthly_limit}회` : ''}</span></span>
     </button>}
   </section>;
@@ -121,7 +122,7 @@ function statusLine(item) {
   return {text: item.message, ok: false};
 }
 
-function ProductCard({item, exchangeable, onOpen}) {
+function ProductCard({item, exchangeable, accountDaysLeft, onOpen}) {
   const status = statusLine(item);
   const ratio = item.price ? Math.min(1, exchangeable / item.price) : 0;
   return <article className={`mall-card${item.is_goal ? ' is-goal' : ''}`}>
@@ -130,9 +131,9 @@ function ProductCard({item, exchangeable, onOpen}) {
       <span className="mall-card-title"><span>{item.name}</span><b>{fmt(item.price)}P</b></span>
     </button>
     <span className={`mall-bar ${status.ok ? 'ok' : 'short'}`} aria-hidden="true"><span style={{width: `${Math.round(ratio * 100)}%`}}/></span>
-    <span id={`product-status-${item.id}`} className={`mall-card-status${status.ok ? ' ok' : ''}`}>{status.text}</span>
+    <span id={`product-status-${item.id}`} className={`mall-card-status${status.ok ? ' ok' : ''}`}>{item.reason==='account_days'?null:status.text}</span>
     <button type="button" className="primary mall-exchange-button" disabled={!item.can_exchange}
-      aria-describedby={`product-status-${item.id}`} onClick={() => onOpen(item)}>{item.can_exchange ? '교환하기' : '교환 불가'}</button>
+      aria-describedby={`product-status-${item.id}`} onClick={() => onOpen(item)}>{item.can_exchange ? '교환하기' : item.reason==='account_days'&&accountDaysLeft>0?`D-${accountDaysLeft} 후 열려요`:'교환 불가'}</button>
   </article>;
 }
 
@@ -140,13 +141,13 @@ function MallSide({me, conditions, showCollab, onCollab}) {
   const rules = me.earn_rules || [];
   return <div className="mall-side" role="complementary" aria-label="교환 조건과 포인트 안내">
     {showCollab && <button type="button" className="mall-collab-banner" onClick={onCollab}>
-      <span className="mall-eyebrow gold">SPECIAL COLLABORATION</span><b>CaloPoint × 태극사계<br/>프리미엄 홍삼 기획전</b><span>180P부터 교환 ›</span></button>}
+      <span className="mall-eyebrow gold">SPECIAL COLLABORATION</span><b>CaloPoint × 태극사계<br/>프리미엄 홍삼 기획전</b><span>100P부터 교환 ›</span></button>}
     {conditions && <section className="mall-panel">
       <h2>실물 교환 조건</h2>
       <div className="mall-row"><span>가입 14일 이후</span><b className={conditions.account_days_left ? 'wait' : 'ok'}>{conditions.account_days_left ? `D-${conditions.account_days_left}` : '충족'}</b></div>
       <div className="mall-row"><span>이번 달 실물 교환</span><b className={conditions.monthly_used >= conditions.monthly_limit ? 'wait' : 'ok'}>{conditions.monthly_used} / {conditions.monthly_limit}회</b></div>
       <div className="mall-row"><span>실물 교환에 쓸 수 있는 포인트</span><b>{fmt(conditions.exchangeable)}P</b></div>
-      {conditions.deco_only > 0 && <p className="mall-small">가입 보너스·커뮤니티 포인트 {fmt(conditions.deco_only)}P는 꾸미기에만 쓸 수 있어요.</p>}
+      {conditions.deco_only > 0 && <p className="mall-small">{fmt(conditions.deco_only)}P는 꾸미기 전용이에요.</p>}
     </section>}
     {rules.length > 0 && <details className="mall-panel mall-earn-toggle">
       <summary>포인트 모으는 법</summary>
@@ -155,7 +156,7 @@ function MallSide({me, conditions, showCollab, onCollab}) {
       <div className="mall-cheer"><img src={MOOD_IMAGES.proud} alt={`뿌듯한 ${CHARACTER_NAME}`}/><p>오늘 기록하면 목표가 가까워져!</p></div>
       </div>
     </details>}
-    <p className="mall-small">포인트는 적립일로부터 12개월간 유효하고, 먼저 받은 포인트부터 사용돼요. 건강상품은 모바일 쿠폰으로 쿠폰함에 발급돼요. 시연용 가상 상품·리뷰예요.</p>
+    <p className="mall-small">포인트는 12개월간 유효해요. 시연용 가상 상품·리뷰예요.</p>
   </div>;
 }
 
@@ -370,7 +371,7 @@ function CollabPage({api, onBack, onOpen}) {
 
 // 리워드몰 본문: 목록 ↔ 상품 상세 ↔ 기획전 ↔ 코치 상세. 뒤로 가기는 같은 탭·스크롤 위치로 돌아간다(§7-0).
 export default function RewardMall({api, me, onChanged, onTab, initialCategory, figure, figureLabel, deco, proPreview, ledger}) {
-  const [category, setCategory] = useState(initialCategory || (me.exchange ? 'goods' : 'deco'));
+  const [category, setCategory] = useState(initialCategory || 'deco');
   const [view, setView] = useState({kind: 'list'});
   const [data, setData] = useState(null), [promos, setPromos] = useState([]), [error, setError] = useState('');
   const scroll = useRef(0);
@@ -409,6 +410,8 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
   if (view.kind === 'collab') return <CollabPage api={api} onBack={back} onOpen={openProduct}/>;
   if (view.kind === 'coach') return <CoachDetail api={api} id={view.id} onBack={back} onChanged={changed} onCategory={showCategory}/>;
   const items = (data?.items || []).filter(item => item.category === category);
+  const exchangeConditions=data?.conditions||me.exchange;
+  const goodsNotice=exchangeConditions?`${exchangeConditions.account_days_left>0?`D-${exchangeConditions.account_days_left} 뒤부터 실물 교환이 열려요`:'실물 교환이 열렸어요'} · 월 ${exchangeConditions.monthly_limit}회`:NOTICES.goods;
   const tabs = [['deco', '꾸미기'], ['goods', '건강상품'], ['pro', '전문 코칭']];
   return <div className="mall-page">
     <MenuPageHero kind="rewards"><div className="section-tabs" role="group" aria-label="리워드 종류">{tabs.map(([key,label])=><button key={key} type="button" aria-pressed={category===key} className={category===key?'active':''} onClick={()=>setCategory(key)}>{label}</button>)}</div></MenuPageHero>
@@ -416,14 +419,14 @@ export default function RewardMall({api, me, onChanged, onTab, initialCategory, 
     <MallHeader me={me} figure={figure} figureLabel={figureLabel} onTab={onTab} onOpenGoal={openGoal}/>
     <div className="mall-layout">
       <section className="mall-main" aria-label="리워드 상품">
-        <p className="mall-notice">{NOTICES[category]}</p>
+        <p className="mall-notice">{category==='goods'?goodsNotice:NOTICES[category]}</p>
         {error && <p className="error" role="alert">{error}</p>}
         {category === 'deco' ? deco
           : category === 'pro' ? <CoachingTab api={api} me={me} preview={proPreview} onOpenCoach={id => open({kind: 'coach', id})}/>
           : !me.exchange ? <section className="mall-panel mall-soon"><h3>건강상품</h3><p>준비 중이에요. 제휴와 운영 기준이 확정되면 열려요.</p>
               <p className="mall-small">실물 교환은 가입 14일 이후, 한 달에 한 번 신청할 수 있게 준비하고 있어요. 가입 보너스·커뮤니티 포인트는 꾸미기에만 쓸 수 있어요.</p></section>
           : !data ? <p className="muted" role="status">상품을 불러오고 있어요…</p>
-          : <div className="mall-grid-v5">{items.map(item => <ProductCard key={item.id} item={item} exchangeable={data.conditions.exchangeable}
+          : <div className="mall-grid-v5">{items.map(item => <ProductCard key={item.id} item={item} exchangeable={data.conditions.exchangeable} accountDaysLeft={data.conditions.account_days_left}
               onOpen={openProduct}/>)}</div>}
       </section>
       <MallSide me={me} conditions={category === 'goods' ? data?.conditions : null} showCollab={category === 'goods' && showCollab} onCollab={() => open({kind: 'collab'})}/>

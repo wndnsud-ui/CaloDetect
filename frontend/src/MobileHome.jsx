@@ -1,3 +1,4 @@
+import {homePrompt, mealFeedback} from './homePresentation';
 // 모바일 홈(시안 3안: A안 카드형 + B안 지방이 영역). HomeDashboard가 760px 이하에서 이 컴포넌트를 대신 그린다.
 // 데이터 조회·날짜 선택 상태는 HomeDashboard가 갖고, 여기서는 받은 값만 표시한다.
 import React from 'react';
@@ -28,8 +29,8 @@ export default function MobileHome({user, me, displayName, liveToday, totals, me
   const eaten = totals?.cal || 0;
   const left = target > 0 ? Math.max(0, Math.round(target - eaten)) : null;
   const action = me?.actions?.[0];
-  const bubble = !user ? '로그인하고 함께 기록해요!' : action ? `${action.label} +${fmt(action.points)}P` : '오늘도 잘 하고 있어요!';
-  const title = headline({currentDay, date, remaining, recordedCount: 4 - remaining.length});
+  const bubble = !user ? '로그인하고 함께 기록해요!' : mealFeedback(meals,liveToday?.macro_targets);
+  const title = homePrompt(meals,currentDay).title;
   const ring = pct(eaten, target);
 
   return <div className="m-home">
@@ -41,7 +42,7 @@ export default function MobileHome({user, me, displayName, liveToday, totals, me
         {me && <button type="button" className="m-home-level" onClick={() => onNavigate('리워드', 'growth')}
           aria-label={`LV.${me.level} ${me.level_name} 지방이, 다음 레벨까지 ${Math.round((me.level_progress || 0) * 100)}%`}>
           <b>LV.{me.level}</b><span className="m-home-xp"><span style={{width: `${Math.round((me.level_progress || 0) * 100)}%`}}/></span>
-          <small>{Math.round((me.level_progress || 0) * 100)}%</small>
+          <small>{me.next_level_xp?`다음 레벨까지 ${fmt(me.xp_to_next??Math.max(0,me.next_level_xp-me.xp_total))}XP`:'최고 레벨'}</small>
         </button>}
       </div>
       {/* 홈 히어로 지방이는 칼로티 코치의 두 번째 진입점이다(업무지시서 v1.2). 코치를 쓸 수 없으면 기존처럼 지방이 방으로 간다. */}
@@ -73,7 +74,7 @@ export default function MobileHome({user, me, displayName, liveToday, totals, me
           const goal = liveToday?.macro_targets?.[key];
           return <div key={key} className={tone}>
             <div><span>{label}</span><b>{num(totals?.[key])}{goal ? ` / ${num(goal)}` : ''}g</b></div>
-            <span className="m-home-bar"><span style={{width: `${pct(totals?.[key] || 0, goal)}%`}}/></span>
+            <span className={`m-home-bar${goal>0&&(totals?.[key]||0)>goal?' is-over':''}`} role={goal>0?'progressbar':undefined} aria-label={`${label} 목표 충족률`} aria-valuemin={goal>0?0:undefined} aria-valuemax={goal>0?100:undefined} aria-valuenow={goal>0?pct(totals?.[key]||0,goal):undefined}><span style={{width: `${pct(totals?.[key] || 0, goal)}%`}}/></span>
           </div>;
         })}
         {!target && user && <button type="button" className="m-home-goal" onClick={() => onNavigate('목표 설정')}>목표 칼로리 설정하기 →</button>}

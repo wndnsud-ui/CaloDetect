@@ -64,7 +64,7 @@ PRODUCTS = (
         'storage': '냉장보관 (0~10°C)', 'rating': '4.8', 'review_count': '412',
         'satisfaction': [['맛 만족도', 96], ['포만감 만족도', 93], ['재구매 의사', 92]], 'related_ids': [],
         **images('greek_yogurt')}),
-    ('ginseng_daily10', '진한홍삼 데일리 10포', 'goods', 180, True, '스틱 홍삼 10포', '브랜드 콜라보', 18000,
+    ('ginseng_daily10', '진한홍삼 데일리 10포', 'goods', 100, True, '스틱 홍삼 10포', '브랜드 콜라보', 18000,
      [], 3, True, COLLAB, {
         'tags': [{'t': 'CaloPoint 전용', 'tone': 'green'}, {'t': '데일리 케어', 'tone': 'soft'}],
         # 시안 "홍삼 한 포로 시작하는 건강한 하루의 루틴" → 기능 암시라 구성 설명으로 바꿈(§8)
@@ -93,7 +93,7 @@ PRODUCTS = (
         'storage': '냉장보관 (0~10°C)', 'rating': '4.8', 'review_count': '532',
         'satisfaction': [['맛 만족도', 96], ['포만감 만족도', 94], ['재구매 의사', 92]], 'related_ids': [],
         **images('chicken_sandwich')}),
-    ('bristick15', '브리스틱 15포', 'goods', 290, True, '스틱 홍삼 15포', '브랜드 콜라보', 29000,
+    ('bristick15', '브리스틱 15포', 'goods', 140, True, '스틱 홍삼 15포', '브랜드 콜라보', 29000,
      [], 1, True, COLLAB, {
         'tags': [{'t': 'CaloPoint 전용', 'tone': 'green'}, {'t': '브랜드 콜라보', 'tone': 'dark'}],
         # 시안 "오늘의 활력" → "간편하게 챙기는 하루 한 포"(§8 교체 예)
@@ -111,7 +111,7 @@ PRODUCTS = (
         'storage': '냉장보관 (0~5°C)', 'rating': '4.8', 'review_count': '412',
         'satisfaction': [['맛 만족도', 97], ['신선도 만족도', 95], ['포만감 만족도', 93]], 'related_ids': [],
         **images('salad_box')}),
-    ('ginseng_premium30', '진한홍삼 프리미엄 30포', 'goods', 750, True, '프리미엄 스틱 홍삼 30포', '브랜드 콜라보', 75000,
+    ('ginseng_premium30', '진한홍삼 프리미엄 30포', 'goods', 200, True, '프리미엄 스틱 홍삼 30포', '브랜드 콜라보', 75000,
      [], 3, True, COLLAB, {
         'tags': [{'t': 'CaloPoint 전용', 'tone': 'green'}, {'t': '프리미엄 선물', 'tone': 'gold'}],
         # 시안 "매일의 건강을 위한 특별한 선택" → 기능 암시라 선물 설명으로 바꿈(§8)
@@ -162,11 +162,18 @@ PRODUCTS = (
 )
 RETIRED = frozenset({'ai_report', 'pro_coaching'})
 
-# M4: 코치별 7회 이용권(category='pro'). 판매 여부는 REWARD_COACHING_ENABLED가 정한다.
-COACH_PRODUCTS = (('coach_kim', 'kim', '김지윤 코치 · 7회 코칭'), ('coach_park', 'park', '박재현 코치 · 7회 코칭'),
-                  ('coach_lee', 'lee', '이수민 코치 · 7회 코칭'), ('coach_choi', 'choi', '최하은 코치 · 7회 코칭'))
-COACH_PRICE = 700
-COACH_SESSIONS = 7
+# M4: 코치별 이용권(category='pro'). 판매 여부는 REWARD_COACHING_ENABLED가 정한다.
+# 2026-11-02 가격 개편: 3회 체험권 100P 신규, 7회권 700P → 200P(매일 기록 시 3주 이내). 7회권 상품 ID는 그대로 둔다.
+COACH_NAMES = (('kim', '김지윤 코치'), ('park', '박재현 코치'), ('lee', '이수민 코치'), ('choi', '최하은 코치'))
+COACH_PASSES = (('', 7, 200, '7회 코칭'), ('_trial', 3, 100, '3회 체험'))   # (상품 ID 접미사, 횟수, 가격, 이름)
+COACH_PRODUCTS = tuple((f'coach_{coach}{suffix}', coach, f'{name} · {label}', sessions, price)
+                       for suffix, sessions, price, label in COACH_PASSES for coach, name in COACH_NAMES)
+COACH_SESSIONS = {product_id: sessions for product_id, _, _, sessions, _ in COACH_PRODUCTS}
+
+
+def coach_sessions(product):
+    return COACH_SESSIONS.get(product.id, 7)
+
 
 # 프로모션 슬라이더(M3) 순서: 기획전 → 피타샌드 → 샐러드 박스 → 에너지 드링크 → 프리미엄 30포. 문구는 텍스트로 쓴다.
 PROMOTIONS = (

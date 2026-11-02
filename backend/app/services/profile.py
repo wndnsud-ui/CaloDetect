@@ -1,6 +1,17 @@
 # 신체 정보·활동 수준·목표 유형으로 BMR, TDEE와 목표 칼로리 범위를 계산한다.
 # 팀 회의 기준의 성인용 계산이며 프로필 저장·회원 인증은 호출한 API가 담당한다.
 # Mifflin-St Jeor BMR과 활동 계수의 TDEE를 계산하고 목표 유형별 권장 범위·최소 허용값을 반환한다.
+MACRO_RATIOS = {'carbs': 0.5, 'protein': 0.3, 'fat': 0.2}
+
+
+def calculate_macro_targets(target_calories):
+    """2026-11-02 승인: 열량 비율 50:30:20을 4/4/9 kcal/g으로 환산한다."""
+    if target_calories is None or target_calories <= 0:
+        return None
+    return {key: round(target_calories * ratio / (9 if key == 'fat' else 4), 2)
+            for key, ratio in MACRO_RATIOS.items()}
+
+
 def calculate_calorie_range(profile):
     # Mifflin-St Jeor: 체중 kg·키 cm·만 나이를 사용하고 남성 +5/여성 -161 상수를 적용한다.
     bmr = (10 * profile.weight + 6.25 * profile.height - 5 * profile.age
@@ -29,6 +40,8 @@ def calculate_calorie_range(profile):
             'recommended_calorie_min': round(low, 2),
             'recommended_calorie_max': round(high, 2),
             'target_calories': profile.target_calories,
+            'macro_ratios': dict(MACRO_RATIOS),
+            'macro_targets': calculate_macro_targets(profile.target_calories),
             'outside_recommended_range': profile.target_calories is not None
                 and not low <= profile.target_calories <= high,
             'notice': '팀 회의 기준 계산입니다. 성인 대상이며 의료 진단이 아닙니다.'}

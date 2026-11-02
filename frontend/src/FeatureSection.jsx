@@ -45,11 +45,11 @@ export default function FeatureSection({onOpen}) {
     <header className="fx-top">
       <div>
         <p className="fx-kicker">매일 한 끼, 더 건강한 나로</p>
-        <h2 id="features-title">CaloDetect가 함께합니다.</h2>
-        <p className="fx-sub">기록하고, 분석하고, 추천받고, 함께하고, 보상받는 건강한 식습관 여정</p>
+        <h2 id="features-title">기록은 사진으로, 메뉴 고민은 지방이와 함께.</h2>
+        <p className="fx-sub">사진으로 식단을 기록하고, 다음 메뉴가 고민될 때 추천받으세요. 기록으로 모은 포인트는 리워드로 바꿀 수 있어요.</p>
       </div>
       <div className="fx-top-art" aria-hidden="true">
-        <p className="fx-hand">작은 기록이<br/>건강한 변화를 만듭니다.</p>
+        <p className="fx-hand">사진으로 기록하고<br/>고민될 땐 추천받고!</p>
         <img src={`${IMG}jibangi-love.png`} alt="" width="115" height="133"/>
       </div>
     </header>
@@ -58,7 +58,7 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-record">
         <CardHead icon="camera" title="식단 기록" goLabel="식단 기록 바로가기" onGo={() => onOpen('음식 추가')}/>
         <div className="fx-body">
-          <div className="fx-copy"><h4>사진 한 장부터 대화까지, 간편하게 식단 기록</h4><p>사진으로 바로 기록하거나, 칼로티 코치에게 먹은 내용을 이야기해 간편하게 남겨보세요.</p></div>
+          <div className="fx-copy"><h4>찍어서 기록, 못 알아보면 말로 기록</h4><p>사진으로 알아보기 어려운 메뉴는 음식을 검색하거나 이름과 양을 직접 입력해 기록할 수 있어요.</p></div>
           <img className="fx-scan" src={`${IMG}scan.jpg`} alt="비빔밥을 찍어 칼로리를 분석하는 앱 화면" loading="lazy" width="900" height="675"/>
         </div>
         <div className="fx-chips">
@@ -70,7 +70,7 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-menu">
         <CardHead icon="meal" title="메뉴 추천 받기" goLabel="오늘 뭐먹지? 바로가기" onGo={() => onOpen('식사 추천')}/>
         <div className="fx-body">
-          <div className="fx-copy"><h4>지금 내 상태에 맞는 오늘의 메뉴 추천</h4><p>목표와 식사 기록을 바탕으로 지금 먹기 좋은 메뉴를 추천해드려요.</p></div>
+          <div className="fx-copy"><h4>남은 칼로리에 딱 맞는 다음 끼니</h4><p>오늘 남은 칼로리와 영양 상태를 바탕으로 다음 메뉴를 골라 드려요.</p></div>
           <div className="fx-menu-art" aria-hidden="true"><p className="fx-hand">지금 나에게<br/>이런 메뉴가 좋아요!</p><img src={`${IMG}jibangi-salad.png`} alt="" width="184" height="112"/></div>
         </div>
         <ul className="fx-menus">{menus.map(m => <li key={m.name}><button type="button" onClick={() => onOpen('식사 추천')}>
@@ -84,7 +84,7 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-manage">
         <CardHead icon="chart" title="식단 관리"/>
         <div className="fx-body">
-          <div className="fx-copy"><h4>기록을 모아보고 영양까지 한눈에 관리</h4><p>지난 식사 기록과 영양 분석 리포트를 함께 확인하며 식습관 변화를 관리해보세요.</p></div>
+          <div className="fx-copy"><h4>어제보다 나아진 걸 숫자로</h4><p>날짜별 식사 기록과 영양 분석으로 매일의 섭취량과 식습관 변화를 확인해 보세요.</p></div>
           <div className="fx-phone" aria-hidden="true"><div className="fx-phone-screen">
             <strong>오늘의 영양 상태</strong>
             <div className="fx-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="48" stroke="#E8EEF5"/><circle cx="60" cy="60" r="48" stroke="#2F8FD6" strokeDasharray="210 302" transform="rotate(-90 60 60)"/><circle cx="60" cy="60" r="48" stroke="#F07A4A" strokeDasharray="60 302" strokeDashoffset="-218" transform="rotate(-90 60 60)"/></svg><span><b>1,620</b>kcal</span></div>
@@ -103,9 +103,9 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-community">
         <div className="fx-side">
           <CardHead icon="people" title="커뮤니티"/>
-          <h4>함께 기록하고 <br/>식단 경험을 나눠요</h4>
+          <h4>오늘 다른 사람들은<br/>이렇게 먹었어요</h4>
           <p>다른 사용자와 식단을 공유하고 건강한 습관을 서로 응원해보세요.</p>
-          <button type="button" className="fx-cta" onClick={() => onOpen('커뮤니티')}>커뮤니티 둘러보기</button>
+          <button type="button" className="fx-cta" onClick={() => onOpen('커뮤니티')}>오늘의 식단 구경하기</button>
         </div>
         <div className="fx-posts" aria-hidden="true">{posts.map(p => <div className="fx-post" key={p.user}>
           <div className="fx-post-user"><span/><div><strong>{p.user}</strong><small>{p.time}</small></div></div>
@@ -118,9 +118,9 @@ export default function FeatureSection({onOpen}) {
       <article className="fx-card fx-reward">
         <div className="fx-side">
           <CardHead icon="gift" title="리워드몰"/>
-          <h4>꾸준히 쌓은 포인트로 <br/>나를 위한 리워드 받기</h4>
+          <h4>한 끼 기록할 때마다<br/>포인트를 차곡차곡</h4>
           <p>식단 기록으로 포인트를 모아 지방이를 꾸미고, 다양한 상품과 코칭 이용권으로 교환해보세요.</p>
-          <button type="button" className="fx-cta" onClick={() => onOpen('리워드')}>리워드몰 바로가기</button>
+          <button type="button" className="fx-cta" onClick={() => onOpen('리워드')}>지금 받을 수 있는 보상 보기</button>
         </div>
         <div className="fx-reward-me" aria-hidden="true">
           <img src={`${IMG}jibangi-lv5.png`} alt="" width="196" height="329"/>

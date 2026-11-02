@@ -33,7 +33,7 @@ export function useLandingSession() {
 export default function LandingAccount({onOpen,session}) {
   if(session.loading)return <div className="header-actions"><span role="status">로그인 확인 중…</span></div>;
   return <div className="header-actions landing-account">
-    {session.user?<><span className="welcome-message">{session.user.name}님 환영합니다</span><button className="primary" onClick={()=>onOpen('마이페이지')}>내 계정</button></>:
+    {session.user?<><span className="welcome-message">{session.user.name}님, 오늘 한 끼 기록해 볼까요?</span><button className="primary" onClick={()=>onOpen('마이페이지')}>내 계정</button></>:
       session.error?<><span role="status">로그인 상태 확인이 필요합니다.</span><button className="outline" onClick={()=>onOpen('로그인')}>계정 확인</button></>:
       <><button className="outline" onClick={()=>onOpen('로그인')}>로그인</button><button className="primary" onClick={()=>onOpen('회원가입')}>회원가입</button></>}
   </div>;

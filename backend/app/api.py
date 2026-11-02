@@ -142,7 +142,9 @@ def delete_meal(meal_id: str, user: CurrentUser, db: DB, expected_version: int =
     if expected_version != meal.version:
         raise HTTPException(409, '다른 곳에서 수정한 기록입니다. 다시 열어 주세요.')
     shown = photo_ids(meal_json(meal))
+    # 사진 참조를 먼저 끊어야 업로드 행을 지울 수 있다(meals.image_upload_id 외래키).
     meal.deleted_at, meal.version = utcnow(), meal.version + 1
+    meal.image_upload_id, meal.photo_override = None, True
     db.flush()
     keys = unused_photos(db, user.id, shown) + community.remove_meal_post(db, user, meal.id)
     rewards.meal_deleted(db, user.id, meal)

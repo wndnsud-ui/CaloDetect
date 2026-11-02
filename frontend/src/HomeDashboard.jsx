@@ -1,7 +1,7 @@
 import {homePrompt, mealFeedback} from './homePresentation';
 // 실제 식단·보상 데이터와 기존 지방이 이미지를 사용하는 회원 홈.
 import React, {useEffect, useState} from 'react';
-import SavedMeals, {deleteMealPhoto} from './SavedMeals';
+import SavedMeals from './SavedMeals';
 import Jibang, {JibangFigure} from './Jibang';
 import {Progress, StreakNotice, fmt} from './RewardHomeCard';
 import MobileHome from './MobileHome';
@@ -13,7 +13,7 @@ const MEALS = [['breakfast','아침'],['lunch','점심'],['dinner','저녁'],['s
 const percent = (value,target) => target > 0 ? Math.min(100,Math.max(0,Math.round(value/target*100))) : null;
 const display = value => Number.isFinite(value) ? value.toLocaleString('ko-KR',{maximumFractionDigits:2}) : '—';
 
-export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal,api,homeCard,me,onRewardsChanged,onMealsChanged,displayName,onOpenCoach}) {
+export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal,api,homeCard,me,onRewardsChanged,displayName,onOpenCoach}) {
   const isMobile = useIsMobile();
   const parts = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
   const part = key => parts.find(p=>p.type===key).value;
@@ -71,7 +71,7 @@ export default function HomeDashboard({user,today:liveToday,onNavigate,onAddMeal
     <section className="hd-panel hd-records" aria-labelledby="hd-record-title">
       <div className="hd-section-head"><div><h2 id="hd-record-title">{currentDay?'오늘의':'선택한 날의'} 기록 요약</h2><p>어떤 식사를 하셨나요?</p></div><label className="hd-date-picker"><span className="sr-only">식단 조회 날짜</span><input type="date" max={todayDate} value={selectedDate} onChange={e=>{if(e.target.value)setSelectedDate(e.target.value)}}/></label></div>
       {error?<div role="alert"><p className="error">{error}</p><button type="button" className="text-button" onClick={()=>setRetry(n=>n+1)}>다시 불러오기</button></div>:user&&!data?<p role="status">기록을 불러오고 있어요…</p>:null}
-      <SavedMeals meals={meals} onNavigate={onNavigate} onAddMeal={addMeal} onDeletePhoto={user?async meal=>{await deleteMealPhoto(api,meal);setRetry(n=>n+1);await onMealsChanged?.();}:undefined}/>
+      <SavedMeals meals={meals} onNavigate={onNavigate} onAddMeal={addMeal}/>
     </section>
     <section className="hd-panel" aria-labelledby="hd-reward-title">
       <div className="hd-section-head"><div><h2 id="hd-reward-title">성장 / 리워드</h2><p>꾸준히 기록하고, 포인트와 레벨을 올려보세요!</p></div><button type="button" className="text-button" onClick={()=>onNavigate('리워드','mall')}>전체 리워드 보기 →</button></div>

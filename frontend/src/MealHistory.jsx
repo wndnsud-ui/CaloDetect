@@ -4,7 +4,7 @@ import MealRecorder from './MealRecorder';
 import React, { useEffect, useRef, useState } from 'react';
 import './meal-history.css';
 import ChatConsumptionEdit from './ChatConsumptionEdit';
-import {PHOTO_DELETE_CONFIRM, deleteMealPhoto, MEAL_DELETE_CONFIRM, deleteMeal} from './SavedMeals';
+import {MEAL_DELETE_CONFIRM, deleteMeal} from './SavedMeals';
 
 const meals = {breakfast:'아침', lunch:'점심', dinner:'저녁', snack:'간식'};
 const columns = [['cal','열량','kcal'], ['carbs','탄수화물','g'], ['protein','단백질','g'], ['fat','지방','g'], ['sugar','당류','g'], ['sodium','나트륨','mg']];
@@ -23,7 +23,6 @@ export default function MealHistory({history, api, onChanged, headerTabs, onChat
   const typeLocks = useRef(new Set());
   const [typeFeedback,setTypeFeedback] = useState('');
   const [typeError,setTypeError] = useState('');
-  const [deletingPhoto,setDeletingPhoto] = useState(null);
   const [deletingMeal,setDeletingMeal] = useState(null);
   const [removedMeals,setRemovedMeals] = useState(new Set());
   const [query, setQuery] = useState('');
@@ -63,21 +62,6 @@ export default function MealHistory({history, api, onChanged, headerTabs, onChat
     }finally{typeLocks.current.delete(meal.id);setChangingTypes(new Set(typeLocks.current));}
   }
 
-  // 사진 삭제: 서버가 사진 파일·이 식단을 올린 게시물을 지우고 기록 포인트·XP를 회수한다. 음식 없는 사진만 기록은 제외.
-  async function deletePhoto(meal){
-    if(deletingPhoto||!window.confirm(PHOTO_DELETE_CONFIRM))return;
-    setDeletingPhoto(meal.id);setTypeError('');setTypeFeedback('사진을 삭제하고 있어요.');
-    try{
-      const saved=await deleteMealPhoto(api,meal);
-      setChangedMeals(current=>({...current,[meal.id]:saved}));
-      setTypeFeedback('사진을 삭제했어요. 이 끼니로 받은 포인트는 회수됐어요.');
-      try{await onChanged?.();}catch{}
-    }catch(error){
-      setTypeFeedback('');setTypeError(`사진을 삭제하지 못했어요. ${error.message}`);
-      if(error.status===409)try{await onChanged?.();}catch{}
-    }finally{setDeletingPhoto(null);}
-  }
-
   // 식단 전체 삭제: 서버가 사진·게시물을 지우고 받은 포인트·XP를 회수한다.
   async function removeMeal(meal){
     if(deletingMeal||!window.confirm(MEAL_DELETE_CONFIRM))return;
@@ -106,7 +90,7 @@ export default function MealHistory({history, api, onChanged, headerTabs, onChat
       {typeError&&<p className="history-type-feedback is-error" role="alert">{typeError}</p>}
       <div ref={tableScroll} id="meal-history-table" className="history-table-scroll" tabIndex={0} role="region" aria-label="식단 기록 표 · 가로 스크롤 가능">
         <table><caption>조회된 식단 기록 · 음식별 섭취량과 영양 정보</caption><thead><tr><th scope="col" aria-sort={order === 'desc' ? 'descending' : 'ascending'}>날짜 {order === 'desc' ? '↓' : '↑'}</th><th scope="col">식사</th><th scope="col">음식</th><th scope="col"><span className="history-date-full">섭취량</span><span className="history-date-short">수정</span></th>{columns.map(([key, label, unit]) => <th scope="col" className="history-number" key={key}>{label}<small>{unit}</small></th>)}</tr></thead>
-          <tbody>{visibleRows.map(({meal, item}) => <tr key={`${meal.id}-${item.id}`}><td className="history-date"><span className="history-date-full">{meal.meal_date}</span><span className="history-date-short">{shortDate(meal.meal_date)}</span></td><td>{api?<select className={`history-meal-select history-meal-${meal.meal_type}`} aria-label={`${item.food_name} 식사 구분 변경`} title="같은 식사에 포함된 음식의 식사 구분이 함께 바뀌어요." value={meal.meal_type} disabled={changingTypes.has(meal.id)} aria-busy={changingTypes.has(meal.id)} onChange={event=>changeMealType(meal,event.target.value)}>{Object.entries(meals).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select>:<span className={`history-meal-tag history-meal-${meal.meal_type}`}>{meals[meal.meal_type] || meal.meal_type}</span>}</td><th scope="row">{item.food_name}{meal.nutrition_pending&&<small> 영양 정보 입력 필요</small>}{item.is_llm_estimated&&<small> AI 추정값</small>}{api&&<button type="button" className="history-chat-edit" onClick={()=>setMealEditing(meal)}>수정</button>}{api&&meal.image_urls?.length>0&&meal.items.length>0&&item.id===meal.items[0].id&&<button type="button" className="history-chat-edit history-photo-delete" disabled={deletingPhoto===meal.id} aria-label={`${meal.items.map(i=>i.food_name).join(', ')} 사진 삭제`} onClick={()=>deletePhoto(meal)}>{deletingPhoto===meal.id?'삭제 중…':'사진 삭제'}</button>}{api&&item.id===(meal.items[0]?.id??'photo')&&<button type="button" className="history-chat-edit history-photo-delete" disabled={deletingMeal===meal.id} aria-label={`${meal.meal_date} ${meals[meal.meal_type]||''} 식단 삭제`} onClick={()=>removeMeal(meal)}>{deletingMeal===meal.id?'삭제 중…':'식단 삭제'}</button>}</th><td className="history-serving"><span className="history-serving-text">{['g','ml'].includes(item.amount_unit)?`${format(item.amount*(item.consumption_ratio??1))}${item.amount_unit}`:item.serving_multiplier!=null?`${format(item.effective_multiplier??item.serving_multiplier*(item.consumption_ratio??1))}인분`:'—'}</span>{api && item.chat_editable === true && <button type="button" className="history-chat-edit" onClick={() => onChatEdit ? onChatEdit({meal, item}) : setEditing({meal, item})}>💬 말로 수정</button>}</td>{columns.map(([key]) => <td key={key} className={`history-number ${key === 'cal' ? 'history-calories' : ''}`}>{format(item.nutrition?.[key])}</td>)}</tr>)}</tbody>
+          <tbody>{visibleRows.map(({meal, item}) => <tr key={`${meal.id}-${item.id}`}><td className="history-date"><span className="history-date-full">{meal.meal_date}</span><span className="history-date-short">{shortDate(meal.meal_date)}</span></td><td>{api?<select className={`history-meal-select history-meal-${meal.meal_type}`} aria-label={`${item.food_name} 식사 구분 변경`} title="같은 식사에 포함된 음식의 식사 구분이 함께 바뀌어요." value={meal.meal_type} disabled={changingTypes.has(meal.id)} aria-busy={changingTypes.has(meal.id)} onChange={event=>changeMealType(meal,event.target.value)}>{Object.entries(meals).map(([key,label])=><option value={key} key={key}>{label}</option>)}</select>:<span className={`history-meal-tag history-meal-${meal.meal_type}`}>{meals[meal.meal_type] || meal.meal_type}</span>}</td><th scope="row">{item.food_name}{meal.nutrition_pending&&<small> 영양 정보 입력 필요</small>}{item.is_llm_estimated&&<small> AI 추정값</small>}{api&&<button type="button" className="history-chat-edit" onClick={()=>setMealEditing(meal)}>수정</button>}{api&&item.id===(meal.items[0]?.id??'photo')&&<button type="button" className="history-chat-edit history-photo-delete" disabled={deletingMeal===meal.id} aria-label={`${meal.meal_date} ${meals[meal.meal_type]||''} 식단 삭제`} onClick={()=>removeMeal(meal)}>{deletingMeal===meal.id?'삭제 중…':'식단 삭제'}</button>}</th><td className="history-serving"><span className="history-serving-text">{['g','ml'].includes(item.amount_unit)?`${format(item.amount*(item.consumption_ratio??1))}${item.amount_unit}`:item.serving_multiplier!=null?`${format(item.effective_multiplier??item.serving_multiplier*(item.consumption_ratio??1))}인분`:'—'}</span>{api && item.chat_editable === true && <button type="button" className="history-chat-edit" onClick={() => onChatEdit ? onChatEdit({meal, item}) : setEditing({meal, item})}>💬 말로 수정</button>}</td>{columns.map(([key]) => <td key={key} className={`history-number ${key === 'cal' ? 'history-calories' : ''}`}>{format(item.nutrition?.[key])}</td>)}</tr>)}</tbody>
         </table>
         {!rows.length && <p className="history-empty">{history.length ? '검색 조건에 맞는 기록이 없습니다.' : '아직 기록된 식단이 없습니다. 첫 식단을 추가해 보세요.'}</p>}
       </div>

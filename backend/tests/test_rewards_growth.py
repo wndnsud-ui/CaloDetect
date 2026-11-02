@@ -356,6 +356,10 @@ def test_meal_delete_hides_and_revokes(member):
     granted = lots(engine, user['id'])
     three = granted.get(f'three:{day}', (None, 0))[1]
     before = client.get('/rewards/me').json()['balance']
+    # 운영 PostgreSQL처럼 외래키를 검사한다(사진이 있는 식단을 바로 삭제해도 업로드 행 삭제가 막히지 않아야 함).
+    from sqlalchemy import text
+    with engine.connect() as connection:
+        connection.exec_driver_sql('PRAGMA foreign_keys=ON')
     assert client.delete(f"/meals/{target['id']}?expected_version=99").status_code == 409
     response = client.delete(f"/meals/{target['id']}?expected_version={target['version']}")
     assert response.status_code == 200, response.text

@@ -27,7 +27,7 @@ function RecorderIcon({kind}) {
 export default function MealRecorder({api, meal=null, onSaved, onClose, defaultType='lunch', level, equipment}) {
   const [rows,setRows] = useState(()=>meal?.items.map(existingRow)||[]);
   const [file,setFile] = useState(null), [image,setImage] = useState(meal?.image_upload_id||meal?.image_urls?.[0]?.split('/').pop()||null);
-  const [date,setDate] = useState(meal?.meal_date||today), [time,setTime] = useState(meal?.meal_time||'');
+  const [date,setDate] = useState(meal?.meal_date||today);
   const [type,setType] = useState(meal?.meal_type||defaultType), [status,setStatus] = useState(meal?.analysis_status||'pending');
   const [busy,setBusy] = useState(false), [error,setError] = useState(''), [notice,setNotice] = useState('');
   const [query,setQuery] = useState(''), [results,setResults] = useState(null);
@@ -69,7 +69,7 @@ export default function MealRecorder({api, meal=null, onSaved, onClose, defaultT
     let photo=image, analysis=status;
     if(file&&!image){const uploaded=await upload(false);photo=uploaded.image_group_id;analysis=uploaded.analysis_status;}
     if(photoOnly)analysis='skipped';
-    const payload={meal_type:type,meal_date:date,meal_time:time||null,image_upload_id:photo,
+    const payload={meal_type:type,meal_date:date,meal_time:meal?.meal_time||null,image_upload_id:photo,
       analysis_status:analysis,items:photoOnly?[]:rows.map(fields),...(meal?{expected_version:meal.version}:{})};
     const saved=await api(meal?`/meals/${meal.id}`:'/meals',payload,meal?'PATCH':'POST');
     await onSaved(saved);
@@ -102,7 +102,6 @@ export default function MealRecorder({api, meal=null, onSaved, onClose, defaultT
     <div className={start?'recorder-split':undefined}>
     <fieldset disabled={busy} className={!meal&&!file&&!image?'recorder-has-guide':undefined}><legend>식사 정보</legend><div className="recorder-meta">
       <label>날짜<input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label>
-      <label>식사 시간<input type="time" value={time} onChange={e=>setTime(e.target.value)}/></label>
       <label>식사 구분<select value={type} onChange={e=>setType(e.target.value)}>{Object.entries(types).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
     </div><PhotoInput file={file} busy={busy} onChange={choosePhoto}/>
       {image&&!file&&<><img className="recorder-photo" src={`/api/meals/images/${image}`} alt="식단 사진"/><button type="button" onClick={()=>setImage(null)}>사진 제거</button></>}
